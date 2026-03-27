@@ -1,22 +1,32 @@
 # aipo_replace
 
 ## プロジェクト概要
+### 問題点
+・ユーザーが増えると重い
+・アップデートを全くしていないのでセキュリティリスク有り
+ 
+### PJ方針
+Claudeを最大限活用。各種成果物及びローカルテストはすべてClaudeが作成・実行→人がレビューの流れで行う。
+
+## プロジェクト管理
+・プロジェクトの進捗：Github Project  
+・ナレッジ管理場所：Github及びREADME.md
 
 ## 現行AIPOサーバー等情報
 ### AIPOサーバー
 1. 有線LANを接続
 2. windowsのリモートデスクトップで  
   IPアドレス：172.29.4.23  
-  ID:administrator  
-  PW:Kdns3300
+  ID：administrator  
+  PW：Kdns3300
 
 ### ドキュメント保管箇所
 1. 有線LANを接続
 2. エクスプローラーで  
    パス：\sto01\Share\プロジェクトフォルダ\101：OST\D999999
 3. ID、PWを入力  
-    ID:OSTech  
-    PW:OSTech3300
+    ID：OSTech  
+    PW：OSTech3300
 
 ### ESxiサーバ(詳しくは聞いていません。しかしサーバー構築時必要)
-1. IPアドレス:172.29.100.1
+1. IPアドレス：172.29.100.1
