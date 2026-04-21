@@ -1,7 +1,7 @@
 # Oripoプロジェクト
 
 ## プロジェクト概要
-SharePoint：https://outsourcinginc.sharepoint.com/:f:/r/sites/ost-resukopj/Shared%20Documents/AIPO_replace?csf=1&web=1&e=DjOMsr
+
 ### 問題点
 ・ユーザーが増えると重い
 ・アップデートを全くしていないのでセキュリティリスク有り
@@ -16,7 +16,8 @@ Claudeを最大限活用。各種成果物及びローカルテストはすべ�
 
 ## プロジェクト管理
 ・プロジェクトの進捗：Github Project  
-・ナレッジ管理場所：Github及びREADME.md
+・ナレッジ管理場所：Github及びREADME.md  
+・資料保管場所：[SharePoint](https://outsourcinginc.sharepoint.com/:f:/r/sites/ost-resukopj/Shared%20Documents/AIPO_replace?csf=1&web=1&e=DjOMsr)
 
 ## 現行AIPOサーバー等情報
 ### AIPOサーバー
