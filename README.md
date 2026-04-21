@@ -1,6 +1,7 @@
 # Oripoプロジェクト
 
 ## プロジェクト概要
+SharePoint：https://outsourcinginc.sharepoint.com/:f:/r/sites/ost-resukopj/Shared%20Documents/AIPO_replace?csf=1&web=1&e=DjOMsr
 ### 問題点
 ・ユーザーが増えると重い
 ・アップデートを全くしていないのでセキュリティリスク有り
@@ -40,3 +41,12 @@ Claudeを最大限活用。各種成果物及びローカルテストはすべ�
 
 ### AIPOリポジトリ
 https://github.com/arkjun/aipo?tab=readme-ov-file
+
+### 現AIPOサーバースペック  
+OS：WindowsServer2008  
+メモリ：7GB  
+CPU：Intel® Xeon® Gold 5118 @ 2.30GHz 4コア    
+- 12コア / 24スレッド
+- ベース 2.3GHz
+- Turbo 最大 3.2GHz
+- IPC は Core i 第7世代クラス
