@@ -50,6 +50,7 @@ CPU：Intel® Xeon® Gold 5118 @ 2.30GHz 4コア
 - 12コア / 24スレッド
 - ベース 2.3GHz
 - Turbo 最大 3.2GHz
-- IPC は Core i 第7世代クラス  
+- IPC は Core i 第7世代クラス
+
 セキュリティ：ファイアウォール無し。多くのportがワイルドカードLISTENING。事実上なんのセキュリティも考慮されていない。
 
