@@ -43,7 +43,7 @@ Claudeを最大限活用。各種成果物及びローカルテストはすべ�
 ### AIPOリポジトリ
 https://github.com/arkjun/aipo?tab=readme-ov-file
 
-### 現AIPOサーバースペック  
+## 現AIPOサーバースペック  
 OS：WindowsServer2008  
 メモリ：7GB  
 CPU：Intel® Xeon® Gold 5118 @ 2.30GHz 4コア    
