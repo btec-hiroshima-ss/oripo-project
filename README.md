@@ -16,8 +16,10 @@ Claudeを最大限活用。各種成果物及びローカルテストはすべ�
 
 ## プロジェクト管理
 ・プロジェクトの進捗：Github Project  
-・ナレッジ管理場所：Github及びREADME.md  
+・ナレッジ管理場所：Github及びREADME.md
 ・資料保管場所：[SharePoint](https://outsourcinginc.sharepoint.com/:f:/r/sites/ost-resukopj/Shared%20Documents/AIPO_replace?csf=1&web=1&e=DjOMsr)
+・設計用ドキュメント：gitリポジトリ内に /specs(仕様書) /docs(仕様書以外) のドキュメントディレクトリを作成し常に履歴管理
+
 
 ## 現行AIPOサーバー等情報
 ### AIPOサーバー
