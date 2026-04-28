@@ -86,10 +86,6 @@ CPU：Intel® Xeon® Gold 5118 @ 2.30GHz 4コア
 | テーブル数 | 約80                               |
 | 特記       | ユーザー写真をDBに直接バイナリ保存 |
 
-# Oripo
-
-AIPOグループウェアのリプレースプロジェクト。
-
 ## リポジトリ構成
 
 | ディレクトリ          | 内容                    |
@@ -99,7 +95,3 @@ AIPOグループウェアのリプレースプロジェクト。
 | docs/03_migration/    | 移行計画                |
 | specs/                | 新システム仕様書（SDD） |
 | src/                  | 実装（Phase5以降）      |
-
-## 進捗管理
-
-[GitHub Projects - Oripo_project](https://github.com/orgs/btec-hiroshima-ss/projects/1)
