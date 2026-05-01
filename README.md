@@ -30,3 +30,6 @@ Claudeを最大限活用。成果物・ローカルテストはすべてClaude�
 ## 進捗管理
 
 [GitHub Projects - Oripo_project](https://github.com/orgs/btec-hiroshima-ss/projects/1)
+
+## 完了済みPhase要約
+**Phase1**：旧AIPO調査の結果、サーバー・アプリ共に10年以上前のものと非常に古く流用は困難。セキュリティに関してもなにも設定されていないため、設計の参考にならない。Oripoは、サーバー立て直し・ソースコードすべて新規・セキュリティ設計再考とする。
