@@ -37,4 +37,4 @@ https://github.com/arkjun/aipo
 | OS | Windows Server 2008 |
 | メモリ | 7GB |
 | CPU | Intel® Xeon® Gold 5118 @ 2.30GHz（12コア/24スレッド、ベース2.3GHz、Turbo最大3.2GHz） |
-| セキュリティ | ファイアウォール無し。多くのポートがワイルドカードLISTENING。事実上セキュリティ対策なし |
+| セキュリティ | ファイアウォール無し。多くのポートがワイルドカードLISTENING。ESxiサーバー側で特定ポート以外は外部公開していない。古く脆弱なセキュリティ設計 |
