@@ -3,6 +3,15 @@
 調査日：2026-05-26
 調査元：https://github.com/arkjun/aipo（portlets/account）
 
+## 対応スクリーンショット
+
+| ファイル名 | 内容 |
+|---|---|
+| `../screenshots/07_user-management-list.png` | ユーザー管理一覧（管理者画面） |
+| `../screenshots/08_user-management-add-form.png` | ユーザー追加フォーム（管理者画面） |
+| `../screenshots/09_user-info-detail.png` | ユーザー情報詳細（個人設定） |
+| `../screenshots/10_user-info-edit-form.png` | ユーザー情報編集フォーム（個人設定） |
+
 ---
 
 ## 1. 機能概要

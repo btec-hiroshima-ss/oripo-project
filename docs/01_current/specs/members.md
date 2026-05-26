@@ -3,6 +3,13 @@
 調査日：2026-05-26
 調査元：https://github.com/arkjun/aipo（portlets/userlist）
 
+## 対応スクリーンショット
+
+| ファイル名 | 内容 |
+|---|---|
+| `../screenshots/02_home-bottom.png` | ホーム画面のユーザー名簿ウィジェット |
+| `../screenshots/06_members-list.png` | ユーザー名簿一覧 |
+
 ---
 
 ## 1. 機能概要

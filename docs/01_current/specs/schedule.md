@@ -3,6 +3,14 @@
 調査日：2026-05-26
 調査元：https://github.com/arkjun/aipo（portlets/schedule）
 
+## 対応スクリーンショット
+
+| ファイル名 | 内容 |
+|---|---|
+| `../screenshots/01_home-top.png` | スケジュール週表示（ホーム画面右カラム） |
+| `../screenshots/04_schedule-form.png` | スケジュール登録フォーム |
+| `../screenshots/05_schedule-facility.png` | 設備管理（管理者画面） |
+
 ---
 
 ## 1. 機能概要

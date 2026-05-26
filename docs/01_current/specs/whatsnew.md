@@ -3,6 +3,13 @@
 調査日：2026-05-26
 調査元：https://github.com/arkjun/aipo（portlets/whatsnew）
 
+## 対応スクリーンショット
+
+| ファイル名 | 内容 |
+|---|---|
+| `../screenshots/01_home-top.png` | ホーム画面左カラムのウィジェット表示 |
+| `../screenshots/03_whatsnew-list.png` | 更新情報全件一覧（アプリ別フィルタ・検索） |
+
 ---
 
 ## 1. 機能概要

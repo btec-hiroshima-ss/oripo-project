@@ -3,6 +3,13 @@
 調査日：2026-05-26
 調査元：https://github.com/arkjun/aipo（portlets/accessctl）
 
+## 対応スクリーンショット
+
+| ファイル名 | 内容 |
+|---|---|
+| `../screenshots/11_access-control-list.png` | アクセス権限ロール一覧 |
+| `../screenshots/12_access-control-edit-form.png` | アクセス権限編集フォーム |
+
 ---
 
 ## 1. 機能概要
