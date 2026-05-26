@@ -1,4 +1,4 @@
-# タイムライン（更新情報）仕様（現AIPO）
+# 更新情報 仕様（現AIPO）
 
 調査日：2026-05-26
 調査元：https://github.com/arkjun/aipo（portlets/whatsnew）
