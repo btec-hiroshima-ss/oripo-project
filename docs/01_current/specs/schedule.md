@@ -1,0 +1,60 @@
+# スケジュール 仕様（現AIPO）
+
+調査日：2026-05-26
+調査元：https://github.com/arkjun/aipo（portlets/schedule）
+
+---
+
+## 1. 機能概要
+
+個人・グループのスケジュール管理機能。複数ユーザーを参加者として登録でき、設備（会議室等）の予約も同時に行える。繰り返し登録・メール通知・CSVエクスポートに対応。
+
+## 2. 主要な操作・画面
+
+- スケジュール一覧（日・週・月表示）
+- スケジュール登録・編集・削除
+- 参加者の選択（グループ・個人）
+- 設備の選択と空き確認
+- 繰り返し設定（毎日・毎週・毎月等）
+- CSVエクスポート・インポート
+- 管理者によるACL設定（他ユーザーのスケジュール閲覧・編集権限）
+
+## 3. データ項目
+
+### EipTSchedule（スケジュール本体）
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| SCHEDULE_ID | int | 主キー |
+| name | String | 件名 |
+| note | String | メモ |
+| start_date | Date | 開始日時 |
+| end_date | Date | 終了日時 |
+| place | String | 場所 |
+| public_flag | String | 公開フラグ（公開／非公開） |
+| repeat_pattern | String | 繰り返しパターン |
+| edit_flag | String | 編集権限フラグ |
+| mail_flag | String | メール通知フラグ |
+| owner_id | int | 作成者ユーザーID |
+| create_user_id | int | 登録者ユーザーID |
+| update_user_id | int | 最終更新者ユーザーID |
+| create_date | Date | 登録日時 |
+| update_date | Date | 更新日時 |
+
+### EipTScheduleMap（参加者マッピング）
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| ID | int | 主キー |
+| schedule_id | int | スケジュールID |
+| user_id | int | 参加者ユーザーID |
+| type | String | 種別（ユーザー・設備） |
+| status | String | 参加ステータス |
+| common_category_id | int | カテゴリID |
+
+## 4. 特記事項・制約
+
+- 設備予約は施設マスタ（EipTFacility系）に依存
+- 繰り返しスケジュールは親子関係で管理（parent_id）
+- メール通知はサーバーのメール設定に依存
+- CSVエクスポート形式は独自フォーマット
