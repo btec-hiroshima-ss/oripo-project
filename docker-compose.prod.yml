@@ -1,0 +1,9 @@
+services:
+  app:
+    image: ghcr.io/btec-hiroshima-ss/oripo-project:latest
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      TZ: Asia/Tokyo
+    restart: unless-stopped
