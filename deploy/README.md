@@ -3,32 +3,37 @@
 ## 前提条件
 
 - Ubuntu Server 18 以上
-- Docker・docker compose インストール済み
 
 ---
 
-## 初回セットアップ
+## サーバー初期セットアップ（初回のみ）
 
-### 1. deploy ディレクトリのみクローン
+Docker のインストールからリポジトリ取得まで `setup.sh` で一括実行できます。
 
 ```bash
-git clone --filter=blob:none --sparse https://github.com/btec-hiroshima-ss/oripo-project.git
-cd oripo-project
-git sparse-checkout set deploy
+curl -fsSL https://raw.githubusercontent.com/btec-hiroshima-ss/oripo-project/main/deploy/setup.sh | bash
 ```
 
-### 2. 環境変数ファイルを作成
+または手動でダウンロードして実行：
 
 ```bash
-cd deploy
+wget https://raw.githubusercontent.com/btec-hiroshima-ss/oripo-project/main/deploy/setup.sh
+chmod +x setup.sh
+./setup.sh
+```
+
+完了後は**ログアウト＆ログイン**して docker グループを反映してください。
+
+---
+
+## 初回デプロイ
+
+`setup.sh` 実行後、ログアウト＆ログインしてから：
+
+```bash
+cd oripo-project/deploy
 cp .env.example .env.production
 vi .env.production  # 本番用の値を設定
-```
-
-### 3. 初回デプロイ
-
-```bash
-chmod +x deploy.sh
 ./deploy.sh
 ```
 
