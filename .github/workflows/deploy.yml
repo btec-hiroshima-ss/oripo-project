@@ -27,5 +27,6 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: Dockerfile.prd
           push: true
           tags: ghcr.io/btec-hiroshima-ss/oripo-project:latest
