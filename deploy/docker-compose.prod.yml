@@ -1,0 +1,8 @@
+services:
+  app:
+    image: ghcr.io/btec-hiroshima-ss/oripo-project:latest
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.production
+    restart: unless-stopped
