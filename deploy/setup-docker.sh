@@ -2,7 +2,7 @@
 set -e
 
 # Docker インストールスクリプト（Ubuntu Server 18）
-# 認証不要。サーバー初回セットアップ時に最初に実行する。
+# 事前に git clone でリポジトリを取得してから実行すること
 
 echo "=== パッケージ更新 ==="
 sudo apt-get update
@@ -13,8 +13,7 @@ sudo apt-get install -y \
   ca-certificates \
   curl \
   gnupg-agent \
-  software-properties-common \
-  git
+  software-properties-common
 
 echo "=== Docker 公式 GPG キー追加 ==="
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
@@ -40,7 +39,6 @@ sudo systemctl enable docker
 sudo systemctl start docker
 
 echo ""
-echo "完了。次の手順："
-echo "  1. ログアウト＆ログイン or 再起動（dockerグループ反映）"
-echo "  2. GitHub の認証設定（SSH キーまたは Personal Access Token）"
-echo "  3. ./setup.sh を実行"
+echo "完了。再起動後に deploy.sh を実行してください："
+echo "  sudo reboot"
+echo "  cd $(dirname "$0") && ./deploy.sh"
