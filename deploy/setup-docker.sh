@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-# 本番サーバー初期セットアップスクリプト（Ubuntu Server 18）
-# 実行後はログアウト＆ログインが必要
+# Docker インストールスクリプト（Ubuntu Server 18）
+# 事前に git clone でリポジトリを取得してから実行すること
 
 echo "=== パッケージ更新 ==="
 sudo apt-get update
@@ -13,8 +13,7 @@ sudo apt-get install -y \
   ca-certificates \
   curl \
   gnupg-agent \
-  software-properties-common \
-  git
+  software-properties-common
 
 echo "=== Docker 公式 GPG キー追加 ==="
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
@@ -39,17 +38,7 @@ echo "=== Docker 自動起動設定 ==="
 sudo systemctl enable docker
 sudo systemctl start docker
 
-echo "=== git セットアップ ==="
-git config --global credential.helper store
-
-echo "=== リポジトリ取得（deploy/のみ）==="
-git clone --filter=blob:none --sparse https://github.com/btec-hiroshima-ss/oripo-project.git
-cd oripo-project
-git sparse-checkout set deploy
-
 echo ""
-echo "完了。次の手順を実行してください："
-echo "  1. ログアウト＆ログイン（dockerグループ反映）"
-echo "  2. cd oripo-project/deploy"
-echo "  3. cp .env.example .env.production && vi .env.production"
-echo "  4. ./deploy.sh"
+echo "完了。再起動後に deploy.sh を実行してください："
+echo "  sudo reboot"
+echo "  cd $(dirname "$0") && ./deploy.sh"

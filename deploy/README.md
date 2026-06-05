@@ -3,32 +3,33 @@
 ## 前提条件
 
 - Ubuntu Server 18 以上
+- GitHub の Personal Access Token（`repo` スコープ）
+  - 発行: GitHub > Settings > Developer settings > Personal access tokens
 
 ---
 
 ## サーバー初期セットアップ（初回のみ）
 
-Docker のインストールからリポジトリ取得まで `setup.sh` で一括実行できます。
+### 1. GitHub 認証 & リポジトリ取得
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/btec-hiroshima-ss/oripo-project/main/deploy/setup.sh | bash
+git config --global credential.helper store
+git clone https://github.com/btec-hiroshima-ss/oripo-project.git
+# ユーザー名と PAT を入力（以降は自動保存）
+cd oripo-project/deploy
 ```
 
-または手動でダウンロードして実行：
+### 2. Docker インストール
 
 ```bash
-wget https://raw.githubusercontent.com/btec-hiroshima-ss/oripo-project/main/deploy/setup.sh
-chmod +x setup.sh
-./setup.sh
+chmod +x setup-docker.sh
+./setup-docker.sh
+sudo reboot
 ```
 
-完了後は**ログアウト＆ログイン**して docker グループを反映してください。
+### 3. 初回デプロイ
 
----
-
-## 初回デプロイ
-
-`setup.sh` 実行後、ログアウト＆ログインしてから：
+再起動後：
 
 ```bash
 cd oripo-project/deploy
