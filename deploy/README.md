@@ -8,27 +8,40 @@
 
 ## サーバー初期セットアップ（初回のみ）
 
-Docker のインストールからリポジトリ取得まで `setup.sh` で一括実行できます。
+### 1. Docker インストール
+
+認証不要。サーバーに直接コピーして実行してください。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/btec-hiroshima-ss/oripo-project/main/deploy/setup.sh | bash
+chmod +x setup-docker.sh
+./setup-docker.sh
 ```
 
-または手動でダウンロードして実行：
+完了後は**ログアウト＆ログイン**または**再起動**して docker グループを反映してください。
+
+### 2. GitHub 認証設定
+
+リポジトリがプライベートのため、git clone 前に認証設定が必要です。
 
 ```bash
-wget https://raw.githubusercontent.com/btec-hiroshima-ss/oripo-project/main/deploy/setup.sh
+git config --global credential.helper store
+# 初回 clone 時にユーザー名と Personal Access Token を入力すると保存される
+```
+
+Personal Access Token は GitHub の Settings > Developer settings > Personal access tokens で発行してください（`repo` スコープが必要）。
+
+### 3. リポジトリ取得
+
+```bash
 chmod +x setup.sh
 ./setup.sh
 ```
-
-完了後は**ログアウト＆ログイン**して docker グループを反映してください。
 
 ---
 
 ## 初回デプロイ
 
-`setup.sh` 実行後、ログアウト＆ログインしてから：
+`setup.sh` 実行後：
 
 ```bash
 cd oripo-project/deploy
