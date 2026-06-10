@@ -22,7 +22,6 @@ cd oripo-project/deploy
 ### 2. Docker インストール
 
 ```bash
-chmod +x setup-docker.sh
 ./setup-docker.sh
 sudo reboot
 ```
@@ -34,7 +33,7 @@ sudo reboot
 ```bash
 cd oripo-project/deploy
 cp .env.example .env.production
-vi .env.production  # 本番用の値を設定
+vi .env.production  # GHCR_USER・GHCR_TOKEN 等を設定
 ./deploy.sh
 ```
 
