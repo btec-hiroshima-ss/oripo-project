@@ -78,3 +78,14 @@ docker compose -f docker-compose.prod.yml restart
 docker compose -f docker-compose.prod.yml down
 docker run -d ghcr.io/btec-hiroshima-ss/oripo-project:<タグ>
 ```
+
+---
+
+## トラブルシューティング
+
+### `unauthorized` / `denied` エラー（docker pull 時）
+
+PAT に `read:packages` スコープが不足しています。
+- GitHub > Settings > Developer settings > Personal access tokens
+- 対象の PAT を編集 → `read:packages` を追加して保存
+- `.env.production` の `GHCR_TOKEN` を更新して再実行
