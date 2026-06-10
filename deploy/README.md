@@ -88,4 +88,3 @@ docker run -d ghcr.io/btec-hiroshima-ss/oripo-project:<タグ>
 PAT に `read:packages` スコープが不足しています。
 - GitHub > Settings > Developer settings > Personal access tokens
 - 対象の PAT を編集 → `read:packages` を追加して保存
-- `.env.production` の `GHCR_TOKEN` を更新して再実行
