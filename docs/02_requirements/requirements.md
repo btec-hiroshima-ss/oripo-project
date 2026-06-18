@@ -248,6 +248,7 @@
 - 実装: Next.js 15 / TypeScript / App Router
 - CI/CD: GitHub Actions（ユニットテスト自動実行、main マージで GHCR へイメージ push）
 - テスト: Vitest（ユニット）、Playwright（E2E 手動確認）
+- デプロイ所要時間: 1分以内（コンテナ入れ替え方式）、ダウンタイム 10秒以内
 
 ---
 
