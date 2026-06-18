@@ -147,3 +147,8 @@ PR 作成 / push
 - 通信: HTTPS（Cloudflare が自動提供）
 - XSS・CSRF・SQL インジェクション対策
 - パスワード: SHA-1 + Base64（AIPO と同アルゴリズム、移行時にそのままコピー）
+
+### 実行プロセス
+
+- コンテナ内を含む全プロセスを非ルートユーザーで実行
+- `Dockerfile.prd` にて専用ユーザー（appuser）を作成し `USER appuser` で切り替え済み
