@@ -1,0 +1,125 @@
+# データベース構成
+
+## 概要
+
+- **DBMS**: PostgreSQL 16
+- **クエリビルダ**: Kysely + `pg`（ORM は使わない）
+- **型生成**: `kysely-codegen`（DBスキーマから TypeScript 型を自動生成）
+
+ORM を採用しないことで、SQL を直接書く設計とする。教材としての可読性・学習効果を重視。
+
+## ディレクトリ構成
+
+```
+db/
+  migrations/        # マイグレーション SQL（番号順で適用）
+    001_xxx.sql
+    002_xxx.sql
+  README.md          # 本ファイル
+```
+
+## マイグレーション運用
+
+### 命名規則
+
+`{連番3桁}_{内容}.sql`（例: `001_create_users.sql`）
+
+### 初回適用
+
+PostgreSQL コンテナの `/docker-entrypoint-initdb.d/` に `migrations/` をマウントしているため、コンテナ初回起動時に自動的に番号順で適用される。
+
+### 追加マイグレーション
+
+ボリュームをリセット（初回扱いに戻す）するか、手動で適用する。
+
+```bash
+# ボリュームリセット（データ消失するため注意）
+docker compose down -v
+docker compose up -d db
+
+# 手動適用
+docker compose exec db psql -U oripo -d oripo -f /docker-entrypoint-initdb.d/00X_xxx.sql
+```
+
+## AIPO ダンプファイル
+
+移行元の AIPO DB（PostgreSQL 8.4.7）のダンプを `db/dump/` に格納している。
+
+| ファイル | 形式 | 用途 |
+|---|---|---|
+| `aipo_db_sql.dump.gz` | プレーン SQL 圧縮 | DBeaver でリストア |
+
+### ローカルへの復元手順（DBeaver 使用）
+
+```bash
+# 1. DB コンテナ起動
+docker compose up -d db
+
+# 2. 解凍
+gunzip -k db/dump/aipo_db_sql.dump.gz
+
+# 3. aipo_postgres ロールと aipo DB を事前作成（DBeaver の SQL エディタで実行）
+CREATE ROLE aipo_postgres SUPERUSER LOGIN PASSWORD 'aipo';
+CREATE DATABASE aipo OWNER aipo_postgres;
+
+# 4. DBeaver で aipo_postgres ユーザーとして aipo DB に接続し、
+#    「SQLスクリプトの実行」で aipo_db_sql.dump を流す
+
+# 5. スケジュールの日付範囲を確認（移行期間の判断に使う）
+SELECT MIN(create_date), MAX(create_date) FROM eip_t_schedule;
+```
+
+### 注意点
+
+- **復元先は `aipo` DB**（`oripo` DB と混在させない）
+- `aipo_postgres` ロールを先に作らないとリストアがエラーになる
+- AIPO スキーマはそのまま Oripo には使わない。データ移行スクリプトで `aipo` → `oripo` へ変換する
+- ダンプ内のパスワードは **SHA-1 + Base64（ソルトなし）**。Oripo も同じ方式を採用するため、そのまま移行可能
+- ダンプにはユーザーの氏名・メールアドレス等の個人情報が含まれる。取り扱いに注意
+
+## DB 管理ツール（DBeaver）
+
+DB の閲覧・クエリ実行・データ移行は **DBeaver Community Edition** を使用する。
+
+### インストール
+
+```bash
+# Ubuntu（ローカル開発機・本番サーバー共通）
+wget -O /tmp/dbeaver.deb https://dbeaver.io/files/dbeaver-ce_latest_amd64.deb
+sudo dpkg -i /tmp/dbeaver.deb
+```
+
+### 接続設定
+
+**ローカル開発（oripo DB）**
+
+| 項目 | 値 |
+|---|---|
+| Host | `localhost` |
+| Port | `5432` |
+| Database | `oripo` |
+| User | `oripo` |
+| Password | `oripo_dev` |
+
+**ローカル開発（aipo DB ※移行作業用）**
+
+| 項目 | 値 |
+|---|---|
+| Host | `localhost` |
+| Port | `5432` |
+| Database | `aipo` |
+| User | `aipo_postgres` |
+| Password | `aipo` |
+
+**本番サーバー**
+
+| 項目 | 値 |
+|---|---|
+| Host | `localhost`（サーバー上で直接実行） |
+| Port | `5432` |
+| Database | `oripo` |
+| User | `.env.production` 参照 |
+
+## ローカル接続情報（アプリ用）
+
+接続文字列: `postgres://oripo:oripo_dev@db:5432/oripo`
