@@ -38,6 +38,12 @@ echo "=== Docker 自動起動設定 ==="
 sudo systemctl enable docker
 sudo systemctl start docker
 
+echo "=== GUI（XFCE）インストール ==="
+sudo apt-get install -y xfce4 xfce4-goodies lightdm
+
+echo "=== デフォルトをサーバーモードに固定（GUI 自動起動しない） ==="
+sudo systemctl set-default multi-user.target
+
 echo ""
 echo "完了。再起動後に deploy.sh を実行してください："
 echo "  sudo reboot"
