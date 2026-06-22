@@ -81,6 +81,24 @@ docker run -d ghcr.io/btec-hiroshima-ss/oripo-project:<タグ>
 
 ---
 
+## GUI 管理（必要時のみ起動）
+
+通常はサーバーモード（GUI なし）で動作する。管理作業が必要な場合のみ GUI を起動する。
+
+XFCE のインストールとサーバーモードへの固定は `setup-docker.sh` で自動的に行われる。
+
+### GUI 起動・停止
+
+```bash
+# 管理作業時: GUI を起動
+sudo systemctl start lightdm
+
+# 作業終了後: GUI を停止してサーバーモードに戻す
+sudo systemctl stop lightdm
+```
+
+---
+
 ## トラブルシューティング
 
 ### `unauthorized` / `denied` エラー（docker pull 時）
