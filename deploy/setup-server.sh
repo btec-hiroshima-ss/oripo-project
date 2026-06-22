@@ -38,8 +38,8 @@ echo "=== Docker 自動起動設定 ==="
 sudo systemctl enable docker
 sudo systemctl start docker
 
-echo "=== GUI（ubuntu-desktop-minimal）インストール ==="
-sudo apt-get install -y ubuntu-desktop-minimal
+echo "=== GUI（Xubuntu デスクトップ）インストール ==="
+sudo apt-get install -y xubuntu-desktop
 
 echo "=== デフォルトをサーバーモードに固定（GUI 自動起動しない） ==="
 sudo systemctl set-default multi-user.target
