@@ -19,10 +19,10 @@ git clone https://github.com/btec-hiroshima-ss/oripo-project.git
 cd oripo-project/deploy
 ```
 
-### 2. Docker インストール
+### 2. サーバーセットアップ
 
 ```bash
-./setup-docker.sh
+./setup-server.sh
 sudo reboot
 ```
 
@@ -85,7 +85,7 @@ docker run -d ghcr.io/btec-hiroshima-ss/oripo-project:<タグ>
 
 通常はサーバーモード（GUI なし）で動作する。管理作業が必要な場合のみ GUI を起動する。
 
-XFCE のインストールとサーバーモードへの固定は `setup-docker.sh` で自動的に行われる。
+XFCE のインストールとサーバーモードへの固定は `setup-server.sh` で自動的に行われる。
 
 ### GUI 起動・停止
 

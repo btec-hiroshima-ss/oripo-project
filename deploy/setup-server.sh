@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Docker インストールスクリプト（Ubuntu Server 18）
+# サーバー初期セットアップスクリプト（Ubuntu Server 18）
 # 事前に git clone でリポジトリを取得してから実行すること
 
 echo "=== パッケージ更新 ==="
@@ -43,6 +43,21 @@ sudo apt-get install -y xfce4 xfce4-goodies lightdm
 
 echo "=== デフォルトをサーバーモードに固定（GUI 自動起動しない） ==="
 sudo systemctl set-default multi-user.target
+
+echo "=== スワップ設定（2GB） ==="
+if [ ! -f /swapfile ]; then
+  sudo fallocate -l 2G /swapfile
+  sudo chmod 600 /swapfile
+  sudo mkswap /swapfile
+  sudo swapon /swapfile
+  echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+  # スワップ使用率を控えめに（サーバー向け設定）
+  echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+  sudo sysctl -p
+  echo "スワップ設定完了"
+else
+  echo "スワップファイルは既に存在します（スキップ）"
+fi
 
 echo ""
 echo "完了。再起動後に deploy.sh を実行してください："
