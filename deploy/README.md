@@ -85,16 +85,16 @@ docker run -d ghcr.io/btec-hiroshima-ss/oripo-project:<タグ>
 
 通常はサーバーモード（GUI なし）で動作する。管理作業が必要な場合のみ GUI を起動する。
 
-XFCE のインストールとサーバーモードへの固定は `setup-server.sh` で自動的に行われる。
+ubuntu-desktop-minimal のインストールとサーバーモードへの固定は `setup-server.sh` で自動的に行われる。
 
 ### GUI 起動・停止
 
 ```bash
 # 管理作業時: GUI を起動
-sudo systemctl start lightdm
+sudo systemctl start gdm3
 
 # 作業終了後: GUI を停止してサーバーモードに戻す
-sudo systemctl stop lightdm
+sudo systemctl stop gdm3
 ```
 
 ---
