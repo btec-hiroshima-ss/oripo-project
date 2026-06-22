@@ -41,6 +41,38 @@ docker compose up -d db
 docker compose exec db psql -U oripo -d oripo -f /docker-entrypoint-initdb.d/00X_xxx.sql
 ```
 
+## AIPO ダンプファイル
+
+移行元の AIPO DB（PostgreSQL 8.4.7）のダンプを `db/dump/` に格納している。
+
+| ファイル | 形式 | 用途 |
+|---|---|---|
+| `aipo_db_sql.dump.gz` | プレーン SQL 圧縮 | `psql` でリストア |
+
+### ローカルへの復元手順
+
+```bash
+# 解凍
+gunzip -k db/dump/aipo_db_sql.dump.gz  # aipo_db_sql.dump が展開される
+
+# aipo_postgres ロールと aipo DB を作成（oripo DB とは別に作る）
+docker compose exec -T db psql -U oripo -d postgres \
+  -c "CREATE ROLE aipo_postgres SUPERUSER LOGIN PASSWORD 'aipo';" \
+  -c "CREATE DATABASE aipo OWNER aipo_postgres;"
+
+# ダンプをリストア
+cat db/dump/aipo_db_sql.dump | \
+  docker compose exec -T db psql -U aipo_postgres -d aipo
+```
+
+### 注意点
+
+- **復元先は `aipo` DB**（`oripo` DB と混在させない）
+- `aipo_postgres` ロールが存在しないとリストア時にエラーになる
+- AIPO スキーマはそのまま Oripo には使わない。データ移行スクリプトで `aipo` → `oripo` へ変換する
+- ダンプ内のパスワードは **SHA-1 + Base64（ソルトなし）**。Oripo も同じ方式を採用するため、そのまま移行可能
+- ダンプにはユーザーの氏名・メールアドレス等の個人情報が含まれる。取り扱いに注意
+
 ## ローカル接続情報（開発用）
 
 | 項目 | 値 |
