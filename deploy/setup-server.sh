@@ -39,7 +39,7 @@ sudo systemctl enable docker
 sudo systemctl start docker
 
 echo "=== GUI（XFCE）インストール ==="
-sudo apt-get install -y xfce4 xfce4-goodies lightdm
+sudo apt-get install -y xfce4 xfce4-goodies xfce4-session lightdm dbus-x11
 
 echo "=== デフォルトをサーバーモードに固定（GUI 自動起動しない） ==="
 sudo systemctl set-default multi-user.target
