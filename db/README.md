@@ -52,17 +52,26 @@ docker compose exec db psql -U oripo -d oripo -f /docker-entrypoint-initdb.d/00X
 ### ローカルへの復元手順
 
 ```bash
-# 解凍
-gunzip -k db/dump/aipo_db_sql.dump.gz  # aipo_db_sql.dump が展開される
+# 1. DB コンテナ起動（未起動の場合）
+docker compose up -d db
 
-# aipo_postgres ロールと aipo DB を作成（oripo DB とは別に作る）
+# 2. 解凍
+gunzip -k db/dump/aipo_db_sql.dump.gz
+
+# 3. aipo_postgres ロールと aipo DB を作成（oripo DB とは別に作る）
 docker compose exec -T db psql -U oripo -d postgres \
   -c "CREATE ROLE aipo_postgres SUPERUSER LOGIN PASSWORD 'aipo';" \
   -c "CREATE DATABASE aipo OWNER aipo_postgres;"
 
-# ダンプをリストア
+# 4. ダンプをリストア（数分かかる）
 cat db/dump/aipo_db_sql.dump | \
   docker compose exec -T db psql -U aipo_postgres -d aipo
+
+# 5. 復元確認 + スケジュールの日付範囲を確認（移行期間の判断に使う）
+docker compose exec db psql -U aipo_postgres -d aipo \
+  -c "SELECT COUNT(*) FROM turbine_user;" \
+  -c "SELECT COUNT(*) FROM eip_t_schedule;" \
+  -c "SELECT MIN(create_date), MAX(create_date) FROM eip_t_schedule;"
 ```
 
 ### 注意点
