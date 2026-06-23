@@ -1,0 +1,8 @@
+# 構築方法
+
+docker-compose.yml の claude サービスにより、
+このフォルダ（shareDir/）はホストとclaudeコンテナ間で共有されます。
+
+使い方:
+- ホスト側でこのフォルダにファイルを置く
+- claudeコンテナ内の /workspace/shareDir/ から参照できる

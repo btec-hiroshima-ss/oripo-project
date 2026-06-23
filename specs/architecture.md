@@ -73,17 +73,16 @@ src/
 - OS: Ubuntu Server 18
 - ローカル検証: VirtualBox または Mac + UTM で同環境を再現
 
-> 📖 **サーバーセットアップ・運用手順**: [deploy/README.md](../deploy/README.md) を参照。
+> 📖 **サーバーセットアップ・運用手順**: [docs/SERVER.md](../docs/SERVER.md) を参照。
 
-### deploy/ 構成
+### 本番関連ファイル構成
 
 ```
-deploy/
+（プロジェクトルート）
   docker-compose.prod.yml   # 本番用 compose
   deploy.sh                 # デプロイスクリプト（git pull + compose pull/up）
-  setup-docker.sh           # Docker インストールスクリプト（初回のみ）
+  setup-server.sh           # Docker インストールスクリプト（初回のみ）
   .env.example              # 環境変数テンプレート
-  README.md                 # セットアップ・運用手順
 ```
 
 ### Dockerfile 構成

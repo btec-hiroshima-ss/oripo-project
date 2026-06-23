@@ -16,7 +16,7 @@
 git config --global credential.helper store
 git clone https://github.com/btec-hiroshima-ss/oripo-project.git
 # ユーザー名と PAT を入力（以降は自動保存）
-cd oripo-project/deploy
+cd oripo-project
 ```
 
 ### 2. サーバーセットアップ
@@ -31,7 +31,7 @@ sudo reboot
 再起動後：
 
 ```bash
-cd oripo-project/deploy
+cd oripo-project
 cp .env.example .env.production
 vi .env.production  # GHCR_USER・GHCR_TOKEN 等を設定
 ./deploy.sh

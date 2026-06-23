@@ -1,3 +1,70 @@
+# プロジェクト管理
+
+## リポジトリ
+
+**btec-hiroshima-ss/oripo-project** — このリポジトリ（開発環境・インフラ・アプリ・ドキュメント一式）
+
+ローカルパス: `/workspace`（claudeコンテナ内）
+
+## GitHub操作方法
+
+GitHub MCPは使用しない。**GitHub CLI（`gh`）を使用**すること。
+
+```bash
+# リポジトリ操作
+gh repo view btec-hiroshima-ss/oripo-project
+
+# Projects確認
+gh project list --owner btec-hiroshima-ss
+gh project item-list 1 --owner btec-hiroshima-ss
+
+# Issue操作
+gh issue list -R btec-hiroshima-ss/oripo-project
+gh issue view <number> -R btec-hiroshima-ss/oripo-project
+
+# GraphQL（Projects詳細取得など）
+gh api graphql -f query='...'
+```
+
+## 進捗管理
+
+プロジェクトの進捗は **GitHub Projects**（Oripo_project / Project #1）で管理。
+
+## ディレクトリ構成
+
+| パス | 内容 |
+|---|---|
+| /workspace/shareDir/ | 一時参照ドキュメント置き場（git管理外） |
+| /workspace/docker/claude/ | claudeコンテナ用Dockerfile |
+| /workspace/docker-compose.yml | ローカル開発環境（claude + app + db） |
+
+### プロジェクト構成
+
+| ディレクトリ | 内容 |
+|---|---|
+| docs/01_current/ | 現行AIPO調査・仕様書 |
+| docs/02_requirements/ | 要件定義 |
+| docs/03_migration/ | 移行計画 |
+| specs/ | 新システム仕様書（SDD・Markdown） |
+| src/ | 実装（Phase5以降） |
+| docker-compose.prod.yml / deploy.sh / setup-server.sh | 本番サーバー用 |
+
+## Tech Stack
+
+- フロントエンド: Next.js 15（TypeScript、App Router）
+- デプロイ: GHCR（main マージ → イメージpush）
+- CI/CD: `.github/workflows/deploy.yml`（mainマージ時にGHCRへpush）
+- Dockerfile: `Dockerfile`（ローカル開発用）/ `Dockerfile.prd`（本番用マルチステージ）
+- ローカル開発: `docker-compose.yml`（プロジェクトルート）
+- 本番: `docker-compose.prod.yml` / `deploy.sh` / `setup-server.sh`（プロジェクトルート）
+- サーバーOS: Ubuntu Server 18
+
+## 参照ドキュメント
+
+一時的な参照資料は `/workspace/shareDir/` に置かれている場合がある。タスクに関連しそうなファイルがあれば参照すること。
+
+---
+
 # 開発ルール
 
 ## ブランチ戦略
@@ -20,6 +87,10 @@
 ## タスク管理
 
 - **1 Issue = 1タスク** = Claudeへの指示単位
+- Issue の階層ルール:
+  - **親Issue**（Phase単位）: 人間が作成
+  - **子Issue**（機能・タスク単位）: 人間が作成
+  - **子の子Issue**（サブタスク）: Claudeが作成可
 - **Issue の作成・クローズ**: 人間のみが行う
 - **PR の作成**: Claude が行う（Issueに紐づける）
 - 作業ブランチ・PRはIssueに紐づける（変更理由の履歴として残す）

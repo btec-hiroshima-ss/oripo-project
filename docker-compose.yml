@@ -1,0 +1,62 @@
+volumes:
+  claude-code-bashhistory:
+  claude-code-config:
+  oripo-db-data:
+
+services:
+  claude:
+    build:
+      context: ./docker/claude
+      args:
+        TZ: Asia/Tokyo
+        CLAUDE_CODE_VERSION: ${CLAUDE_CODE_VERSION:-latest}
+        GIT_DELTA_VERSION: ${GIT_DELTA_VERSION:-0.18.2}
+        ZSH_IN_DOCKER_VERSION: ${ZSH_IN_DOCKER_VERSION:-1.2.0}
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./:/workspace
+      - claude-code-bashhistory:/commandhistory
+      - claude-code-config:/home/node/.claude
+    environment:
+      NODE_OPTIONS: "--max-old-space-size=4096"
+      CLAUDE_CONFIG_DIR: "/home/node/.claude"
+      POWERLEVEL9K_DISABLE_GITSTATUS: "true"
+      GH_TOKEN: ${GITHUB_PERSONAL_ACCESS_TOKEN}
+      GIT_USER_NAME: ${GIT_USER_NAME:-}
+      GIT_USER_EMAIL: ${GIT_USER_EMAIL:-}
+      TZ: Asia/Tokyo
+    user: "node"
+    tty: true
+    stdin_open: true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  app:
+    build:
+      context: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+      TZ: Asia/Tokyo
+      DATABASE_URL: postgres://oripo:oripo_dev@db:5432/oripo
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: oripo
+      POSTGRES_PASSWORD: oripo_dev
+      POSTGRES_DB: oripo
+      TZ: Asia/Tokyo
+    volumes:
+      - oripo-db-data:/var/lib/postgresql/data
+      - ./db/migrations:/docker-entrypoint-initdb.d
