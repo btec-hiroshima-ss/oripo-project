@@ -3,6 +3,15 @@ node_modules/
 .env*.local
 .env
 
+# macOS
+.DS_Store
+
+# Claude ローカル設定
+.claude/settings.local.json
+
+# AIPO ダンプ解凍ファイル
+db/dump/*.dump
+
 # ローカル参照用ドキュメント置き場（git管理外）
 /shareDir/*
 !/shareDir/ここのフォルダ内はclaudeコンテナにマウント(共有)されます.txt
