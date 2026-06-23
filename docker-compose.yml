@@ -44,7 +44,7 @@ services:
     environment:
       NODE_ENV: development
       TZ: Asia/Tokyo
-      DATABASE_URL: postgres://oripo:oripo_dev@db:5432/oripo
+      DATABASE_URL: postgres://aipo_postgres:aipo@db:5432/aipo
     depends_on:
       - db
 
@@ -53,9 +53,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: oripo
-      POSTGRES_PASSWORD: oripo_dev
-      POSTGRES_DB: oripo
+      POSTGRES_USER: aipo_postgres
+      POSTGRES_PASSWORD: aipo
+      POSTGRES_DB: aipo
       TZ: Asia/Tokyo
     volumes:
       - oripo-db-data:/var/lib/postgresql/data
