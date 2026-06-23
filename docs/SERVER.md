@@ -32,7 +32,7 @@ sudo reboot
 
 ```bash
 cd oripo-project
-cp deploy-env.example .env.production
+cp .env.example .env.production
 vi .env.production  # GHCR_USER・GHCR_TOKEN 等を設定
 ./deploy.sh
 ```

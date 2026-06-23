@@ -9,6 +9,4 @@ Dockerfile.prd
 docker-compose*.yml
 deploy.sh
 setup-server.sh
-SERVER.md
-deploy-env.example
 .env*
