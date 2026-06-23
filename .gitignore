@@ -1,3 +1,9 @@
 node_modules/
 .next/
 .env*.local
+.env
+
+# ローカル参照用ドキュメント置き場（git管理外）
+/shareDir/*
+!/shareDir/ここのフォルダ内はclaudeコンテナにマウント(共有)されます.txt
+!/shareDir/構築方法.txt
