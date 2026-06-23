@@ -79,6 +79,10 @@ gh api graphql -f query='...'
 - 作業ブランチ: `feature/issue-{番号}-{内容}` → PR → develop
 - リリース時: develop → PR → main
 
+**ブランチ作成の原則**
+- 作業ブランチは常に**最新の `main`（または `develop`）から切る**
+- 既存ブランチからの派生は禁止（PR の差分が汚れるため）
+
 ## コミットメッセージ規約
 
 - 日本語で記述
