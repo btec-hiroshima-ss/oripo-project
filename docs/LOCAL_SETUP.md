@@ -2,6 +2,7 @@
 
 ## 前提条件
 
+- VS Code + [Dev Containers 拡張機能](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) がインストール済みであること
 - Docker / Docker Compose がインストール済みであること
 - GitHub の Personal Access Token（`repo` + `read:packages` スコープ）を発行済みであること
 
@@ -28,19 +29,17 @@ cp .env.example .env
 | `GIT_USER_NAME` | コンテナ内で使用する git ユーザー名 |
 | `GIT_USER_EMAIL` | コンテナ内で使用する git メールアドレス |
 
-### 3. コンテナの起動
+### 3. Dev Container で開く
 
-```bash
-docker compose up -d
+VS Code でプロジェクトを開き、コマンドパレット（`Ctrl+Shift+P` / `Cmd+Shift+P`）から：
+
+```
+Dev Containers: Reopen in Container
 ```
 
-### 4. Claude コンテナへの接続
+を選択する。初回はイメージのビルドが走るため数分かかる。
 
-```bash
-docker compose exec claude zsh
-```
-
-接続後、`/workspace` がプロジェクトルートとしてマウントされている。
+起動後、VS Code のターミナルが `/workspace` をルートとした Claude コンテナ内に接続される。
 
 ---
 
