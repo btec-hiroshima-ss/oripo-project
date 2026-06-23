@@ -3,6 +3,12 @@ node_modules
 .git
 docs
 specs
-deploy
+db/dump
+docker
 Dockerfile.prd
+docker-compose*.yml
+deploy.sh
+setup-server.sh
+SERVER.md
+deploy-env.example
 .env*
