@@ -47,7 +47,7 @@ gh api graphql -f query='...'
 | docs/03_migration/ | 移行計画 |
 | specs/ | 新システム仕様書（SDD・Markdown） |
 | src/ | 実装（Phase5以降） |
-| deploy/ | 本番サーバー用（docker-compose.prod.yml・deploy.sh等） |
+| docker-compose.prod.yml / deploy.sh / setup-server.sh | 本番サーバー用 |
 
 ## Tech Stack
 
@@ -56,7 +56,7 @@ gh api graphql -f query='...'
 - CI/CD: `.github/workflows/deploy.yml`（mainマージ時にGHCRへpush）
 - Dockerfile: `Dockerfile`（ローカル開発用）/ `Dockerfile.prd`（本番用マルチステージ）
 - ローカル開発: `docker-compose.yml`（プロジェクトルート）
-- 本番: `deploy/` に一式（docker-compose.prod.yml・deploy.sh・README）
+- 本番: `docker-compose.prod.yml` / `deploy.sh` / `setup-server.sh`（プロジェクトルート）
 - サーバーOS: Ubuntu Server 18
 
 ## 参照ドキュメント
