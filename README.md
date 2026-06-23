@@ -27,6 +27,10 @@ Claudeを最大限活用。成果物・ローカルテストはすべてClaude�
 | specs/                | 新システム仕様書（SDD） |
 | src/                  | 実装（Phase5以降）      |
 
+## ローカル環境構築
+
+[docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md) を参照。
+
 ## 進捗管理
 
 [GitHub Projects - Oripo_project](https://github.com/orgs/btec-hiroshima-ss/projects/1)
