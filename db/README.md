@@ -15,6 +15,7 @@ db/
   migrations/        # マイグレーション SQL（番号順で適用）
     001_xxx.sql
     002_xxx.sql
+  dump/              # AIPO DB ダンプ（移行作業用）
   README.md          # 本ファイル
 ```
 
@@ -38,7 +39,7 @@ docker compose down -v
 docker compose up -d db
 
 # 手動適用
-docker compose exec db psql -U oripo -d oripo -f /docker-entrypoint-initdb.d/00X_xxx.sql
+docker compose exec db psql -U aipo_postgres -d aipo -f /docker-entrypoint-initdb.d/00X_xxx.sql
 ```
 
 ## AIPO ダンプファイル
@@ -57,23 +58,19 @@ docker compose up -d db
 
 # 2. 解凍
 gunzip -k db/dump/aipo_db_sql.dump.gz
+```
 
-# 3. aipo_postgres ロールと aipo DB を事前作成（DBeaver の SQL エディタで実行）
-CREATE ROLE aipo_postgres SUPERUSER LOGIN PASSWORD 'aipo';
-CREATE DATABASE aipo OWNER aipo_postgres;
+3. DBeaver で `aipo_postgres` ユーザーとして `aipo` DB に接続し（接続設定は下記参照）、「SQLスクリプトの実行」で `aipo_db_sql.dump` を流す
 
-# 4. DBeaver で aipo_postgres ユーザーとして aipo DB に接続し、
-#    「SQLスクリプトの実行」で aipo_db_sql.dump を流す
-
-# 5. スケジュールの日付範囲を確認（移行期間の判断に使う）
+```bash
+# 4. スケジュールの日付範囲を確認（移行期間の判断に使う）
 SELECT MIN(create_date), MAX(create_date) FROM eip_t_schedule;
 ```
 
 ### 注意点
 
-- **復元先は `aipo` DB**（`oripo` DB と混在させない）
-- `aipo_postgres` ロールを先に作らないとリストアがエラーになる
-- AIPO スキーマはそのまま Oripo には使わない。データ移行スクリプトで `aipo` → `oripo` へ変換する
+- `aipo_postgres` ロールと `aipo` DB は docker compose 起動時に自動作成される（ロールの手動作成は不要）
+- AIPO スキーマをベースに不要なレコード・カラムを削除して Oripo のスキーマとして使用する
 - ダンプ内のパスワードは **SHA-1 + Base64（ソルトなし）**。Oripo も同じ方式を採用するため、そのまま移行可能
 - ダンプにはユーザーの氏名・メールアドレス等の個人情報が含まれる。取り扱いに注意
 
@@ -91,17 +88,7 @@ sudo dpkg -i /tmp/dbeaver.deb
 
 ### 接続設定
 
-**ローカル開発（oripo DB）**
-
-| 項目 | 値 |
-|---|---|
-| Host | `localhost` |
-| Port | `5432` |
-| Database | `oripo` |
-| User | `oripo` |
-| Password | `oripo_dev` |
-
-**ローカル開発（aipo DB ※移行作業用）**
+**ローカル開発**
 
 | 項目 | 値 |
 |---|---|
@@ -117,9 +104,9 @@ sudo dpkg -i /tmp/dbeaver.deb
 |---|---|
 | Host | `localhost`（サーバー上で直接実行） |
 | Port | `5432` |
-| Database | `oripo` |
+| Database | `aipo` |
 | User | `.env.production` 参照 |
 
 ## ローカル接続情報（アプリ用）
 
-接続文字列: `postgres://oripo:oripo_dev@db:5432/oripo`
+接続文字列: `postgres://aipo_postgres:aipo@db:5432/aipo`
