@@ -46,7 +46,8 @@ services:
       TZ: Asia/Tokyo
       DATABASE_URL: postgres://aipo_postgres:aipo@db:5432/aipo
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   db:
     image: postgres:16-alpine
@@ -59,3 +60,8 @@ services:
       TZ: Asia/Tokyo
     volumes:
       - oripo-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
