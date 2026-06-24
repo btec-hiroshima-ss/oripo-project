@@ -8,37 +8,39 @@
 
 ORM を採用しないことで、SQL を直接書く設計とする。教材としての可読性・学習効果を重視。
 
-## ディレクトリ構成
-
-```
-db/
-  migrations/        # マイグレーション SQL（番号順で適用）
-    001_xxx.sql
-    002_xxx.sql
-  README.md          # 本ファイル
-```
-
 ## マイグレーション運用
+
+マイグレーションは **Kysely Migrator** で管理する。ファイルは `src/lib/migrations/` に TypeScript で配置。
 
 ### 命名規則
 
-`{連番3桁}_{内容}.sql`（例: `001_create_users.sql`）
+`{YYYY-MM-DD}_{内容}.ts`（例: `2026-06-24_create_users.ts`）
 
-### 初回適用
+### 自動適用
 
-PostgreSQL コンテナの `/docker-entrypoint-initdb.d/` に `migrations/` をマウントしているため、コンテナ初回起動時に自動的に番号順で適用される。
+アプリ起動時（`npm run dev` / 本番起動）に `src/instrumentation.ts` が未適用のマイグレーションを自動で実行する。手動操作は不要。
 
-### 追加マイグレーション
+### マイグレーションファイルの書き方
 
-ボリュームをリセット（初回扱いに戻す）するか、手動で適用する。
+```ts
+// src/lib/migrations/2026-06-24_create_users.ts
+import type { Kysely } from 'kysely'
+
+export async function up(db: Kysely<unknown>): Promise<void> {
+  // テーブル作成など
+}
+
+export async function down(db: Kysely<unknown>): Promise<void> {
+  // ロールバック処理
+}
+```
+
+### DBリセット
 
 ```bash
-# ボリュームリセット（データ消失するため注意）
+# ボリュームごと削除して再起動（データ消失するため注意）
 docker compose down -v
-docker compose up -d db
-
-# 手動適用
-docker compose exec db psql -U aipo_postgres -d aipo -f /docker-entrypoint-initdb.d/00X_xxx.sql
+docker compose up -d
 ```
 
 ## AIPO ダンプのリストア

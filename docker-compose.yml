@@ -59,4 +59,3 @@ services:
       TZ: Asia/Tokyo
     volumes:
       - oripo-db-data:/var/lib/postgresql/data
-      - ./db/migrations:/docker-entrypoint-initdb.d
