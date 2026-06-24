@@ -15,7 +15,6 @@ db/
   migrations/        # マイグレーション SQL（番号順で適用）
     001_xxx.sql
     002_xxx.sql
-  dump/              # AIPO DB ダンプ（移行作業用）
   README.md          # 本ファイル
 ```
 
@@ -42,13 +41,9 @@ docker compose up -d db
 docker compose exec db psql -U aipo_postgres -d aipo -f /docker-entrypoint-initdb.d/00X_xxx.sql
 ```
 
-## AIPO ダンプファイル
+## AIPO ダンプのリストア
 
-移行元の AIPO DB（PostgreSQL 8.4.7）のダンプ。個人情報を含むため git 管理外。AIPO の日次バックアップから取得して `db/dump/` に配置すること。
-
-| ファイル | 形式 | 用途 |
-|---|---|---|
-| `aipo_db_sql.dump.gz` | プレーン SQL 圧縮 | DBeaver でリストア |
+移行元の AIPO DB（PostgreSQL 8.4.7）のダンプは個人情報を含むため git 管理外。AIPO の日次バックアップから取得すること。
 
 ### ローカルへの復元手順（DBeaver 使用）
 
@@ -56,8 +51,8 @@ docker compose exec db psql -U aipo_postgres -d aipo -f /docker-entrypoint-initd
 # 1. DB コンテナ起動
 docker compose up -d db
 
-# 2. ダンプファイルを db/dump/ に配置後、解凍
-gunzip -k db/dump/aipo_db_sql.dump.gz
+# 2. ダンプファイル（aipo_db_sql.dump.gz）を任意の場所に配置後、解凍
+gunzip -k aipo_db_sql.dump.gz
 ```
 
 3. DBeaver で `aipo_postgres` ユーザーとして `aipo` DB に接続し（接続設定は下記参照）、「SQLスクリプトの実行」で `aipo_db_sql.dump` を流す
@@ -72,7 +67,6 @@ SELECT MIN(create_date), MAX(create_date) FROM eip_t_schedule;
 - `aipo_postgres` ロールと `aipo` DB は docker compose 起動時に自動作成される（ロールの手動作成は不要）
 - AIPO スキーマをベースに不要なレコード・カラムを削除して Oripo のスキーマとして使用する
 - ダンプ内のパスワードは **SHA-1 + Base64（ソルトなし）**。Oripo も同じ方式を採用するため、そのまま移行可能
-- ダンプにはユーザーの氏名・メールアドレス等の個人情報が含まれる。取り扱いに注意
 
 ## DB 管理ツール（DBeaver）
 

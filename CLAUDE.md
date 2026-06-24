@@ -58,7 +58,6 @@ gh api graphql -f query='...'
 | specs/ | 新システム仕様書（SDD・Markdown） |
 | src/ | 実装（Phase5以降） |
 | db/migrations/ | マイグレーションSQL |
-| db/dump/ | AIPOダンプファイル（移行作業用） |
 
 ## Tech Stack
 

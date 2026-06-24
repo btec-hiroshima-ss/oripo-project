@@ -9,9 +9,6 @@ node_modules/
 # Claude ローカル設定
 .claude/settings.local.json
 
-# AIPO ダンプファイル（個人情報含むためgit管理外）
-db/dump/
-
 # ローカル参照用ドキュメント置き場（git管理外）
 /shareDir/*
 !/shareDir/ここのフォルダ内はclaudeコンテナにマウント(共有)されます.txt
