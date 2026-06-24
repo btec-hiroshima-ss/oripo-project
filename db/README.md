@@ -8,37 +8,83 @@
 
 ORM を採用しないことで、SQL を直接書く設計とする。教材としての可読性・学習効果を重視。
 
-## ディレクトリ構成
-
-```
-db/
-  migrations/        # マイグレーション SQL（番号順で適用）
-    001_xxx.sql
-    002_xxx.sql
-  README.md          # 本ファイル
-```
-
 ## マイグレーション運用
+
+マイグレーションは **Kysely Migrator** で管理する。ファイルは `src/lib/migrations/` に TypeScript で配置。
 
 ### 命名規則
 
-`{連番3桁}_{内容}.sql`（例: `001_create_users.sql`）
+`{YYYY-MM-DD}_{内容}.ts`（例: `2026-06-24_create_users.ts`）
 
-### 初回適用
+### 自動適用と型生成
 
-PostgreSQL コンテナの `/docker-entrypoint-initdb.d/` に `migrations/` をマウントしているため、コンテナ初回起動時に自動的に番号順で適用される。
+アプリ起動時（`npm run dev` / 本番起動）に `src/instrumentation.ts` が未適用のマイグレーションを自動で実行する。
 
-### 追加マイグレーション
+**開発時**はマイグレーションが実行されると、続けて `npm run db:generate` も自動で走り `src/lib/db.types.ts` が更新される。手動操作は不要。
 
-ボリュームをリセット（初回扱いに戻す）するか、手動で適用する。
+**なぜ型生成が必要か**: TypeScript の型チェックはビルド時のみ。`db.types.ts` が古いままだと「型エラーなし → ビルド成功 → 本番でクエリエラー」という事態になる。マイグレーション後に型を再生成することで、スキーマのズレをビルド時に検知できる。
+
+**本番**ではビルド済みのため型生成は不要（自動実行もされない）。
+
+手動で型を再生成したい場合（DB コンテナが起動している必要あり）:
 
 ```bash
-# ボリュームリセット（データ消失するため注意）
-docker compose down -v
-docker compose up -d db
+npm run db:generate
+```
 
-# 手動適用
-docker compose exec db psql -U aipo_postgres -d aipo -f /docker-entrypoint-initdb.d/00X_xxx.sql
+### マイグレーションファイルの書き方
+
+```ts
+// src/lib/migrations/2026-06-24_create_users.ts
+import type { Kysely } from 'kysely'
+
+export async function up(db: Kysely<unknown>): Promise<void> {
+  // テーブル作成など
+}
+
+export async function down(db: Kysely<unknown>): Promise<void> {
+  // ロールバック処理
+}
+```
+
+### DBリセット
+
+```bash
+# ボリュームごと削除して再起動（データ消失するため注意）
+docker compose down -v
+docker compose up -d
+```
+
+## バックアップ
+
+`backup` コンテナが1日1回自動でダンプを作成する。ローカル・本番どちらも同じ仕組み。
+
+| 環境 | 保存先 |
+|---|---|
+| ローカル・本番共通 | `./backups/`（プロジェクトルート、git管理外） |
+
+- 実行タイミング: 毎日深夜3時（`crond` で管理）
+- ファイル名: `YYYYMMDD_HHMMSS.dump.gz`
+- 30日以上前のファイルは自動削除
+
+### 手動バックアップ
+
+```bash
+docker compose exec backup sh -c \
+  'pg_dump -h db -U aipo_postgres aipo | gzip > /backups/$(date +%Y%m%d_%H%M%S)_manual.dump.gz'
+```
+
+### リストア
+
+```bash
+# 1. ダンプを解凍
+gunzip -k backups/YYYYMMDD_HHMMSS.dump.gz
+
+# 2. DBリセット
+docker compose down -v && docker compose up -d db
+
+# 3. リストア
+cat backups/YYYYMMDD_HHMMSS.dump | docker compose exec -T db psql -U aipo_postgres aipo
 ```
 
 ## AIPO ダンプのリストア

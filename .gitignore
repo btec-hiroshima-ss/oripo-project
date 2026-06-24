@@ -6,6 +6,9 @@ node_modules/
 # macOS
 .DS_Store
 
+# DBバックアップ
+backups/
+
 # Claude ローカル設定
 .claude/settings.local.json
 
