@@ -15,5 +15,10 @@ export async function register() {
       console.error('Migration failed:', error)
       process.exit(1)
     }
+
+    if (process.env.NODE_ENV === 'development' && results?.some((r) => r.status === 'Success')) {
+      const { execSync } = await import('child_process')
+      execSync('npm run db:generate', { stdio: 'inherit' })
+    }
   }
 }

@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
     "build": "next build",
-    "start": "next start -H 0.0.0.0"
+    "start": "next start -H 0.0.0.0",
+    "db:generate": "kysely-codegen --url $DATABASE_URL --out-file src/lib/db.types.ts"
   },
   "dependencies": {
     "kysely": "^0.28.17",
