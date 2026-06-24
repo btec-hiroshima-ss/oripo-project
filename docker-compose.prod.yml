@@ -34,7 +34,7 @@ services:
   backup:
     image: postgres:16-alpine
     volumes:
-      - /var/backups/oripo:/backups
+      - ./backups:/backups
     env_file:
       - .env.production
     environment:

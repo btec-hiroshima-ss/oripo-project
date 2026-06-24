@@ -4,6 +4,7 @@ node_modules
 docs
 specs
 db/dump
+backups
 docker
 Dockerfile.prd
 docker-compose*.yml

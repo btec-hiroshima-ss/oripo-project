@@ -61,8 +61,7 @@ docker compose up -d
 
 | 環境 | 保存先 |
 |---|---|
-| ローカル | `./backups/`（プロジェクトルート、git管理外） |
-| 本番 | `/var/backups/oripo/`（サーバーのホスト上） |
+| ローカル・本番共通 | `./backups/`（プロジェクトルート、git管理外） |
 
 - 実行タイミング: 毎日深夜3時（`crond` で管理）
 - ファイル名: `YYYYMMDD_HHMMSS.dump.gz`
