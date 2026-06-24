@@ -34,20 +34,31 @@ gh api graphql -f query='...'
 
 | パス | 内容 |
 |---|---|
-| /workspace/shareDir/ | 一時参照ドキュメント置き場（git管理外） |
-| /workspace/docker/claude/ | claudeコンテナ用Dockerfile |
-| /workspace/docker-compose.yml | ローカル開発環境（claude + app + db） |
+| shareDir/ | 一時参照ドキュメント置き場（git管理外） |
+| .claude/ | Claude設定・MCP設定（settings.json） |
+| .devcontainer/ | Dev Container設定 |
+| docker/claude/ | claudeコンテナ用Dockerfile |
+| docker-compose.yml | ローカル開発環境（claude + app + db） |
+| docker-compose.prod.yml / deploy.sh / setup-server.sh | 本番サーバー用 |
+
+### ドキュメント構成
+
+| パス | 内容 |
+|---|---|
+| docs/01_current/ | 現行AIPO調査・仕様書 |
+| docs/02_requirements/ | 要件定義 |
+| docs/03_migration/ | 移行計画 |
+| docs/LOCAL_SETUP.md | ローカル環境構築手順 |
+| docs/SERVER.md | 本番サーバーセットアップ・運用手順 |
 
 ### プロジェクト構成
 
 | ディレクトリ | 内容 |
 |---|---|
-| docs/01_current/ | 現行AIPO調査・仕様書 |
-| docs/02_requirements/ | 要件定義 |
-| docs/03_migration/ | 移行計画 |
 | specs/ | 新システム仕様書（SDD・Markdown） |
 | src/ | 実装（Phase5以降） |
-| docker-compose.prod.yml / deploy.sh / setup-server.sh | 本番サーバー用 |
+| db/migrations/ | マイグレーションSQL |
+| db/dump/ | AIPOダンプファイル（移行作業用） |
 
 ## Tech Stack
 

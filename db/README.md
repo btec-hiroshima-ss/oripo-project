@@ -44,7 +44,7 @@ docker compose exec db psql -U aipo_postgres -d aipo -f /docker-entrypoint-initd
 
 ## AIPO ダンプファイル
 
-移行元の AIPO DB（PostgreSQL 8.4.7）のダンプを `db/dump/` に格納している。
+移行元の AIPO DB（PostgreSQL 8.4.7）のダンプ。個人情報を含むため git 管理外。AIPO の日次バックアップから取得して `db/dump/` に配置すること。
 
 | ファイル | 形式 | 用途 |
 |---|---|---|
@@ -56,7 +56,7 @@ docker compose exec db psql -U aipo_postgres -d aipo -f /docker-entrypoint-initd
 # 1. DB コンテナ起動
 docker compose up -d db
 
-# 2. 解凍
+# 2. ダンプファイルを db/dump/ に配置後、解凍
 gunzip -k db/dump/aipo_db_sql.dump.gz
 ```
 
