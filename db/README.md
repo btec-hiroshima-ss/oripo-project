@@ -55,6 +55,38 @@ docker compose down -v
 docker compose up -d
 ```
 
+## バックアップ
+
+`backup` コンテナが1日1回自動でダンプを作成する。ローカル・本番どちらも同じ仕組み。
+
+| 環境 | 保存先 |
+|---|---|
+| ローカル | `./backups/`（プロジェクトルート、git管理外） |
+| 本番 | `/var/backups/oripo/`（サーバーのホスト上） |
+
+- ファイル名: `YYYYMMDD_HHMMSS.dump.gz`
+- 30日以上前のファイルは自動削除
+
+### 手動バックアップ
+
+```bash
+docker compose exec backup sh -c \
+  'pg_dump -h db -U aipo_postgres aipo | gzip > /backups/$(date +%Y%m%d_%H%M%S)_manual.dump.gz'
+```
+
+### リストア
+
+```bash
+# 1. ダンプを解凍
+gunzip -k backups/YYYYMMDD_HHMMSS.dump.gz
+
+# 2. DBリセット
+docker compose down -v && docker compose up -d db
+
+# 3. リストア
+cat backups/YYYYMMDD_HHMMSS.dump | docker compose exec -T db psql -U aipo_postgres aipo
+```
+
 ## AIPO ダンプのリストア
 
 移行元の AIPO DB（PostgreSQL 8.4.7）のダンプは個人情報を含むため git 管理外。AIPO の日次バックアップから取得すること。
