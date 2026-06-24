@@ -63,6 +63,14 @@ gh api graphql -f query='...'
 
 一時的な参照資料は `/workspace/shareDir/` に置かれている場合がある。タスクに関連しそうなファイルがあれば参照すること。
 
+## DB調査
+
+`.claude/settings.json` に PostgreSQL MCP（`@modelcontextprotocol/server-postgres`）が設定されており、`aipo` DB に直接クエリを実行できる。スキーマ調査・データ確認・移行検討などに活用すること。
+
+```
+接続先: postgres://aipo_postgres:aipo@db:5432/aipo
+```
+
 ---
 
 # 開発ルール
