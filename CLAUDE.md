@@ -121,6 +121,12 @@ gh api graphql -f query='...'
 
 既存ブランチで作業を始める前に、そのブランチの PR がマージ済みでないか確認すること。マージ済みの場合は main から新しいブランチを切り直す。
 
+## 実装規約
+
+コンポーネントの実装を始める前に `/check-implementation` を実行して規約を確認すること。
+
+規約の詳細は `docs/implementation-rules.md` を参照。
+
 ## 開発方針
 
 - **手法**: シンプルSDD（Spec-Driven Development）

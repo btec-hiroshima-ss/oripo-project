@@ -60,10 +60,12 @@ src/
 
 ### DB アクセス方針
 
-- Server Components / Route Handler から直接 DB アクセス
+- Server Component から直接 DB アクセス（Route Handler 経由は不要）
 - クエリビルダ: **Kysely**（ORM は使わない。SQL を直接書く設計）
 - 型生成: `kysely-codegen`（DB スキーマから TypeScript 型を自動生成）
 - 接続情報は環境変数で管理（`DATABASE_URL`）
+
+> コンポーネント設計・DBクエリ・認証の実装規約は [docs/implementation-rules.md](../docs/implementation-rules.md) を参照。
 
 ---
 
