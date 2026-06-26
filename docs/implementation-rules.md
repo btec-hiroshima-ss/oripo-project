@@ -2,17 +2,19 @@
 
 ## コンポーネント設計
 
-Next.js App Router は RSC（React Server Components）ベース。データ取得は Server Component に集約し、`'use client'` は末端の動くコンポーネントのみに限定する。
+判断ルール:
+
+- **DB アクセス・データ取得するコンポーネント** → Server Component
+- **それ以外** → `'use client'`（Client Component）
 
 ```
 page.tsx（Server Component）
   → DB アクセスしてデータ取得
   → 子コンポーネントにデータを渡す
-       ├─ 表示コンポーネント（Server Component）  ← データ表示のみ
-       └─ 動くUIコンポーネント（'use client'）    ← モーダル・日付選択・バリデーション等
+       ├─ 表示コンポーネント（'use client'）
+       └─ 動くUIコンポーネント（'use client'）
 ```
 
-- `'use client'` はユーザー操作に反応するコンポーネントのみに付ける
 - Route Handler（`/api/*`）は外部連携が発生した場合のみ使用する（基本不要）
 
 ## DB クエリ
