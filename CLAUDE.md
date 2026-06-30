@@ -48,8 +48,7 @@ gh api graphql -f query='...'
 | docs/01_current/ | 現行AIPO調査・仕様書 |
 | docs/02_requirements/ | 要件定義 |
 | docs/03_migration/ | 移行計画 |
-| docs/LOCAL_SETUP.md | ローカル環境構築手順 |
-| docs/SERVER.md | 本番サーバーセットアップ・運用手順 |
+| docs/04_operation/ | 環境構築・サーバー運用手順 |
 
 ### プロジェクト構成
 
@@ -125,7 +124,7 @@ gh api graphql -f query='...'
 
 コンポーネントの実装を始める前に `/check-implementation` を実行して規約を確認すること。
 
-規約の詳細は `docs/implementation-rules.md` を参照。
+規約の詳細は `specs/implementation-rules.md` を参照。
 
 ## 開発方針
 
