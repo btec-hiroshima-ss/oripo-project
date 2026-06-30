@@ -15,7 +15,8 @@ sudo systemctl start xrdp
 echo "=== UFW ファイアウォール設定 ==="
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
-sudo ufw allow 3389   # RDP（社内リモートデスクトップ接続用）
+sudo ufw allow from 172.29.0.0/16 to any port 3389      # RDP（社内LAN）
+sudo ufw allow from 192.168.56.0/24 to any port 3389    # RDP（VirtualBox Host-Only・ローカル検証用）
 sudo ufw --force enable
 
 echo ""
