@@ -1,8 +1,9 @@
 #!/bin/bash
 set -e
 
-# セキュリティセットアップスクリプト（Ubuntu Server 18）
+# セキュリティセットアップスクリプト・本番用（Ubuntu Server 18）
 # setup-server.sh の実行・再起動後に実行すること
+# 関連ドキュメント: docs/04_operation/SERVER.md
 
 echo "=== xrdp インストール ==="
 sudo apt-get update

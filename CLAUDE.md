@@ -39,7 +39,8 @@ gh api graphql -f query='...'
 | .devcontainer/ | Dev Container設定 |
 | docker/claude/ | claudeコンテナ用Dockerfile |
 | docker-compose.yml | ローカル開発環境（claude + app + db） |
-| docker-compose.prod.yml / deploy.sh / setup-server.sh | 本番サーバー用 |
+| docker-compose.prod.yml | 本番サーバー用 compose |
+| scripts/ | セットアップ・デプロイスクリプト |
 
 ### ドキュメント構成
 
@@ -65,7 +66,7 @@ gh api graphql -f query='...'
 - CI/CD: `.github/workflows/deploy.yml`（mainマージ時にGHCRへpush）
 - Dockerfile: `Dockerfile`（ローカル開発用）/ `Dockerfile.prd`（本番用マルチステージ）
 - ローカル開発: `docker-compose.yml`（プロジェクトルート）
-- 本番: `docker-compose.prod.yml` / `deploy.sh` / `setup-server.sh`（プロジェクトルート）
+- 本番: `docker-compose.prod.yml` / `scripts/deploy.sh` / `scripts/setup-server.sh`
 - サーバーOS: Ubuntu Server 18
 
 ## 参照ドキュメント

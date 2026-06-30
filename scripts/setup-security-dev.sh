@@ -3,6 +3,7 @@ set -e
 
 # セキュリティセットアップスクリプト・開発用（VirtualBox ローカル検証環境）
 # setup-server.sh の実行・再起動後に実行すること
+# 関連ドキュメント: docs/04_operation/SERVER.md
 
 echo "=== xrdp インストール ==="
 sudo apt-get update

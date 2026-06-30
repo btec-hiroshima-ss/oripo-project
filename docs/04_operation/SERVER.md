@@ -1,5 +1,14 @@
 # 本番サーバー セットアップ・運用手順
 
+関連スクリプト:
+
+| スクリプト | 用途 |
+|---|---|
+| `scripts/setup-server.sh` | Docker・GUI のインストール（初回のみ） |
+| `scripts/setup-security.sh` | ファイアウォール・xrdp 設定（本番用） |
+| `scripts/setup-security-dev.sh` | ファイアウォール・xrdp 設定（ローカル検証用） |
+| `scripts/deploy.sh` | デプロイ（git pull → docker compose up） |
+
 ## 前提条件
 
 - Ubuntu Server 18 以上
@@ -22,7 +31,7 @@ cd oripo-project
 ### 2. サーバーセットアップ
 
 ```bash
-./setup-server.sh
+./scripts/setup-server.sh
 sudo reboot
 ```
 
@@ -34,10 +43,10 @@ sudo reboot
 cd oripo-project
 
 # 本番サーバー（社内LANからのみRDP許可）
-./setup-security.sh
+./scripts/setup-security.sh
 
 # ローカル検証環境（VirtualBox等・192.168.x.xからRDP許可）
-./setup-security-dev.sh
+./scripts/setup-security-dev.sh
 ```
 
 - UFW（ファイアウォール）を有効化し、受信を全拒否・RDP（3389）のみ許可
@@ -51,7 +60,7 @@ cd oripo-project
 cd oripo-project
 cp .env.example .env.production
 vi .env.production  # GHCR_USER・GHCR_TOKEN 等を設定
-./deploy.sh
+./scripts/deploy.sh
 ```
 
 ---
@@ -59,7 +68,7 @@ vi .env.production  # GHCR_USER・GHCR_TOKEN 等を設定
 ## デプロイ手順（更新時）
 
 ```bash
-./deploy.sh
+./scripts/deploy.sh
 ```
 
 ---
