@@ -144,8 +144,8 @@ gh api graphql -f query='...'
 - **手法**: シンプルSDD（Spec-Driven Development）
 - **仕様書**: Markdownで記述 → 社内レビュー・合意 → Claudeが実装・テスト生成
 - **テスト**:
-  - ユニットテスト（Vitest）: 仕様書の受け入れ条件をもとにClaudeが生成。GitHub Actionsで自動実行。テストファイルはソースと同置（`Button.tsx` の隣に `Button.test.ts`）。
-  - E2E（Playwright）: ローカルで手動実行。CIには乗せない。
+  - ユニットテスト（Vitest）: 仕様書の受け入れ条件をもとにClaudeが生成。GitHub Actionsで自動実行。テストファイルはソースと同置（`schedule.ts` の隣に `schedule.test.ts`）。
+  - 最終確認: 人間が手動で実施。仕様書の `## 受け入れ条件` をチェックリストとして使う。
 
 ## 仕様書（specs/）
 
