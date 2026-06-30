@@ -32,7 +32,12 @@ sudo reboot
 
 ```bash
 cd oripo-project
+
+# 本番サーバー（社内LANからのみRDP許可）
 ./setup-security.sh
+
+# ローカル検証環境（VirtualBox等・192.168.x.xからRDP許可）
+./setup-security-dev.sh
 ```
 
 - UFW（ファイアウォール）を有効化し、受信を全拒否・RDP（3389）のみ許可

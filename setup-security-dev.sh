@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# セキュリティセットアップスクリプト（Ubuntu Server 18）
+# セキュリティセットアップスクリプト・開発用（VirtualBox ローカル検証環境）
 # setup-server.sh の実行・再起動後に実行すること
 
 echo "=== xrdp インストール ==="
@@ -15,7 +15,7 @@ sudo systemctl start xrdp
 echo "=== UFW ファイアウォール設定 ==="
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
-sudo ufw allow from 172.29.0.0/16 to any port 3389      # RDP（社内LAN）
+sudo ufw allow from 192.168.0.0/16 to any port 3389    # RDP（ホストPC・VirtualBox等ローカル環境）
 sudo ufw --force enable
 
 echo ""
