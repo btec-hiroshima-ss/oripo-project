@@ -17,6 +17,26 @@ page.tsx（Server Component）
 
 - Route Handler（`/api/*`）は外部連携が発生した場合のみ使用する（基本不要）
 
+## ファイル構成
+
+```
+src/
+  app/
+    {機能名}/
+      page.tsx      ← Server Component（src/lib/ の関数を呼ぶだけ）
+      actions.ts    ← Server Actions（更新・作成・削除）
+      {Component}.tsx  ← 'use client' コンポーネント
+  lib/
+    db.ts           ← DB接続
+    auth.ts         ← 認証・セッション管理
+    migrator.ts     ← マイグレーション
+    {機能名}.ts     ← DBクエリ関数（例: schedule.ts / user.ts）
+```
+
+- `src/lib/{機能名}.ts` にDBクエリ関数をまとめる（SQLをコンポーネントに書かない）
+- `page.tsx` は `src/lib/` の関数を呼ぶだけにする
+- 将来的に外部APIが必要になった場合は `app/api/` に Route Handler を追加し、同じ `src/lib/` の関数を再利用する
+
 ## DB クエリ
 
 - N+1 クエリを避ける（ループ内でクエリを発行しない）
