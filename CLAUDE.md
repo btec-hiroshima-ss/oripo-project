@@ -39,7 +39,8 @@ gh api graphql -f query='...'
 | .devcontainer/ | Dev Container設定 |
 | docker/claude/ | claudeコンテナ用Dockerfile |
 | docker-compose.yml | ローカル開発環境（claude + app + db） |
-| docker-compose.prod.yml / deploy.sh / setup-server.sh | 本番サーバー用 |
+| docker-compose.prod.yml | 本番サーバー用 compose |
+| scripts/ | セットアップ・デプロイスクリプト |
 
 ### ドキュメント構成
 
@@ -48,8 +49,7 @@ gh api graphql -f query='...'
 | docs/01_current/ | 現行AIPO調査・仕様書 |
 | docs/02_requirements/ | 要件定義 |
 | docs/03_migration/ | 移行計画 |
-| docs/LOCAL_SETUP.md | ローカル環境構築手順 |
-| docs/SERVER.md | 本番サーバーセットアップ・運用手順 |
+| docs/04_operation/ | 環境構築・サーバー運用手順 |
 
 ### プロジェクト構成
 
@@ -66,7 +66,7 @@ gh api graphql -f query='...'
 - CI/CD: `.github/workflows/deploy.yml`（mainマージ時にGHCRへpush）
 - Dockerfile: `Dockerfile`（ローカル開発用）/ `Dockerfile.prd`（本番用マルチステージ）
 - ローカル開発: `docker-compose.yml`（プロジェクトルート）
-- 本番: `docker-compose.prod.yml` / `deploy.sh` / `setup-server.sh`（プロジェクトルート）
+- 本番: `docker-compose.prod.yml` / `deploy.sh` / `scripts/setup-server.sh`
 - サーバーOS: Ubuntu Server 18
 
 ## 参照ドキュメント
@@ -125,7 +125,7 @@ gh api graphql -f query='...'
 
 コンポーネントの実装を始める前に `/check-implementation` を実行して規約を確認すること。
 
-規約の詳細は `docs/implementation-rules.md` を参照。
+規約の詳細は `specs/implementation-rules.md` を参照。
 
 ## 開発方針
 

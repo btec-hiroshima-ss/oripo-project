@@ -65,7 +65,7 @@ src/
 - 型生成: `kysely-codegen`（DB スキーマから TypeScript 型を自動生成）
 - 接続情報は環境変数で管理（`DATABASE_URL`）
 
-> コンポーネント設計・DBクエリ・認証の実装規約は [docs/implementation-rules.md](../docs/implementation-rules.md) を参照。
+> コンポーネント設計・DBクエリ・認証の実装規約は [implementation-rules.md](./implementation-rules.md) を参照。
 
 ---
 
@@ -83,8 +83,10 @@ src/
 ```
 （プロジェクトルート）
   docker-compose.prod.yml   # 本番用 compose
-  deploy.sh                 # デプロイスクリプト（git pull + compose pull/up）
-  setup-server.sh           # Docker インストールスクリプト（初回のみ）
+  deploy.sh                     # デプロイスクリプト（git pull + compose pull/up）
+  scripts/setup-server.sh       # Docker インストールスクリプト（初回のみ）
+  scripts/setup-security.sh     # セキュリティ設定・本番用
+  scripts/setup-security-dev.sh # セキュリティ設定・開発用
   .env.example              # 環境変数テンプレート
 ```
 

@@ -1,5 +1,14 @@
 # 本番サーバー セットアップ・運用手順
 
+関連スクリプト:
+
+| スクリプト | 用途 |
+|---|---|
+| `scripts/setup-server.sh` | Docker・GUI のインストール（初回のみ） |
+| `scripts/setup-security.sh` | ファイアウォール・xrdp 設定（本番用） |
+| `scripts/setup-security-dev.sh` | ファイアウォール・xrdp 設定（ローカル検証用） |
+| `deploy.sh` | デプロイ（git pull → docker compose up） |
+
 ## 前提条件
 
 - Ubuntu Server 18 以上
@@ -22,11 +31,28 @@ cd oripo-project
 ### 2. サーバーセットアップ
 
 ```bash
-./setup-server.sh
+./scripts/setup-server.sh
 sudo reboot
 ```
 
-### 3. 初回デプロイ
+### 3. セキュリティセットアップ
+
+再起動後：
+
+```bash
+cd oripo-project
+
+# 本番サーバー（社内LANからのみRDP許可）
+./scripts/setup-security.sh
+
+# ローカル検証環境（VirtualBox等・192.168.x.xからRDP許可）
+./scripts/setup-security-dev.sh
+```
+
+- UFW（ファイアウォール）を有効化し、受信を全拒否・RDP（3389）のみ許可
+- xrdp をインストール・自動起動設定（社内リモートデスクトップ接続用）
+
+### 4. 初回デプロイ
 
 再起動後：
 

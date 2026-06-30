@@ -3,6 +3,7 @@ set -e
 
 # サーバー初期セットアップスクリプト（Ubuntu Server 18）
 # 事前に git clone でリポジトリを取得してから実行すること
+# 関連ドキュメント: docs/04_operation/SERVER.md
 
 echo "=== パッケージ更新 ==="
 sudo apt-get update

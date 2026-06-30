@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# 本番デプロイスクリプト（git pull → docker compose pull/up）
+# 関連ドキュメント: docs/04_operation/SERVER.md
+
 cd "$(dirname "$0")"
 
 # 環境変数を読み込む

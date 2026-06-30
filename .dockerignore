@@ -8,6 +8,6 @@ backups
 docker
 Dockerfile.prd
 docker-compose*.yml
+scripts
 deploy.sh
-setup-server.sh
 .env*
