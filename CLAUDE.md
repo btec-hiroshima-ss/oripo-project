@@ -66,7 +66,7 @@ gh api graphql -f query='...'
 - CI/CD: `.github/workflows/deploy.yml`（mainマージ時にGHCRへpush）
 - Dockerfile: `Dockerfile`（ローカル開発用）/ `Dockerfile.prd`（本番用マルチステージ）
 - ローカル開発: `docker-compose.yml`（プロジェクトルート）
-- 本番: `docker-compose.prod.yml` / `scripts/deploy.sh` / `scripts/setup-server.sh`
+- 本番: `docker-compose.prod.yml` / `deploy.sh` / `scripts/setup-server.sh`
 - サーバーOS: Ubuntu Server 18
 
 ## 参照ドキュメント

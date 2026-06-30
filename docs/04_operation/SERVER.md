@@ -7,7 +7,7 @@
 | `scripts/setup-server.sh` | Docker・GUI のインストール（初回のみ） |
 | `scripts/setup-security.sh` | ファイアウォール・xrdp 設定（本番用） |
 | `scripts/setup-security-dev.sh` | ファイアウォール・xrdp 設定（ローカル検証用） |
-| `scripts/deploy.sh` | デプロイ（git pull → docker compose up） |
+| `deploy.sh` | デプロイ（git pull → docker compose up） |
 
 ## 前提条件
 
@@ -60,7 +60,7 @@ cd oripo-project
 cd oripo-project
 cp .env.example .env.production
 vi .env.production  # GHCR_USER・GHCR_TOKEN 等を設定
-./scripts/deploy.sh
+./deploy.sh
 ```
 
 ---
@@ -68,7 +68,7 @@ vi .env.production  # GHCR_USER・GHCR_TOKEN 等を設定
 ## デプロイ手順（更新時）
 
 ```bash
-./scripts/deploy.sh
+./deploy.sh
 ```
 
 ---

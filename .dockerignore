@@ -9,4 +9,5 @@ docker
 Dockerfile.prd
 docker-compose*.yml
 scripts
+deploy.sh
 .env*

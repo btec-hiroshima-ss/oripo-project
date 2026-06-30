@@ -83,7 +83,7 @@ src/
 ```
 （プロジェクトルート）
   docker-compose.prod.yml   # 本番用 compose
-  scripts/deploy.sh             # デプロイスクリプト（git pull + compose pull/up）
+  deploy.sh                     # デプロイスクリプト（git pull + compose pull/up）
   scripts/setup-server.sh       # Docker インストールスクリプト（初回のみ）
   scripts/setup-security.sh     # セキュリティ設定・本番用
   scripts/setup-security-dev.sh # セキュリティ設定・開発用
