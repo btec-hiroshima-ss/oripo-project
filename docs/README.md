@@ -8,5 +8,6 @@
 | `02_requirements/` | 新システム Oripo の要件定義書・モックアップ・配布用ファイル |
 | `03_migration/` | AIPO → Oripo のデータ移行計画（Phase7 で整備予定） |
 | `04_operation/` | 環境構築・サーバー運用手順 |
+| `05_develop/` | 実装フロー・コーディング規約 |
 
 実装規約・アーキテクチャ設計は [`specs/`](../specs/) を参照。

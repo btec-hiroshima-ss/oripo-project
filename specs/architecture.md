@@ -65,7 +65,7 @@ src/
 - 型生成: `kysely-codegen`（DB スキーマから TypeScript 型を自動生成）
 - 接続情報は環境変数で管理（`DATABASE_URL`）
 
-> コンポーネント設計・DBクエリ・認証の実装規約は [implementation-rules.md](./implementation-rules.md) を参照。
+> コンポーネント設計・DBクエリ・認証の実装規約は [docs/05_develop/implementation-rules.md](../docs/05_develop/implementation-rules.md) を参照。
 
 ---
 

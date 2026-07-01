@@ -50,6 +50,7 @@ gh api graphql -f query='...'
 | docs/02_requirements/ | 要件定義 |
 | docs/03_migration/ | 移行計画 |
 | docs/04_operation/ | 環境構築・サーバー運用手順 |
+| docs/05_develop/ | 実装フロー・コーディング規約 |
 
 ### プロジェクト構成
 
@@ -117,6 +118,8 @@ gh api graphql -f query='...'
 
 **ファイルの編集・保存は確認不要。**
 
+`git push` の前に `/spec-check` を実行し、仕様書・実装・テストの整合性を確認すること。ズレがある場合はユーザーに確認を取ってから進む。
+
 `git commit` / `git push` / `gh pr create` の前に必ず変更内容を提示してユーザーの確認を取ること。確認なしに実行しない。
 
 既存ブランチで作業を始める前に、そのブランチの PR がマージ済みでないか確認すること。マージ済みの場合は main から新しいブランチを切り直す。
@@ -125,15 +128,24 @@ gh api graphql -f query='...'
 
 コンポーネントの実装を始める前に `/check-implementation` を実行して規約を確認すること。
 
-規約の詳細は `specs/implementation-rules.md` を参照。
+規約の詳細は `docs/05_develop/implementation-rules.md` を参照。
+
+## Claude 依存に関する方針
+
+**Claude が将来使えなくなることを前提に開発する。**
+
+- コードは Claude なしでも読める・書けるシンプルさを保つ
+- テストは初学者が自力で書き・読めるレベルに抑える（モックを使う理由）
+- 仕様書・実装規約・フロードキュメントを常に最新に保ち、Claude がいなくても開発を継続できる状態を維持する
+- Claude に頼りすぎず、実装の意図・判断理由はドキュメントやコメントに残す
 
 ## 開発方針
 
 - **手法**: シンプルSDD（Spec-Driven Development）
 - **仕様書**: Markdownで記述 → 社内レビュー・合意 → Claudeが実装・テスト生成
 - **テスト**:
-  - ユニットテスト（Vitest）: 仕様書の受け入れ条件をもとにClaudeが生成。GitHub Actionsで自動実行。テストファイルはソースと同置（`Button.tsx` の隣に `Button.test.ts`）。
-  - E2E（Playwright）: ローカルで手動実行。CIには乗せない。
+  - ユニットテスト（Vitest）: 仕様書の受け入れ条件をもとにClaudeが生成。GitHub Actionsで自動実行。テストファイルはソースと同置（`schedule.ts` の隣に `schedule.test.ts`）。
+  - 最終確認: 人間が手動で実施。仕様書の `## 受け入れ条件` をチェックリストとして使う。
 
 ## 仕様書（specs/）
 
