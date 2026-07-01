@@ -39,16 +39,14 @@ echo "=== Docker 自動起動設定 ==="
 sudo systemctl enable docker
 sudo systemctl start docker
 
-echo "=== GUI（Xubuntu デスクトップ）インストール ==="
-sudo apt-get install -y xubuntu-desktop
+echo "=== Cockpit インストール ==="
+sudo apt-get install -y cockpit
+sudo systemctl enable cockpit.socket
+sudo systemctl start cockpit.socket
 
-echo "=== デフォルトをサーバーモードに固定（GUI 自動起動しない） ==="
-sudo systemctl set-default multi-user.target
-
-echo "=== xrdp インストール ==="
-sudo apt-get install -y xrdp
-sudo systemctl enable xrdp
-sudo systemctl start xrdp
+echo "=== Cockpit root ログイン禁止 ==="
+sudo mkdir -p /etc/cockpit
+echo "root" | sudo tee /etc/cockpit/disallowed-users
 
 echo "=== スワップ設定（2GB） ==="
 if [ ! -f /swapfile ]; then
@@ -66,6 +64,12 @@ else
 fi
 
 echo ""
-echo "完了。再起動後に deploy.sh を実行してください："
-echo "  sudo reboot"
-echo "  cd $(dirname "$0") && ./deploy.sh"
+echo "完了。"
+echo "次の手順を実行してください："
+echo "  1. sudo 権限を持つ管理ユーザーを作成："
+echo "       sudo adduser <username>"
+echo "       sudo usermod -aG sudo <username>"
+echo "  2. scripts/setup-security.sh（本番）または scripts/setup-security-dev.sh（開発）を実行"
+echo "  3. sudo reboot"
+echo "  4. Cockpit: https://<サーバーIP>:9090 にブラウザでアクセス（管理ユーザーでログイン）"
+echo "  5. cd $(dirname "$0") && ./deploy.sh"
