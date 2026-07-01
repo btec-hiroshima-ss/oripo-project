@@ -50,7 +50,7 @@ echo "root" | sudo tee /etc/cockpit/disallowed-users
 
 echo "=== cockpit-navigator（ファイルマネージャー）インストール ==="
 NAVIGATOR_DEB=$(curl -s https://api.github.com/repos/45Drives/cockpit-navigator/releases/latest \
-  | grep browser_download_url | grep "_all.deb" | cut -d '"' -f 4)
+  | python3 -c "import sys,json; assets=json.load(sys.stdin)['assets']; print(next(a['browser_download_url'] for a in assets if '_all.deb' in a['name']))")
 curl -Lo /tmp/cockpit-navigator.deb "$NAVIGATOR_DEB"
 sudo dpkg -i /tmp/cockpit-navigator.deb
 rm /tmp/cockpit-navigator.deb
