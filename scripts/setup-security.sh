@@ -7,7 +7,7 @@ set -e
 
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
-sudo ufw allow from 172.29.0.0/16 to any port 9090      # Cockpit（社内LAN）
+sudo ufw allow from 172.29.0.0/16 to any port 3389      # RDP（社内LAN）
 sudo ufw --force enable
 
 echo ""
