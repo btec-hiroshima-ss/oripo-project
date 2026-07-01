@@ -45,6 +45,11 @@ sudo apt-get install -y xubuntu-desktop
 echo "=== デフォルトをサーバーモードに固定（GUI 自動起動しない） ==="
 sudo systemctl set-default multi-user.target
 
+echo "=== xrdp インストール ==="
+sudo apt-get install -y xrdp
+sudo systemctl enable xrdp
+sudo systemctl start xrdp
+
 echo "=== スワップ設定（2GB） ==="
 if [ ! -f /swapfile ]; then
   sudo fallocate -l 2G /swapfile
