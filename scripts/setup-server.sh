@@ -32,12 +32,12 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io
 echo "=== docker compose プラグインインストール ==="
 sudo apt-get install -y docker-compose-plugin
 
-echo "=== 現ユーザーを docker グループに追加 ==="
-sudo usermod -aG docker $USER
-
 echo "=== Docker 自動起動設定 ==="
 sudo systemctl enable docker
 sudo systemctl start docker
+
+echo "=== 現ユーザーを docker グループに追加 ==="
+sudo usermod -aG docker $USER
 
 echo "=== Cockpit インストール ==="
 sudo apt-get install -y cockpit
@@ -47,16 +47,6 @@ sudo systemctl start cockpit.socket
 echo "=== Cockpit root ログイン禁止 ==="
 sudo mkdir -p /etc/cockpit
 echo "root" | sudo tee /etc/cockpit/disallowed-users
-
-echo "=== 管理ユーザー（oripo）作成 ==="
-if id "oripo" &>/dev/null; then
-  echo "ユーザー oripo は既に存在します（スキップ）"
-else
-  sudo useradd -m -s /bin/bash oripo
-  echo "oripo:oripo" | sudo chpasswd
-  sudo usermod -aG sudo oripo
-  sudo usermod -aG docker oripo
-fi
 
 echo "=== スワップ設定（2GB） ==="
 if [ ! -f /swapfile ]; then
@@ -79,5 +69,5 @@ echo "次の手順を実行してください："
 echo "  1. scripts/setup-security.sh（本番）または scripts/setup-security-dev.sh（開発）を実行"
 echo "  2. sudo reboot"
 echo "  3. Cockpit: https://<サーバーIP>:9090 にブラウザでアクセス"
-echo "     ユーザー: oripo / パスワード: oripo（初回ログイン後に変更すること）"
+echo "     ユーザー: Ubuntu インストール時に作成したユーザーでログイン"
 echo "  4. cd $(dirname "$0") && ./deploy.sh"
