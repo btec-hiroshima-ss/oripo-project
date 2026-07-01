@@ -48,6 +48,10 @@ echo "=== Cockpit root ログイン禁止 ==="
 sudo mkdir -p /etc/cockpit
 echo "root" | sudo tee /etc/cockpit/disallowed-users
 
+echo "=== cockpit-navigator（ファイルマネージャー）インストール ==="
+curl -sSL https://repo.45drives.com/setup | sudo bash
+sudo apt-get install -y cockpit-navigator
+
 echo "=== スワップ設定（2GB） ==="
 if [ ! -f /swapfile ]; then
   sudo fallocate -l 2G /swapfile
