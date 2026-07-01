@@ -32,18 +32,21 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io
 echo "=== docker compose プラグインインストール ==="
 sudo apt-get install -y docker-compose-plugin
 
-echo "=== 現ユーザーを docker グループに追加 ==="
-sudo usermod -aG docker $USER
-
 echo "=== Docker 自動起動設定 ==="
 sudo systemctl enable docker
 sudo systemctl start docker
 
-echo "=== GUI（Xubuntu デスクトップ）インストール ==="
-sudo apt-get install -y xubuntu-desktop
+echo "=== 現ユーザーを docker グループに追加 ==="
+sudo usermod -aG docker $USER
 
-echo "=== デフォルトをサーバーモードに固定（GUI 自動起動しない） ==="
-sudo systemctl set-default multi-user.target
+echo "=== Cockpit インストール ==="
+sudo apt-get install -y cockpit
+sudo systemctl enable cockpit.socket
+sudo systemctl start cockpit.socket
+
+echo "=== Cockpit root ログイン禁止 ==="
+sudo mkdir -p /etc/cockpit
+echo "root" | sudo tee /etc/cockpit/disallowed-users
 
 echo "=== スワップ設定（2GB） ==="
 if [ ! -f /swapfile ]; then
@@ -61,6 +64,10 @@ else
 fi
 
 echo ""
-echo "完了。再起動後に deploy.sh を実行してください："
-echo "  sudo reboot"
-echo "  cd $(dirname "$0") && ./deploy.sh"
+echo "完了。"
+echo "次の手順を実行してください："
+echo "  1. scripts/setup-security.sh（本番）または scripts/setup-security-dev.sh（開発）を実行"
+echo "  2. sudo reboot"
+echo "  3. Cockpit: https://<サーバーIP>:9090 にブラウザでアクセス"
+echo "     ユーザー: Ubuntu インストール時に作成したユーザーでログイン"
+echo "  4. cd $(dirname "$0") && ./deploy.sh"

@@ -5,18 +5,9 @@ set -e
 # setup-server.sh の実行・再起動後に実行すること
 # 関連ドキュメント: docs/04_operation/SERVER.md
 
-echo "=== xrdp インストール ==="
-sudo apt-get update
-sudo apt-get install -y xrdp
-
-echo "=== xrdp 自動起動設定 ==="
-sudo systemctl enable xrdp
-sudo systemctl start xrdp
-
-echo "=== UFW ファイアウォール設定 ==="
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
-sudo ufw allow from 172.29.0.0/16 to any port 3389      # RDP（社内LAN）
+sudo ufw allow from 172.29.0.0/16 to any port 9090      # Cockpit（社内LAN）
 sudo ufw --force enable
 
 echo ""
