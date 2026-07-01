@@ -49,6 +49,7 @@ sudo mkdir -p /etc/cockpit
 echo "root" | sudo tee /etc/cockpit/disallowed-users
 
 echo "=== cockpit-navigator（ファイルマネージャー）インストール ==="
+sudo apt-get install -y zip inotify-tools
 NAVIGATOR_DEB="https://github.com/45Drives/cockpit-navigator/releases/download/v0.6.1/cockpit-navigator_0.6.1-1focal_all.deb"
 curl -Lo /tmp/cockpit-navigator.deb "$NAVIGATOR_DEB"
 sudo dpkg -i /tmp/cockpit-navigator.deb
