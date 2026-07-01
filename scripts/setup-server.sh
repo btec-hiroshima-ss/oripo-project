@@ -48,6 +48,16 @@ echo "=== Cockpit root ログイン禁止 ==="
 sudo mkdir -p /etc/cockpit
 echo "root" | sudo tee /etc/cockpit/disallowed-users
 
+echo "=== 管理ユーザー（oripo）作成 ==="
+if id "oripo" &>/dev/null; then
+  echo "ユーザー oripo は既に存在します（スキップ）"
+else
+  sudo useradd -m -s /bin/bash oripo
+  echo "oripo:oripo" | sudo chpasswd
+  sudo usermod -aG sudo oripo
+  sudo usermod -aG docker oripo
+fi
+
 echo "=== スワップ設定（2GB） ==="
 if [ ! -f /swapfile ]; then
   sudo fallocate -l 2G /swapfile
@@ -66,10 +76,8 @@ fi
 echo ""
 echo "完了。"
 echo "次の手順を実行してください："
-echo "  1. sudo 権限を持つ管理ユーザーを作成："
-echo "       sudo adduser <username>"
-echo "       sudo usermod -aG sudo <username>"
-echo "  2. scripts/setup-security.sh（本番）または scripts/setup-security-dev.sh（開発）を実行"
-echo "  3. sudo reboot"
-echo "  4. Cockpit: https://<サーバーIP>:9090 にブラウザでアクセス（管理ユーザーでログイン）"
-echo "  5. cd $(dirname "$0") && ./deploy.sh"
+echo "  1. scripts/setup-security.sh（本番）または scripts/setup-security-dev.sh（開発）を実行"
+echo "  2. sudo reboot"
+echo "  3. Cockpit: https://<サーバーIP>:9090 にブラウザでアクセス"
+echo "     ユーザー: oripo / パスワード: oripo（初回ログイン後に変更すること）"
+echo "  4. cd $(dirname "$0") && ./deploy.sh"
