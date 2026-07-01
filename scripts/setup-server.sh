@@ -39,21 +39,16 @@ sudo systemctl start docker
 echo "=== 現ユーザーを docker グループに追加 ==="
 sudo usermod -aG docker $USER
 
-echo "=== Cockpit インストール ==="
-sudo apt-get install -y cockpit
-sudo systemctl enable cockpit.socket
-sudo systemctl start cockpit.socket
+echo "=== GUI（Xubuntu デスクトップ）インストール ==="
+sudo apt-get install -y xubuntu-desktop
 
-echo "=== Cockpit root ログイン禁止 ==="
-sudo mkdir -p /etc/cockpit
-echo "root" | sudo tee /etc/cockpit/disallowed-users
+echo "=== デフォルトをサーバーモードに固定（GUI 自動起動しない） ==="
+sudo systemctl set-default multi-user.target
 
-echo "=== cockpit-navigator（ファイルマネージャー）インストール ==="
-sudo apt-get install -y zip inotify-tools
-NAVIGATOR_DEB="https://github.com/45Drives/cockpit-navigator/releases/download/v0.6.1/cockpit-navigator_0.6.1-1focal_all.deb"
-curl -Lo /tmp/cockpit-navigator.deb "$NAVIGATOR_DEB"
-sudo dpkg -i /tmp/cockpit-navigator.deb
-rm /tmp/cockpit-navigator.deb
+echo "=== xrdp インストール ==="
+sudo apt-get install -y xrdp
+sudo systemctl enable xrdp
+sudo systemctl start xrdp
 
 echo "=== スワップ設定（2GB） ==="
 if [ ! -f /swapfile ]; then
@@ -75,6 +70,5 @@ echo "完了。"
 echo "次の手順を実行してください："
 echo "  1. scripts/setup-security.sh（本番）または scripts/setup-security-dev.sh（開発）を実行"
 echo "  2. sudo reboot"
-echo "  3. Cockpit: https://<サーバーIP>:9090 にブラウザでアクセス"
-echo "     ユーザー: Ubuntu インストール時に作成したユーザーでログイン"
+echo "  3. リモートデスクトップ（RDP）で <サーバーIP>:3389 に接続"
 echo "  4. cd $(dirname "$0") && ./deploy.sh"
