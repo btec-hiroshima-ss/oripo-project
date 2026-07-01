@@ -7,7 +7,8 @@ set -e
 
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
-sudo ufw allow from 192.168.0.0/16 to any port 3389    # RDP（ホストPC・VirtualBox等ローカル環境）
+sudo ufw allow from 192.168.0.0/16 to any port 3389    # RDP（VirtualBox ホストオンリー等）
+sudo ufw allow from 10.0.0.0/8 to any port 3389        # RDP（VirtualBox ブリッジ等）
 sudo ufw --force enable
 
 echo ""
