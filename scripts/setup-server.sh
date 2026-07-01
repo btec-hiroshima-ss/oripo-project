@@ -50,6 +50,15 @@ sudo apt-get install -y xrdp
 sudo systemctl enable xrdp
 sudo systemctl start xrdp
 
+echo "=== xrdp セッション設定（xfce4・GVFS無効化） ==="
+sudo tee /etc/xrdp/startwm.sh << 'EOF'
+#!/bin/sh
+export GVFS_DISABLE_FUSE=1
+startxfce4
+EOF
+sudo chmod +x /etc/xrdp/startwm.sh
+sudo systemctl restart xrdp
+
 echo "=== スワップ設定（2GB） ==="
 if [ ! -f /swapfile ]; then
   sudo fallocate -l 2G /swapfile
