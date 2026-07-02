@@ -12,7 +12,8 @@ set -a; source .env.production; set +a
 # GHCR ログイン
 echo $GHCR_TOKEN | docker login ghcr.io -u $GHCR_USER --password-stdin
 
-# 最新の設定を取得
+# 最新の設定を取得（GHCR_TOKEN を使って認証）
+git remote set-url origin https://${GHCR_USER}:${GHCR_TOKEN}@github.com/btec-hiroshima-ss/oripo-project.git
 git pull
 
 # 最新イメージをpullして再起動
