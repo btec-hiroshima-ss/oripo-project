@@ -50,6 +50,9 @@ sudo apt-get install -y xrdp
 sudo systemctl enable xrdp
 sudo systemctl start xrdp
 
+echo "=== デフォルトターミナルをxfce4-terminalに設定 ==="
+sudo update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal
+
 echo "=== xrdp セッション設定（xfce4・GVFS無効化） ==="
 sudo tee /etc/xrdp/startwm.sh << 'EOF'
 #!/bin/sh
