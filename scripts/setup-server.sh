@@ -66,6 +66,13 @@ EOF
 sudo chmod +x /etc/xrdp/startwm.sh
 sudo systemctl restart xrdp
 
+echo "=== lazydocker インストール ==="
+LAZYDOCKER_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazydocker/releases/latest" | grep -Po '"tag_name": "v\K[0-9.]+')
+curl -Lo /tmp/lazydocker.tar.gz "https://github.com/jesseduffield/lazydocker/releases/latest/download/lazydocker_${LAZYDOCKER_VERSION}_Linux_x86_64.tar.gz"
+tar xf /tmp/lazydocker.tar.gz -C /tmp lazydocker
+sudo mv /tmp/lazydocker /usr/local/bin/lazydocker
+rm /tmp/lazydocker.tar.gz
+
 echo "=== スワップ設定（2GB） ==="
 if [ ! -f /swapfile ]; then
   sudo fallocate -l 2G /swapfile
