@@ -40,7 +40,7 @@ echo "=== 現ユーザーを docker グループに追加 ==="
 sudo usermod -aG docker $USER
 
 echo "=== GUI（Xubuntu デスクトップ）インストール ==="
-sudo apt-get install -y xubuntu-desktop
+sudo apt-get install -y xubuntu-desktop fonts-noto-cjk
 
 echo "=== デフォルトをサーバーモードに固定（GUI 自動起動しない） ==="
 sudo systemctl set-default multi-user.target
@@ -50,9 +50,16 @@ sudo apt-get install -y xrdp
 sudo systemctl enable xrdp
 sudo systemctl start xrdp
 
-echo "=== xrdp セッション設定（xfce4・GVFS無効化） ==="
+echo "=== デフォルトターミナルをxfce4-terminalに設定 ==="
+sudo update-alternatives --set x-terminal-emulator /usr/bin/xfce4-terminal
+
+echo "=== 日本語ロケール設定 ==="
+sudo locale-gen ja_JP.UTF-8
+
+echo "=== xrdp セッション設定（xfce4・GVFS無効化・ロケール設定） ==="
 sudo tee /etc/xrdp/startwm.sh << 'EOF'
 #!/bin/sh
+export LANG=ja_JP.UTF-8
 export GVFS_DISABLE_FUSE=1
 startxfce4
 EOF
