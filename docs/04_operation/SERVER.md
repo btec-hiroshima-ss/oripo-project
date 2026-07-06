@@ -127,6 +127,18 @@ sudo systemctl stop lightdm
 
 ## トラブルシューティング
 
+### `git clone` で SSL エラー（server certificate verification failed）
+
+新規インストール直後にタイムゾーンがずれていると SSL 証明書の有効期限チェックが失敗します。
+
+```bash
+date  # 時刻を確認
+sudo timedatectl set-timezone Asia/Tokyo
+sudo timedatectl set-ntp true  # NTP 自動同期を有効化
+```
+
+時刻が正しくなったら再度 `git clone` してください。
+
 ### `unauthorized` / `denied` エラー（docker pull 時）
 
 PAT に `read:packages` スコープが不足しています。
