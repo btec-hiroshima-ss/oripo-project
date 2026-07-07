@@ -250,6 +250,8 @@ CREATE TABLE oripo_sessions (
 ### `oripo_pages`
 個人設定のページ設定（マイページタブ管理）。
 
+> **注意:** AIPO では `jetspeed_user_profile.profile` にページ設定が PSML（バイナリ XML）形式で保存されているが、移行は困難なため Oripo では新規テーブルで管理し直す。移行時にユーザーのページ設定は初期化される。
+
 ```sql
 CREATE TABLE oripo_pages (
   page_id     SERIAL PRIMARY KEY,
