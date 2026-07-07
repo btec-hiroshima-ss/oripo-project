@@ -82,25 +82,24 @@ AIPO 準拠: `JLoginUser.doPerform()` の動作に合わせる。
 
 ## API
 
-### `POST /api/auth/login`
+Route Handler は使用しない（実装規約: 外部連携がない場合は Server Action を使う）。
 
-**リクエスト**
+### Server Actions（`src/app/login/actions.ts`）
 
-```json
-{ "loginName": "m.tanaka", "password": "..." }
-```
+#### `login(loginName, password)`
 
-**レスポンス**
+| 状況 | 戻り値 |
+|---|---|
+| 成功 | `{ ok: true }` |
+| 認証失敗 | `{ ok: false, error: "invalid_credentials" }` |
+| アカウント無効 | `{ ok: false, error: "account_disabled" }` |
+| ロックアウト中 | `{ ok: false, error: "locked_out" }` |
 
-| 状況 | ステータス | ボディ |
-|---|---|---|
-| 成功 | `200` | `{ "ok": true }` |
-| 認証失敗 | `401` | `{ "error": "invalid_credentials" }` |
-| アカウント無効 | `403` | `{ "error": "account_disabled" }` |
+成功時: セッションCookieを発行し `turbine_user.last_login` を更新する。
 
-### `POST /api/auth/logout`
+#### `logout()`
 
-セッションCookieを削除する。ボディなし、`200` を返す。
+セッションCookieを削除する。
 
 ## データモデル
 
