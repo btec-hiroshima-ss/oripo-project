@@ -8,6 +8,8 @@ AIPOテーブルをそのまま使用し、Oripoで新規に必要なテーブ�
 
 移行作業の最小化を優先するため、新規スキーマへの移し替えは行わない。スキーマ整理は今後の課題（#TODO）とする。
 
+**AIPOテーブルはカラムの追加・削除・変更を一切行わない。** 各テーブルの説明に記載しているカラムはOripoが参照するものの一覧であり、記載のないカラムはAIPOに存在するがOripoでは使用しないもの。
+
 ---
 
 ## 機能とテーブルの対応
@@ -45,10 +47,14 @@ AIPOテーブルをそのまま使用し、Oripoで新規に必要なテーブ�
 | `password_value` | パスワード（SHA-1+Base64） |
 | `last_name` / `first_name` | 氏名 |
 | `last_name_kana` / `first_name_kana` | フリガナ |
+| `in_telephone` | 内線番号 |
+| `out_telephone` | 外線番号 |
 | `cellular_phone` | 携帯電話番号（社内） |
 | `disabled` | 有効/無効フラグ（'T'=無効, 'F'=有効） |
 
 > **注意:** `position_id` は全ユーザー0で未使用。部署の対応は別途JOINが必要（下記参照）。
+>
+> 電話番号は3種類あるが、Oripoの表示は `cellular_phone`（携帯電話番号）のみ。`in_telephone`・`out_telephone` は移行するがOripo画面には表示しない。
 
 ---
 
