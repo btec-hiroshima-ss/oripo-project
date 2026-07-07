@@ -1,4 +1,4 @@
-import type { Kysely, sql } from 'kysely'
+import { type Kysely, sql } from 'kysely'
 
 // 不使用のAIPOテーブル一覧（削除しない・読み取りもしない）
 //
@@ -103,6 +103,59 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       col.notNull().defaultTo(sql`now()`)
     )
     .execute()
+}
+
+  // AIPOテーブルの不使用カラムにコメントを付与
+  const unused = [
+    // turbine_user
+    ['turbine_user', 'position_id'],
+    ['turbine_user', 'in_telephone'],
+    ['turbine_user', 'out_telephone'],
+    ['turbine_user', 'email'],
+    ['turbine_user', 'cellular_mail'],
+    ['turbine_user', 'cellular_uid'],
+    ['turbine_user', 'objectdata'],
+    ['turbine_user', 'company_id'],
+    ['turbine_user', 'photo'],
+    ['turbine_user', 'has_photo'],
+    ['turbine_user', 'photo_modified'],
+    ['turbine_user', 'photo_smartphone'],
+    ['turbine_user', 'has_photo_smartphone'],
+    ['turbine_user', 'photo_modified_smartphone'],
+    ['turbine_user', 'tutorial_forbid'],
+    // eip_m_post
+    ['eip_m_post', 'company_id'],
+    ['eip_m_post', 'zipcode'],
+    ['eip_m_post', 'address'],
+    ['eip_m_post', 'in_telephone'],
+    ['eip_m_post', 'out_telephone'],
+    ['eip_m_post', 'fax_number'],
+    // eip_t_schedule
+    ['eip_t_schedule', 'parent_id'],
+    ['eip_t_schedule', 'edit_flag'],
+    ['eip_t_schedule', 'mail_flag'],
+    ['eip_t_schedule', 'create_user_id'],
+    ['eip_t_schedule', 'update_user_id'],
+    // eip_t_schedule_map
+    ['eip_t_schedule_map', 'status'],
+    ['eip_t_schedule_map', 'common_category_id'],
+    // eip_m_facility
+    ['eip_m_facility', 'user_id'],
+    ['eip_m_facility', 'note'],
+    ['eip_m_facility', 'sort'],
+    // turbine_group
+    ['turbine_group', 'objectdata'],
+    // turbine_role
+    ['turbine_role', 'objectdata'],
+    // eip_t_whatsnew
+    ['eip_t_whatsnew', 'parent_id'],
+    // eip_t_eventlog
+    ['eip_t_eventlog', 'note'],
+  ] as const
+
+  for (const [table, column] of unused) {
+    await sql`COMMENT ON COLUMN ${sql.table(table)}.${sql.ref(column)} IS '不使用'`.execute(db)
+  }
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
