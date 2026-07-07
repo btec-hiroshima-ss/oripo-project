@@ -14,6 +14,10 @@ AIPOテーブルをそのまま使用し、Oripoで新規に必要なテーブ�
 - （マークなし）: Oripoで参照・使用する
 - `※` : 移行はするがOripoでは使用しない
 
+型の凡例：
+- `型名` : NOT NULL
+- `型名?` : NULL許容
+
 ---
 
 ## 機能とテーブルの対応
@@ -44,21 +48,39 @@ AIPOテーブルをそのまま使用し、Oripoで新規に必要なテーブ�
 #### `turbine_user`
 ユーザーアカウント。
 
-| カラム | 用途 |
-|---|---|
-| `user_id` | PK |
-| `login_name` | ログインID |
-| `password_value` | パスワード（SHA-1+Base64） |
-| `last_name` / `first_name` | 氏名 |
-| `last_name_kana` / `first_name_kana` | フリガナ |
-| `in_telephone` ※ | 内線番号 |
-| `out_telephone` ※ | 外線番号 |
-| `cellular_phone` | 携帯電話番号（社内） |
-| `disabled` | 有効/無効フラグ（'T'=無効, 'F'=有効） |
+| カラム | 型 | 用途 |
+|---|---|---|
+| `user_id` | integer | PK |
+| `login_name` | varchar(32) | ログインID |
+| `password_value` | varchar(200) | パスワード（SHA-1+Base64） |
+| `last_name` / `first_name` | varchar(99) | 氏名 |
+| `last_name_kana` / `first_name_kana` | varchar(99)? | フリガナ |
+| `cellular_phone` | varchar(15)? | 携帯電話番号（社内） |
+| `disabled` | char(1)? | 有効/無効フラグ（'T'=無効, 'F'=有効） |
+| `in_telephone` ※ | varchar(15)? | 内線番号 |
+| `out_telephone` ※ | varchar(15)? | 外線番号 |
+| `email` ※ | varchar(99)? | メールアドレス |
+| `cellular_mail` ※ | varchar(99)? | 携帯メールアドレス |
+| `cellular_uid` ※ | varchar(99)? | 携帯端末UID |
+| `position_id` ※ | integer? | 役職ID（全ユーザー0で未使用） |
+| `company_id` ※ | integer? | 会社ID |
+| `objectdata` ※ | bytea? | Jetspeedフレームワーク用バイナリデータ |
+| `photo` ※ | bytea? | プロフィール写真 |
+| `has_photo` ※ | varchar(1)? | 写真有無フラグ |
+| `photo_modified` ※ | timestamp? | 写真更新日時 |
+| `photo_smartphone` ※ | bytea? | スマートフォン用写真 |
+| `has_photo_smartphone` ※ | varchar(1)? | スマートフォン写真有無フラグ |
+| `photo_modified_smartphone` ※ | timestamp? | スマートフォン写真更新日時 |
+| `confirm_value` ※ | varchar(99)? | 確認コード |
+| `password_changed` | timestamp? | パスワード変更日時 |
+| `created_user_id` ※ | integer? | 作成者ID |
+| `updated_user_id` ※ | integer? | 更新者ID |
+| `tutorial_forbid` ※ | varchar(1)? | チュートリアル非表示フラグ |
+| `modified` | timestamp? | 更新日時 |
+| `created` | timestamp? | 作成日時 |
+| `last_login` | timestamp? | 最終ログイン日時 |
 
-> **注意:** `position_id` は全ユーザー0で未使用。部署の対応は別途JOINが必要（下記参照）。
->
-> 電話番号は3種類あるが、Oripoの表示は `cellular_phone`（携帯電話番号）のみ。`in_telephone`・`out_telephone` は移行するがOripo画面には表示しない。
+> **注意:** 電話番号は3種類あるが、Oripoの表示は `cellular_phone`（携帯電話番号）のみ。部署の対応は別途JOINが必要（下記参照）。
 
 ---
 
@@ -67,15 +89,19 @@ AIPOテーブルをそのまま使用し、Oripoで新規に必要なテーブ�
 #### `eip_m_post`
 部署マスタ。
 
-| カラム | 用途 |
-|---|---|
-| `post_id` | PK |
-| `post_name` | 部署名 |
-| `group_name` | `turbine_group.group_name` と文字列一致で紐づく |
-| `address` ※ | 部署の住所 |
-| `in_telephone` ※ | 部署の内線番号 |
-| `out_telephone` ※ | 部署の外線番号 |
-| `fax_number` ※ | 部署のFAX番号 |
+| カラム | 型 | 用途 |
+|---|---|---|
+| `post_id` | integer | PK |
+| `post_name` | varchar(64) | 部署名 |
+| `group_name` | varchar(99)? | `turbine_group.group_name` と文字列一致で紐づく |
+| `company_id` ※ | integer | 会社ID |
+| `zipcode` ※ | varchar(8)? | 郵便番号 |
+| `address` ※ | varchar(64)? | 住所 |
+| `in_telephone` ※ | varchar(15)? | 内線番号 |
+| `out_telephone` ※ | varchar(15)? | 外線番号 |
+| `fax_number` ※ | varchar(15)? | FAX番号 |
+| `create_date` | date? | 作成日 |
+| `update_date` | timestamp? | 更新日時 |
 
 #### ユーザーと部署の対応（4テーブルJOIN）
 
@@ -99,19 +125,23 @@ WHERE tu.disabled = 'F'
 #### `eip_t_schedule`
 スケジュール本体。
 
-| カラム | 用途 |
-|---|---|
-| `schedule_id` | PK |
-| `owner_id` | 作成者 |
-| `name` | 件名 |
-| `start_date` / `end_date` | 開始・終了日時 |
-| `place` | 場所 |
-| `note` | メモ |
-| `public_flag` | 公開フラグ |
-| `repeat_pattern` | 繰り返しパターン（独自エンコーディング） |
-| `parent_id` ※ | 繰り返しスケジュールの親ID |
-| `edit_flag` ※ | 編集権限フラグ |
-| `mail_flag` ※ | メール通知フラグ |
+| カラム | 型 | 用途 |
+|---|---|---|
+| `schedule_id` | integer | PK |
+| `owner_id` | integer? | 作成者 |
+| `name` | varchar(99)? | 件名 |
+| `start_date` / `end_date` | timestamp? | 開始・終了日時 |
+| `place` | varchar(99)? | 場所 |
+| `note` | text? | メモ |
+| `public_flag` | varchar(1)? | 公開フラグ |
+| `repeat_pattern` | varchar(10)? | 繰り返しパターン（独自エンコーディング） |
+| `parent_id` | integer? | 繰り返しスケジュールの親ID |
+| `edit_flag` ※ | varchar(1)? | 編集権限フラグ |
+| `mail_flag` ※ | char(1)? | メール通知フラグ |
+| `create_user_id` ※ | integer? | 作成者ID |
+| `update_user_id` ※ | integer? | 更新者ID |
+| `create_date` | date? | 作成日 |
+| `update_date` | timestamp? | 更新日時 |
 
 > **注意:** `repeat_pattern` は独自形式。[AIPOソース `ScheduleUtils.java`](https://github.com/arkjun/aipo) で確認済み。
 >
@@ -126,14 +156,14 @@ WHERE tu.disabled = 'F'
 #### `eip_t_schedule_map`
 スケジュールの参加者・設備予約。
 
-| カラム | 用途 |
-|---|---|
-| `id` | PK |
-| `schedule_id` | FK → eip_t_schedule |
-| `user_id` | 対象ユーザーまたは設備ID |
-| `type` | `U` = ユーザー参加者、`F` = 設備予約 |
-| `status` ※ | `D` = ダミー（仮押さえ）等 |
-| `common_category_id` ※ | カテゴリID |
+| カラム | 型 | 用途 |
+|---|---|---|
+| `id` | integer | PK |
+| `schedule_id` | integer | FK → eip_t_schedule |
+| `user_id` | integer | 対象ユーザーまたは設備ID |
+| `type` | varchar(1)? | `U` = ユーザー参加者、`F` = 設備予約 |
+| `status` ※ | varchar(1)? | `D` = ダミー（仮押さえ）等 |
+| `common_category_id` ※ | integer | カテゴリID |
 
 ---
 
@@ -142,12 +172,15 @@ WHERE tu.disabled = 'F'
 #### `eip_m_facility`
 設備マスタ（会議室等）。
 
-| カラム | 用途 |
-|---|---|
-| `facility_id` | PK |
-| `facility_name` | 設備名 |
-| `note` ※ | 備考 |
-| `sort` ※ | 表示順 |
+| カラム | 型 | 用途 |
+|---|---|---|
+| `facility_id` | integer | PK |
+| `facility_name` | varchar(64) | 設備名 |
+| `user_id` ※ | integer | 作成者 |
+| `note` | text? | 備考 |
+| `sort` | integer? | 表示順 |
+| `create_date` | date? | 作成日 |
+| `update_date` | timestamp? | 更新日時 |
 
 ---
 
@@ -156,11 +189,11 @@ WHERE tu.disabled = 'F'
 #### `turbine_role`
 システムロール定義（管理者・一般ユーザー等）。
 
-| カラム | 用途 |
-|---|---|
-| `role_id` | PK |
-| `role_name` | ロール名（例: `admin`, `user`, `guest`） |
-| `objectdata` ※ | Jetspeedフレームワーク用バイナリデータ |
+| カラム | 型 | 用途 |
+|---|---|---|
+| `role_id` | integer | PK |
+| `role_name` | varchar(99) | ロール名（例: `admin`, `user`, `guest`） |
+| `objectdata` ※ | bytea? | Jetspeedフレームワーク用バイナリデータ |
 
 ユーザーへのロール付与は `turbine_user_group_role.role_id` 経由で行われる。
 
@@ -180,32 +213,32 @@ WHERE tu.disabled = 'F'
 #### `turbine_group`
 グループ定義（部署グループ・マイグループ共用）。
 
-| カラム | 用途 |
-|---|---|
-| `group_id` | PK |
-| `group_name` | タイムスタンプベースの内部キー（例: `1204104365437_4`） |
-| `owner_id` | グループ作成者のuser_id（マイグループのみ） |
-| `group_alias_name` | 表示名（マイグループのみ） |
-| `public_flag` | 公開フラグ |
-| `objectdata` ※ | Jetspeedフレームワーク用バイナリデータ |
+| カラム | 型 | 用途 |
+|---|---|---|
+| `group_id` | integer | PK |
+| `group_name` | varchar(99) | タイムスタンプベースの内部キー（例: `1204104365437_4`） |
+| `owner_id` | integer? | グループ作成者のuser_id（マイグループのみ） |
+| `group_alias_name` | varchar(99)? | 表示名（マイグループのみ） |
+| `public_flag` | char(1)? | 公開フラグ |
+| `objectdata` ※ | bytea? | Jetspeedフレームワーク用バイナリデータ |
 
 #### `turbine_user_group_role`
 グループのユーザーメンバー。
 
-| カラム | 用途 |
-|---|---|
-| `user_id` | FK → turbine_user |
-| `group_id` | FK → turbine_group |
-| `role_id` | FK → turbine_role（アクセス権限管理で使用） |
+| カラム | 型 | 用途 |
+|---|---|---|
+| `user_id` | integer | FK → turbine_user |
+| `group_id` | integer | FK → turbine_group |
+| `role_id` | integer | FK → turbine_role（アクセス権限管理で使用） |
 
 #### `eip_facility_group`
 グループの設備メンバー（マイグループの「所属設備」）。
 
-| カラム | 用途 |
-|---|---|
-| `id` | PK |
-| `group_id` | FK → turbine_group |
-| `facility_id` | FK → eip_m_facility |
+| カラム | 型 | 用途 |
+|---|---|---|
+| `id` | integer | PK |
+| `group_id` | integer | FK → turbine_group |
+| `facility_id` | integer | FK → eip_m_facility |
 
 ---
 
@@ -214,19 +247,19 @@ WHERE tu.disabled = 'F'
 #### `eip_m_facility_group`
 設備グループマスタ（設備をグルーピングする単位）。
 
-| カラム | 用途 |
-|---|---|
-| `group_id` | PK |
-| `group_name` | グループ名 |
+| カラム | 型 | 用途 |
+|---|---|---|
+| `group_id` | integer | PK |
+| `group_name` | varchar(64)? | グループ名 |
 
 #### `eip_m_facility_group_map`
 設備グループと設備の対応。
 
-| カラム | 用途 |
-|---|---|
-| `id` | PK |
-| `group_id` | FK → eip_m_facility_group |
-| `facility_id` | FK → eip_m_facility |
+| カラム | 型 | 用途 |
+|---|---|---|
+| `id` | integer | PK |
+| `group_id` | integer? | FK → eip_m_facility_group |
+| `facility_id` | integer? | FK → eip_m_facility |
 
 > **注意:** マイグループの設備メンバー管理（`eip_facility_group`）とは別テーブル。こちらは設備マスタ管理画面で使用する設備の分類グループ。
 
@@ -236,14 +269,15 @@ WHERE tu.disabled = 'F'
 
 #### `eip_t_whatsnew`
 
-| カラム | 用途 |
-|---|---|
-| `whatsnew_id` | PK |
-| `user_id` | 更新者 |
-| `portlet_type` | アプリ種別（int） |
-| `entity_id` | 対象レコードのID |
-| `create_date` | 更新日時 |
-| `parent_id` ※ | 親レコードID |
+| カラム | 型 | 用途 |
+|---|---|---|
+| `whatsnew_id` | integer | PK |
+| `user_id` | integer? | 更新者 |
+| `portlet_type` | integer? | アプリ種別 |
+| `entity_id` | integer? | 対象レコードのID |
+| `create_date` | timestamp? | 更新日時 |
+| `parent_id` | integer? | 親レコードID（0=全員向け親、-1=個人宛、それ以外=全員向け子） |
+| `update_date` | timestamp? | 更新日時 |
 
 > **注意:** 「更新内容テキスト」は持っていない。表示には `portlet_type` に応じた対象テーブルへのJOINが必要。[AIPOソース `WhatsNewUtils.java`](https://github.com/arkjun/aipo) で確認済みのマッピング：
 >
@@ -265,16 +299,18 @@ WHERE tu.disabled = 'F'
 
 #### `eip_t_eventlog`
 
-| カラム | 用途 |
-|---|---|
-| `eventlog_id` | PK |
-| `user_id` | 操作ユーザー |
-| `event_date` | 操作日時 |
-| `event_type` | 操作種別（ログイン・ログアウト等） |
-| `portlet_type` | 機能名 |
-| `entity_id` | 対象ID |
-| `ip_addr` | 接続元IP |
-| `note` ※ | 備考 |
+| カラム | 型 | 用途 |
+|---|---|---|
+| `eventlog_id` | integer | PK |
+| `user_id` | integer? | 操作ユーザー |
+| `event_date` | timestamp? | 操作日時 |
+| `event_type` | integer? | 操作種別（ログイン・ログアウト等） |
+| `portlet_type` | integer? | 機能名 |
+| `entity_id` | integer? | 対象ID |
+| `ip_addr` | text? | 接続元IP |
+| `note` | text? | 備考 |
+| `create_date` | timestamp? | 作成日時 |
+| `update_date` | timestamp? | 更新日時 |
 
 ---
 

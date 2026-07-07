@@ -81,7 +81,6 @@ const unusedColumns = [
   ['eip_m_post', 'out_telephone'],
   ['eip_m_post', 'fax_number'],
   // eip_t_schedule
-  ['eip_t_schedule', 'parent_id'],
   ['eip_t_schedule', 'edit_flag'],
   ['eip_t_schedule', 'mail_flag'],
   ['eip_t_schedule', 'create_user_id'],
@@ -91,16 +90,11 @@ const unusedColumns = [
   ['eip_t_schedule_map', 'common_category_id'],
   // eip_m_facility
   ['eip_m_facility', 'user_id'],
-  ['eip_m_facility', 'note'],
-  ['eip_m_facility', 'sort'],
   // turbine_group
   ['turbine_group', 'objectdata'],
   // turbine_role
   ['turbine_role', 'objectdata'],
-  // eip_t_whatsnew
-  ['eip_t_whatsnew', 'parent_id'],
   // eip_t_eventlog
-  ['eip_t_eventlog', 'note'],
 ] as const
 
 export async function up(db: Kysely<unknown>): Promise<void> {
