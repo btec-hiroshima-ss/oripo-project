@@ -97,6 +97,10 @@ const unusedColumns = [
   // eip_t_eventlog
 ] as const
 
+// SWC crashes when Japanese appears as literal text inside a template literal (backtick string).
+// Assigning to a regular string variable first avoids the parser bug.
+const UNUSED = '不使用'
+
 export async function up(db: Kysely<unknown>): Promise<void> {
   await db.schema
     .createTable('oripo_sessions')
@@ -144,11 +148,10 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       col.notNull().defaultTo(sql`now()`)
     )
     .execute()
-}
 
   // AIPOテーブルの不使用カラムにコメントを付与
   for (const [table, column] of unusedColumns) {
-    await sql`COMMENT ON COLUMN ${sql.table(table)}.${sql.ref(column)} IS '不使用'`.execute(db)
+    await sql.raw(`COMMENT ON COLUMN "${table}"."${column}" IS '${UNUSED}'`).execute(db)
   }
 }
 
@@ -158,6 +161,6 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropTable('oripo_sessions').execute()
 
   for (const [table, column] of unusedColumns) {
-    await sql`COMMENT ON COLUMN ${sql.table(table)}.${sql.ref(column)} IS NULL`.execute(db)
+    await sql.raw(`COMMENT ON COLUMN "${table}"."${column}" IS NULL`).execute(db)
   }
 }
