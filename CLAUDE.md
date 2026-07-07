@@ -82,6 +82,22 @@ gh api graphql -f query='...'
 接続先: postgres://aipo_postgres:aipo@db:5432/aipo
 ```
 
+## AIPOソースコード
+
+AIPOのソースコードは GitHub のパブリックリポジトリで公開されている。DBスキーマの詳細・独自エンコーディングのデコードロジック・テーブル間の関連など、ソース調査が必要な場合は `gh` コマンドで参照すること。
+
+```
+https://github.com/arkjun/aipo
+```
+
+```bash
+# ファイル検索例
+gh api repos/arkjun/aipo/git/trees/master --jq '.tree[].path' | grep -i schedule
+
+# ファイル内容取得例
+gh api repos/arkjun/aipo/contents/jetspeed/src/main/java/org/apache/jetspeed/... --jq '.content' | base64 -d
+```
+
 ---
 
 # 開発ルール

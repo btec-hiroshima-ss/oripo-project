@@ -96,7 +96,15 @@ WHERE tu.disabled = 'F'
 | `public_flag` | 公開フラグ |
 | `repeat_pattern` | 繰り返しパターン（独自エンコーディング） |
 
-> **注意:** `repeat_pattern` は独自形式（例: `W0111110N` = 週次・月〜金・終了なし、`DL` = 毎日・終了あり、`S` = 単発）。デコードロジックの実装が必要。[AIPOソース](https://github.com/arkjun/aipo)を参照。
+> **注意:** `repeat_pattern` は独自形式。[AIPOソース `ScheduleUtils.java`](https://github.com/arkjun/aipo) で確認済み。
+>
+> | パターン | 意味 |
+> |---|---|
+> | `S` | 単発（繰り返しなし） |
+> | `N` | ダミースケジュール（AIPO内部が作成する時間枠仮押さえ）。表示不要 |
+> | `DL` / `DN` | 毎日・終了あり / 終了なし |
+> | `W[0-1×7]L` / `W[0-1×7]N` | 週次。7桁ビットが日〜土の曜日フラグ（例: `W0111110` = 月〜金）。末尾 `L`=終了あり、`N`=終了なし |
+> | `M[dd]L` / `M[dd]N` | 毎月。`dd` は日付（例: `M01` = 毎月1日） |
 
 #### `eip_t_schedule_map`
 スケジュールの参加者・設備予約。
@@ -184,8 +192,8 @@ WHERE tu.disabled = 'F'
 
 | カラム | 用途 |
 |---|---|
-| `facility_group_id` | PK |
-| `facility_group_name` | グループ名 |
+| `group_id` | PK |
+| `group_name` | グループ名 |
 
 #### `eip_m_facility_group_map`
 設備グループと設備の対応。
@@ -193,7 +201,7 @@ WHERE tu.disabled = 'F'
 | カラム | 用途 |
 |---|---|
 | `id` | PK |
-| `facility_group_id` | FK → eip_m_facility_group |
+| `group_id` | FK → eip_m_facility_group |
 | `facility_id` | FK → eip_m_facility |
 
 > **注意:** マイグループの設備メンバー管理（`eip_facility_group`）とは別テーブル。こちらは設備マスタ管理画面で使用する設備の分類グループ。
@@ -212,7 +220,19 @@ WHERE tu.disabled = 'F'
 | `entity_id` | 対象レコードのID |
 | `create_date` | 更新日時 |
 
-> **注意:** 「更新内容テキスト」は持っていない。表示には `portlet_type` → テーブルのマッピング定義と対象テーブルへのJOINが必要（例: portlet_type=スケジュール → `eip_t_schedule.name`）。
+> **注意:** 「更新内容テキスト」は持っていない。表示には `portlet_type` に応じた対象テーブルへのJOINが必要。[AIPOソース `WhatsNewUtils.java`](https://github.com/arkjun/aipo) で確認済みのマッピング：
+>
+> | portlet_type | 機能 | Oripoで使う |
+> |---|---|---|
+> | `1` | ブログ記事 | × |
+> | `2` | ブログコメント | × |
+> | `3` | ワークフロー申請 | × |
+> | `4` | 掲示板トピック | × |
+> | `5` | メモ | × |
+> | `6` | スケジュール | ○ → `eip_t_schedule.name` をJOIN |
+> | `-1` | 個人宛新着 | 要検討 |
+>
+> Oripoの更新情報は `portlet_type = 6` のみ表示すればよい。
 
 ---
 
