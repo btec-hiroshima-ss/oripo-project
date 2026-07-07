@@ -10,6 +10,10 @@ AIPOテーブルをそのまま使用し、Oripoで新規に必要なテーブ�
 
 **AIPOテーブルはカラムの追加・削除・変更を一切行わない。** 各テーブルの説明に記載しているカラムはOripoが参照するものの一覧であり、記載のないカラムはAIPOに存在するがOripoでは使用しないもの。
 
+カラム名の凡例：
+- （マークなし）: Oripoで参照・使用する
+- `※` : 移行はするがOripoでは使用しない
+
 ---
 
 ## 機能とテーブルの対応
@@ -47,8 +51,8 @@ AIPOテーブルをそのまま使用し、Oripoで新規に必要なテーブ�
 | `password_value` | パスワード（SHA-1+Base64） |
 | `last_name` / `first_name` | 氏名 |
 | `last_name_kana` / `first_name_kana` | フリガナ |
-| `in_telephone` | 内線番号 |
-| `out_telephone` | 外線番号 |
+| `in_telephone` ※ | 内線番号 |
+| `out_telephone` ※ | 外線番号 |
 | `cellular_phone` | 携帯電話番号（社内） |
 | `disabled` | 有効/無効フラグ（'T'=無効, 'F'=有効） |
 
@@ -68,6 +72,10 @@ AIPOテーブルをそのまま使用し、Oripoで新規に必要なテーブ�
 | `post_id` | PK |
 | `post_name` | 部署名 |
 | `group_name` | `turbine_group.group_name` と文字列一致で紐づく |
+| `address` ※ | 部署の住所 |
+| `in_telephone` ※ | 部署の内線番号 |
+| `out_telephone` ※ | 部署の外線番号 |
+| `fax_number` ※ | 部署のFAX番号 |
 
 #### ユーザーと部署の対応（4テーブルJOIN）
 
@@ -94,13 +102,16 @@ WHERE tu.disabled = 'F'
 | カラム | 用途 |
 |---|---|
 | `schedule_id` | PK |
-| `user_id` | 作成者 |
+| `owner_id` | 作成者 |
 | `name` | 件名 |
 | `start_date` / `end_date` | 開始・終了日時 |
 | `place` | 場所 |
 | `note` | メモ |
 | `public_flag` | 公開フラグ |
 | `repeat_pattern` | 繰り返しパターン（独自エンコーディング） |
+| `parent_id` ※ | 繰り返しスケジュールの親ID |
+| `edit_flag` ※ | 編集権限フラグ |
+| `mail_flag` ※ | メール通知フラグ |
 
 > **注意:** `repeat_pattern` は独自形式。[AIPOソース `ScheduleUtils.java`](https://github.com/arkjun/aipo) で確認済み。
 >
@@ -117,10 +128,12 @@ WHERE tu.disabled = 'F'
 
 | カラム | 用途 |
 |---|---|
-| `schedule_map_id` | PK |
+| `id` | PK |
 | `schedule_id` | FK → eip_t_schedule |
 | `user_id` | 対象ユーザーまたは設備ID |
 | `type` | `U` = ユーザー参加者、`F` = 設備予約 |
+| `status` ※ | `D` = ダミー（仮押さえ）等 |
+| `common_category_id` ※ | カテゴリID |
 
 ---
 
@@ -133,6 +146,8 @@ WHERE tu.disabled = 'F'
 |---|---|
 | `facility_id` | PK |
 | `facility_name` | 設備名 |
+| `note` ※ | 備考 |
+| `sort` ※ | 表示順 |
 
 ---
 
@@ -145,6 +160,7 @@ WHERE tu.disabled = 'F'
 |---|---|
 | `role_id` | PK |
 | `role_name` | ロール名（例: `admin`, `user`, `guest`） |
+| `objectdata` ※ | Jetspeedフレームワーク用バイナリデータ |
 
 ユーザーへのロール付与は `turbine_user_group_role.role_id` 経由で行われる。
 
@@ -171,6 +187,7 @@ WHERE tu.disabled = 'F'
 | `owner_id` | グループ作成者のuser_id（マイグループのみ） |
 | `group_alias_name` | 表示名（マイグループのみ） |
 | `public_flag` | 公開フラグ |
+| `objectdata` ※ | Jetspeedフレームワーク用バイナリデータ |
 
 #### `turbine_user_group_role`
 グループのユーザーメンバー。
@@ -179,6 +196,7 @@ WHERE tu.disabled = 'F'
 |---|---|
 | `user_id` | FK → turbine_user |
 | `group_id` | FK → turbine_group |
+| `role_id` | FK → turbine_role（アクセス権限管理で使用） |
 
 #### `eip_facility_group`
 グループの設備メンバー（マイグループの「所属設備」）。
@@ -225,6 +243,7 @@ WHERE tu.disabled = 'F'
 | `portlet_type` | アプリ種別（int） |
 | `entity_id` | 対象レコードのID |
 | `create_date` | 更新日時 |
+| `parent_id` ※ | 親レコードID |
 
 > **注意:** 「更新内容テキスト」は持っていない。表示には `portlet_type` に応じた対象テーブルへのJOINが必要。[AIPOソース `WhatsNewUtils.java`](https://github.com/arkjun/aipo) で確認済みのマッピング：
 >
@@ -255,6 +274,7 @@ WHERE tu.disabled = 'F'
 | `portlet_type` | 機能名 |
 | `entity_id` | 対象ID |
 | `ip_addr` | 接続元IP |
+| `note` ※ | 備考 |
 
 ---
 
