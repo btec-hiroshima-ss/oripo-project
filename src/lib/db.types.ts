@@ -152,6 +152,9 @@ export interface EipMFacility {
   note: string | null;
   sort: number | null;
   update_date: Timestamp | null;
+  /**
+   * 不使用
+   */
   user_id: number;
 }
 
@@ -219,16 +222,34 @@ export interface EipMPosition {
 }
 
 export interface EipMPost {
+  /**
+   * 不使用
+   */
   address: string | null;
+  /**
+   * 不使用
+   */
   company_id: number;
   create_date: Timestamp | null;
+  /**
+   * 不使用
+   */
   fax_number: string | null;
   group_name: string | null;
+  /**
+   * 不使用
+   */
   in_telephone: string | null;
+  /**
+   * 不使用
+   */
   out_telephone: string | null;
   post_id: Generated<number>;
   post_name: string;
   update_date: Timestamp | null;
+  /**
+   * 不使用
+   */
   zipcode: string | null;
 }
 
@@ -594,9 +615,18 @@ export interface EipTReportMemberMap {
 
 export interface EipTSchedule {
   create_date: Timestamp | null;
+  /**
+   * 不使用
+   */
   create_user_id: number | null;
+  /**
+   * 不使用
+   */
   edit_flag: string | null;
   end_date: Timestamp | null;
+  /**
+   * 不使用
+   */
   mail_flag: string | null;
   name: string | null;
   note: string | null;
@@ -608,13 +638,22 @@ export interface EipTSchedule {
   schedule_id: Generated<number>;
   start_date: Timestamp | null;
   update_date: Timestamp | null;
+  /**
+   * 不使用
+   */
   update_user_id: number | null;
 }
 
 export interface EipTScheduleMap {
+  /**
+   * 不使用
+   */
   common_category_id: number;
   id: Generated<number>;
   schedule_id: number;
+  /**
+   * 不使用
+   */
   status: string | null;
   type: string | null;
   user_id: number;
@@ -859,10 +898,41 @@ export interface OauthToken {
   token_secret: string | null;
 }
 
+export interface OripoPages {
+  created_at: Generated<Timestamp>;
+  is_default: Generated<boolean>;
+  page_id: Generated<number>;
+  page_name: string;
+  sort_order: Generated<number>;
+  updated_at: Generated<Timestamp>;
+  user_id: number;
+}
+
+export interface OripoPageWidgets {
+  col: Generated<number>;
+  created_at: Generated<Timestamp>;
+  page_id: number;
+  row: Generated<number>;
+  updated_at: Generated<Timestamp>;
+  widget_id: Generated<number>;
+  widget_type: string;
+}
+
+export interface OripoSessions {
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp;
+  ip_addr: string | null;
+  session_id: string;
+  user_id: number;
+}
+
 export interface TurbineGroup {
   group_alias_name: string | null;
   group_id: Generated<number>;
   group_name: string;
+  /**
+   * 不使用
+   */
   objectdata: Buffer | null;
   owner_id: number | null;
   public_flag: string | null;
@@ -875,6 +945,9 @@ export interface TurbinePermission {
 }
 
 export interface TurbineRole {
+  /**
+   * 不使用
+   */
   objectdata: Buffer | null;
   role_id: Generated<number>;
   role_name: string;
@@ -886,34 +959,79 @@ export interface TurbineRolePermission {
 }
 
 export interface TurbineUser {
+  /**
+   * 不使用
+   */
   cellular_mail: string | null;
   cellular_phone: string | null;
+  /**
+   * 不使用
+   */
   cellular_uid: string | null;
+  /**
+   * 不使用
+   */
   company_id: number | null;
   confirm_value: string | null;
   created: Timestamp | null;
   created_user_id: number | null;
   disabled: string | null;
+  /**
+   * 不使用
+   */
   email: string | null;
   first_name: string;
   first_name_kana: string | null;
+  /**
+   * 不使用
+   */
   has_photo: Generated<string | null>;
+  /**
+   * 不使用
+   */
   has_photo_smartphone: Generated<string | null>;
+  /**
+   * 不使用
+   */
   in_telephone: string | null;
   last_login: Timestamp | null;
   last_name: string;
   last_name_kana: string | null;
   login_name: string;
   modified: Timestamp | null;
+  /**
+   * 不使用
+   */
   objectdata: Buffer | null;
+  /**
+   * 不使用
+   */
   out_telephone: string | null;
   password_changed: Timestamp | null;
   password_value: string;
+  /**
+   * 不使用
+   */
   photo: Buffer | null;
+  /**
+   * 不使用
+   */
   photo_modified: Timestamp | null;
+  /**
+   * 不使用
+   */
   photo_modified_smartphone: Timestamp | null;
+  /**
+   * 不使用
+   */
   photo_smartphone: Buffer | null;
+  /**
+   * 不使用
+   */
   position_id: number | null;
+  /**
+   * 不使用
+   */
   tutorial_forbid: Generated<string | null>;
   updated_user_id: number | null;
   user_id: Generated<number>;
@@ -1005,6 +1123,9 @@ export interface DB {
   oauth_consumer: OauthConsumer;
   oauth_entry: OauthEntry;
   oauth_token: OauthToken;
+  oripo_page_widgets: OripoPageWidgets;
+  oripo_pages: OripoPages;
+  oripo_sessions: OripoSessions;
   turbine_group: TurbineGroup;
   turbine_permission: TurbinePermission;
   turbine_role: TurbineRole;
