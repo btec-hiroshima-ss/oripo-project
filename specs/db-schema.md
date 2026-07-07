@@ -10,6 +10,27 @@ AIPOテーブルをそのまま使用し、Oripoで新規に必要なテーブ�
 
 ---
 
+## 機能とテーブルの対応
+
+| 機能 | 使用テーブル |
+|---|---|
+| ログイン・認証 | `turbine_user`, `oripo_sessions` ★ |
+| ホーム画面 | `oripo_pages` ★, `oripo_page_widgets` ★ |
+| 更新情報 | `eip_t_whatsnew`, `eip_t_schedule`（テキスト取得用JOIN） |
+| スケジュール | `eip_t_schedule`, `eip_t_schedule_map`, `eip_m_facility` |
+| ユーザー名簿 | `turbine_user`, `turbine_user_group_role`, `turbine_group`, `eip_m_post` |
+| 個人設定（ユーザー情報） | `turbine_user` |
+| 個人設定（マイグループ） | `turbine_group`, `turbine_user_group_role`, `eip_facility_group`, `eip_m_facility` |
+| 個人設定（ページ設定） | `oripo_pages` ★, `oripo_page_widgets` ★ |
+| ユーザー情報管理 | `turbine_user`, `turbine_user_group_role`, `turbine_group`, `eip_m_post` |
+| イベントログ管理 | `eip_t_eventlog`, `turbine_user` |
+| 設備マスタ管理 | `eip_m_facility`, `eip_m_facility_group`, `eip_m_facility_group_map` |
+| アクセス権限管理 | `turbine_role`, `turbine_user_group_role`, `turbine_user` |
+
+> ★ = Oripo 新規追加テーブル
+
+---
+
 ## Oripoで利用するAIPOテーブル
 
 ### ユーザー・認証
@@ -101,6 +122,20 @@ WHERE tu.disabled = 'F'
 
 ---
 
+### ロール
+
+#### `turbine_role`
+システムロール定義（管理者・一般ユーザー等）。
+
+| カラム | 用途 |
+|---|---|
+| `role_id` | PK |
+| `role_name` | ロール名（例: `admin`, `user`, `guest`） |
+
+ユーザーへのロール付与は `turbine_user_group_role.role_id` 経由で行われる。
+
+---
+
 ### マイグループ
 
 `turbine_group` が部署グループとマイグループを兼用している。
@@ -139,6 +174,29 @@ WHERE tu.disabled = 'F'
 | `id` | PK |
 | `group_id` | FK → turbine_group |
 | `facility_id` | FK → eip_m_facility |
+
+---
+
+### 設備グループ
+
+#### `eip_m_facility_group`
+設備グループマスタ（設備をグルーピングする単位）。
+
+| カラム | 用途 |
+|---|---|
+| `facility_group_id` | PK |
+| `facility_group_name` | グループ名 |
+
+#### `eip_m_facility_group_map`
+設備グループと設備の対応。
+
+| カラム | 用途 |
+|---|---|
+| `id` | PK |
+| `facility_group_id` | FK → eip_m_facility_group |
+| `facility_id` | FK → eip_m_facility |
+
+> **注意:** マイグループの設備メンバー管理（`eip_facility_group`）とは別テーブル。こちらは設備マスタ管理画面で使用する設備の分類グループ。
 
 ---
 
@@ -199,6 +257,21 @@ CREATE TABLE oripo_pages (
   page_name   TEXT NOT NULL,
   sort_order  INTEGER NOT NULL DEFAULT 0,
   is_default  BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+### `oripo_page_widgets`
+ページに配置するウィジェット設定。
+
+```sql
+CREATE TABLE oripo_page_widgets (
+  widget_id   SERIAL PRIMARY KEY,
+  page_id     INTEGER NOT NULL REFERENCES oripo_pages(page_id) ON DELETE CASCADE,
+  widget_type TEXT NOT NULL,
+  col         INTEGER NOT NULL DEFAULT 0,
+  row         INTEGER NOT NULL DEFAULT 0,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
