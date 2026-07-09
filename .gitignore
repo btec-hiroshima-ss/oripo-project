@@ -8,7 +8,6 @@ node_modules/
 
 # バックアップ（ファイルは管理外、ディレクトリのみ管理）
 backups/*.dump.gz
-backups/logs/*.log.gz
 
 # アプリログ（ファイルは管理外、ディレクトリのみ管理）
 logs/*.log

@@ -73,7 +73,7 @@ services:
     image: postgres:16-alpine
     volumes:
       - ./backups:/backups
-      - ./logs:/var/log/app:ro
+      - ./logs:/var/log/app
       - ./docker/backup/entrypoint.sh:/entrypoint.sh:ro
     environment:
       PGPASSWORD: aipo
