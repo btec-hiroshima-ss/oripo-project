@@ -146,6 +146,14 @@ gh api repos/arkjun/aipo/contents/jetspeed/src/main/java/org/apache/jetspeed/...
 
 規約の詳細は `docs/05_develop/implementation-rules.md` を参照。
 
+### UIデザインルール
+
+仕様書の `## モックアップ` に画像がある場合、**必ず `Read` ツールで画像を開いて確認してから実装すること。**
+
+- 色・レイアウト・アイコン・フォントサイズ・余白・角丸をモックアップに忠実に再現する
+- 自己流のデザインを加えない
+- 実装後は画面を確認し、モックと見比べて差異がないか必ずチェックする
+
 ## Claude 依存に関する方針
 
 **Claude が将来使えなくなることを前提に開発する。**
