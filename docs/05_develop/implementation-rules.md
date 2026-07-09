@@ -72,6 +72,69 @@ vi.mock('@/lib/schedule', () => ({
 - 認証ロジックは `src/lib/auth.ts` に集約する
 - セッション確認が必要なページは `src/lib/auth.ts` の関数を呼び出す（散らばせない）
 
+## ログ出力
+
+### 基本ルール
+
+- `logger` は `@/lib/logger` からインポートする
+- **サーバーサイド専用**（Server Component・Server Actions・middleware・`src/lib/`）。Client Component には書かない
+- ログには必ず `event` フィールドを含める（検索・集計のキーになる）
+
+```ts
+import { logger } from '@/lib/logger'
+
+// 第1引数: 構造化データ（event 必須）
+// 第2引数: 人間向けの説明メッセージ
+logger.info({ event: 'auth.login.success', loginName, userId }, 'ログイン成功')
+logger.warn({ event: 'auth.login.failure', loginName }, 'ログイン失敗: 認証情報不一致')
+```
+
+### ログレベル
+
+| レベル | 用途 | 例 |
+|---|---|---|
+| `info` | 正常系の重要イベント | ログイン成功・ログアウト |
+| `warn` | 失敗・セキュリティ上の異常 | ログイン失敗・ロックアウト・未認証アクセス |
+| `error` | 予期しないエラー・例外 | DB接続失敗・外部API障害 |
+
+- `debug` は本番では出力しない（`LOG_LEVEL` 環境変数で制御）
+- ルーティング・静的ファイル配信など高頻度の正常リクエストは記録しない
+
+### event フィールドの命名規則
+
+`{ドメイン}.{アクション}[.{結果}]` の形式で統一する。
+
+```
+auth.login.success
+auth.login.failure
+auth.login.locked_out
+auth.login.disabled
+auth.logout
+auth.lockout
+auth.unauthorized
+schedule.create
+schedule.delete
+```
+
+### 含めてよいデータ・含めてはいけないデータ
+
+**含めてよい:**
+- `loginName`（ログイン名）
+- `userId`（数値ID）
+- `pathname`（リクエストパス）
+- エラーコード・ステータスコード
+
+**含めてはいけない:**
+- パスワード・ハッシュ値
+- セッショントークン・Cookie値
+- 個人情報（氏名・メールアドレス・生年月日など）
+
+### ログファイル
+
+- 出力先: stdout（`docker compose logs app`）と `/var/log/app/app.YYYY-MM-DD.log`（同時）
+- 日次ローテーション（pino-roll）
+- 30日分のバックアップを `backups/logs/` に保持（バックアップコンテナが毎日3時に実行）
+
 ## 依存パッケージのバージョン管理
 
 - 開発中は `^` 付き（例: `"next": "^15.3.2"`）でよい
