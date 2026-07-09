@@ -178,6 +178,13 @@ UI の確認・デバッグが必要な場合は **chrome-devtools MCP でブラ
 - `navigate_page` でページ遷移、`take_screenshot` でスクリーンショット、`fill_form` / `click` でフォーム操作ができる
 - `http://app:3000` は `.app` TLD の HSTS 制約で使えないため禁止
 
+**開発用ログイン情報:**
+
+| 項目 | 値 |
+|---|---|
+| ユーザー名 | `Rescho` |
+| パスワード | `rescho` |
+
 ## Claude 依存に関する方針
 
 **Claude が将来使えなくなることを前提に開発する。**
