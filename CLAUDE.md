@@ -154,6 +154,14 @@ gh api repos/arkjun/aipo/contents/jetspeed/src/main/java/org/apache/jetspeed/...
 - 自己流のデザインを加えない
 - 実装後は画面を確認し、モックと見比べて差異がないか必ずチェックする
 
+### ブラウザ動作確認
+
+UI の確認・デバッグが必要な場合は **chrome-devtools MCP でブラウザを操作**すること。
+
+- アプリURL（chrome コンテナから）: **`http://host.docker.internal:3000`** を使うこと
+- `navigate_page` でページ遷移、`take_screenshot` でスクリーンショット、`fill_form` / `click` でフォーム操作ができる
+- `http://app:3000` は `.app` TLD の HSTS 制約で使えないため禁止
+
 ## Claude 依存に関する方針
 
 **Claude が将来使えなくなることを前提に開発する。**
