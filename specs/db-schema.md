@@ -339,6 +339,7 @@ CREATE TABLE oripo_pages (
   page_id     SERIAL PRIMARY KEY,
   user_id     INTEGER NOT NULL REFERENCES turbine_user(user_id),
   page_name   TEXT NOT NULL,
+  layout      TEXT NOT NULL DEFAULT 'TwoColumnsRight',
   sort_order  INTEGER NOT NULL DEFAULT 0,
   is_default  BOOLEAN NOT NULL DEFAULT FALSE,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -357,7 +358,8 @@ CREATE TABLE oripo_page_widgets (
   col         INTEGER NOT NULL DEFAULT 0,
   row         INTEGER NOT NULL DEFAULT 0,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (page_id, widget_type)
 );
 ```
 
