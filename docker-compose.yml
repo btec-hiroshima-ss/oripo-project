@@ -81,3 +81,20 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  chrome:
+    build:
+      context: ./docker/chrome
+    command: ["/entrypoint.sh"]
+    shm_size: "2gb"
+    init: true
+    tmpfs:
+      - /tmp/chrome-data:size=512m
+    environment:
+      TZ: Asia/Tokyo
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    tty: true
+    stdin_open: true
