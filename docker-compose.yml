@@ -86,6 +86,8 @@ services:
   chrome:
     build:
       context: ./docker/chrome
+    ports:
+      - "6080:6080"
     command: ["/entrypoint.sh"]
     shm_size: "2gb"
     init: true
