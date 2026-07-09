@@ -901,6 +901,7 @@ export interface OauthToken {
 export interface OripoPages {
   created_at: Generated<Timestamp>;
   is_default: Generated<boolean>;
+  layout: Generated<string>;
   page_id: Generated<number>;
   page_name: string;
   sort_order: Generated<number>;
