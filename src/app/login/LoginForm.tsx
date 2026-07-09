@@ -62,7 +62,7 @@ export default function LoginForm() {
             maxLength={50}
             required
             disabled={isPending}
-            className="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand disabled:bg-gray-50 disabled:text-gray-400"
+            className="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand disabled:bg-gray-50 disabled:text-gray-400"
           />
         </div>
       </div>
@@ -82,7 +82,7 @@ export default function LoginForm() {
             maxLength={50}
             required
             disabled={isPending}
-            className="w-full border border-gray-200 rounded-lg pl-9 pr-10 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand disabled:bg-gray-50 disabled:text-gray-400"
+            className="w-full border border-gray-200 rounded-lg pl-9 pr-10 py-2.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand disabled:bg-gray-50 disabled:text-gray-400"
           />
           <button
             type="button"
