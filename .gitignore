@@ -9,6 +9,9 @@ node_modules/
 # DBバックアップ
 backups/
 
+# アプリログ（ファイルは管理外、ディレクトリのみ管理）
+logs/*.log
+
 # Claude ローカル設定
 .claude/settings.local.json
 

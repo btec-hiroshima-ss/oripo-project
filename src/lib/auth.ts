@@ -1,5 +1,6 @@
 import { getIronSession } from 'iron-session'
 import { cookies } from 'next/headers'
+import { logger } from '@/lib/logger'
 
 export type SessionData = {
   userId: number
@@ -64,6 +65,10 @@ export function recordLoginFailure(loginName: string): void {
     attempt.lockedUntil = now + LOCKOUT_MS
     attempt.failures = 0
     attempt.windowStart = now
+    logger.warn(
+      { event: 'auth.lockout', loginName, lockedUntil: new Date(attempt.lockedUntil).toISOString() },
+      'ロックアウト発動'
+    )
   }
 
   loginAttempts.set(loginName, attempt)
