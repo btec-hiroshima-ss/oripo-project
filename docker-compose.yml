@@ -45,6 +45,7 @@ services:
       NODE_ENV: development
       TZ: Asia/Tokyo
       DATABASE_URL: postgres://aipo_postgres:aipo@db:5432/aipo
+      SESSION_SECRET: dev-secret-please-change-in-production-min-32-chars!!
     depends_on:
       db:
         condition: service_healthy
