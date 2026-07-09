@@ -10,12 +10,12 @@ export default async function LoginPage() {
   if (session.userId) redirect('/')
 
   return (
-    <div className="min-h-screen bg-[#fdf5f3] flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4" style={{ background: 'radial-gradient(ellipse 70% 55% at 65% 15%, #fdeee8 0%, #fdf5f3 60%)' }}>
       <div className="w-full max-w-[340px]">
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           {/* Red header */}
-          <div className="bg-[#e84b28] flex items-center justify-center gap-2.5 py-5">
+          <div className="bg-brand flex items-center justify-center gap-2.5 py-5">
             {/* Grid/calendar icon */}
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect x="3" y="3" width="7" height="7" rx="1.5" fill="white" />
