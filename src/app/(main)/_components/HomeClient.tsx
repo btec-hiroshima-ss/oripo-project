@@ -2,16 +2,16 @@
 
 import { useState } from 'react'
 import type { Page, PageWidget } from '@/lib/pages.types'
-import PageTabBar from './PageTabBar'
+import HomeHeader from './HomeHeader'
 import WidgetGrid from './WidgetGrid'
 
 type Props = {
+  loginName: string
   initialPages: Page[]
   initialWidgetsByPage: Record<number, PageWidget[]>
-  isMobile: boolean
 }
 
-export default function HomeClient({ initialPages, initialWidgetsByPage, isMobile }: Props) {
+export default function HomeClient({ loginName, initialPages, initialWidgetsByPage }: Props) {
   const [pages, setPages] = useState(initialPages)
   const [activePage, setActivePage] = useState(initialPages[0])
   const [widgetsByPage, setWidgetsByPage] = useState(initialWidgetsByPage)
@@ -21,20 +21,20 @@ export default function HomeClient({ initialPages, initialWidgetsByPage, isMobil
   if (!activePage) return null
 
   return (
-    <div className="flex flex-col h-full">
-      <PageTabBar
+    <div className="flex flex-col min-h-screen">
+      <HomeHeader
+        loginName={loginName}
         pages={pages}
         activePage={activePage}
         onSelectPage={setActivePage}
         onPagesChange={setPages}
       />
-      <div className="flex-1 p-4 overflow-y-auto">
+      <div className="flex-1 p-4">
         <WidgetGrid
           key={activePage.pageId}
           pageId={activePage.pageId}
           layout={activePage.layout}
           widgets={widgets}
-          isMobile={isMobile}
         />
       </div>
     </div>

@@ -10,14 +10,13 @@ import { deleteWidgetAction } from '../actions'
 type Props = {
   widgetId: number
   widgetType: WidgetType
-  isDragEnabled: boolean
   children: React.ReactNode
 }
 
-export default function WidgetWrapper({ widgetId, widgetType, isDragEnabled, children }: Props) {
+export default function WidgetWrapper({ widgetId, widgetType, children }: Props) {
   const [minimized, setMinimized] = useState(false)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: widgetId, disabled: !isDragEnabled })
+    useSortable({ id: widgetId })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -32,16 +31,15 @@ export default function WidgetWrapper({ widgetId, widgetType, isDragEnabled, chi
       className="bg-white rounded-lg border border-gray-200 overflow-hidden"
     >
       <div className="flex items-center gap-1 px-3 py-2 bg-gray-50 border-b border-gray-200">
-        {isDragEnabled && (
-          <button
-            {...attributes}
-            {...listeners}
-            className="text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing touch-none"
-            aria-label="移動"
-          >
-            <GripVertical className="w-4 h-4" />
-          </button>
-        )}
+        {/* モバイルでは hidden、デスクトップで表示 */}
+        <button
+          {...attributes}
+          {...listeners}
+          className="hidden lg:block text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing touch-none"
+          aria-label="移動"
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
         <span className="flex-1 text-sm font-medium text-gray-700">
           {WIDGET_LABELS[widgetType]}
         </span>

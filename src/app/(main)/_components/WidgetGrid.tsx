@@ -20,6 +20,15 @@ import UserListWidget from './widgets/UserListWidget'
 
 const ALL_WIDGET_TYPES: WidgetType[] = ['Schedule', 'Whatsnew', 'UserList']
 
+// レイアウトごとのデスクトップ用 grid-template-columns
+const LAYOUT_GRID: Record<PageLayout, string> = {
+  OneColumn:        'lg:grid-cols-1',
+  TwoColumns:       'lg:grid-cols-2',
+  TwoColumnsRight:  'lg:[grid-template-columns:1fr_3fr]',
+  TwoColumnsLeft:   'lg:[grid-template-columns:3fr_1fr]',
+  ThreeColumns:     'lg:[grid-template-columns:1fr_2fr_1fr]',
+}
+
 function WidgetContent({ widgetType }: { widgetType: WidgetType }) {
   if (widgetType === 'Schedule') return <ScheduleWidget />
   if (widgetType === 'Whatsnew') return <WhatsnewWidget />
@@ -31,37 +40,30 @@ type Props = {
   pageId: number
   layout: PageLayout
   widgets: PageWidget[]
-  isMobile: boolean
 }
 
-export default function WidgetGrid({ pageId, layout, widgets: initialWidgets, isMobile }: Props) {
+export default function WidgetGrid({ pageId, layout, widgets: initialWidgets }: Props) {
   const [widgets, setWidgets] = useState(initialWidgets)
   const [showAddMenu, setShowAddMenu] = useState(false)
   const [, startTransition] = useTransition()
 
-  const columnCount = isMobile ? 1 : LAYOUT_COLUMNS[layout]
+  const columnCount = LAYOUT_COLUMNS[layout]
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   )
 
-  // モバイルは col 順 → row 順でフラット化
-  const sortedWidgets = isMobile
-    ? [...widgets].sort((a, b) => a.col - b.col || a.row - b.row)
-    : widgets
-
   // カラムごとにウィジェットを振り分け
   const columns: PageWidget[][] = Array.from({ length: columnCount }, () => [])
-  for (const w of sortedWidgets) {
-    const col = isMobile ? 0 : Math.min(w.col, columnCount - 1)
+  for (const w of widgets) {
+    const col = Math.min(w.col, columnCount - 1)
     columns[col].push(w)
   }
   for (const col of columns) {
     col.sort((a, b) => a.row - b.row)
   }
 
-  const usedTypes = new Set(widgets.map((w) => w.widgetType))
-  const availableTypes = ALL_WIDGET_TYPES.filter((t) => !usedTypes.has(t))
+  const availableTypes = ALL_WIDGET_TYPES
 
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
@@ -72,12 +74,8 @@ export default function WidgetGrid({ pageId, layout, widgets: initialWidgets, is
     if (!activeWidget || !overWidget) return
 
     const newWidgets = widgets.map((w) => {
-      if (w.widgetId === activeWidget.widgetId) {
-        return { ...w, col: overWidget.col, row: overWidget.row }
-      }
-      if (w.widgetId === overWidget.widgetId) {
-        return { ...w, col: activeWidget.col, row: activeWidget.row }
-      }
+      if (w.widgetId === activeWidget.widgetId) return { ...w, col: overWidget.col, row: overWidget.row }
+      if (w.widgetId === overWidget.widgetId) return { ...w, col: activeWidget.col, row: activeWidget.row }
       return w
     })
     setWidgets(newWidgets)
@@ -94,25 +92,11 @@ export default function WidgetGrid({ pageId, layout, widgets: initialWidgets, is
     setWidgets((prev) => [...prev, newWidget])
   }
 
-  const isDragEnabled = !isMobile && columnCount > 0
-
   return (
     <div className="flex flex-col gap-4">
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <div
-          className="grid gap-4"
-          style={{
-            gridTemplateColumns: isMobile
-              ? '1fr'
-              : layout === 'TwoColumnsRight'
-              ? '1fr 3fr'
-              : layout === 'TwoColumnsLeft'
-              ? '3fr 1fr'
-              : layout === 'ThreeColumns'
-              ? '1fr 2fr 1fr'
-              : `repeat(${columnCount}, 1fr)`,
-          }}
-        >
+      <DndContext id="widget-dnd" sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        {/* モバイル: grid-cols-1（1列に強制）、デスクトップ: レイアウト設定に従う */}
+        <div className={`grid grid-cols-1 gap-4 ${LAYOUT_GRID[layout]}`}>
           {columns.map((colWidgets, colIndex) => (
             <SortableContext
               key={colIndex}
@@ -125,7 +109,6 @@ export default function WidgetGrid({ pageId, layout, widgets: initialWidgets, is
                     key={w.widgetId}
                     widgetId={w.widgetId}
                     widgetType={w.widgetType}
-                    isDragEnabled={isDragEnabled}
                   >
                     <WidgetContent widgetType={w.widgetType} />
                   </WidgetWrapper>

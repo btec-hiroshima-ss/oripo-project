@@ -358,8 +358,8 @@ CREATE TABLE oripo_page_widgets (
   col         INTEGER NOT NULL DEFAULT 0,
   row         INTEGER NOT NULL DEFAULT 0,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (page_id, widget_type)
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  -- 同一ページに同一 widget_type を複数配置可能にするため UNIQUE 制約なし
 );
 ```
 
