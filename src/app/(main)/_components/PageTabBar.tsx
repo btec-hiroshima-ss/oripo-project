@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { Plus, X, ChevronDown } from 'lucide-react'
-import { LAYOUT_LABELS, type Page, type PageLayout } from '@/lib/pages'
+import { LAYOUT_LABELS, type Page, type PageLayout } from '@/lib/pages.types'
 import {
   addPageAction,
   deletePageAction,

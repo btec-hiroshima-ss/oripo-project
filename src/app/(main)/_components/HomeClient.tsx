@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { Page, PageWidget } from '@/lib/pages'
+import type { Page, PageWidget } from '@/lib/pages.types'
 import PageTabBar from './PageTabBar'
 import WidgetGrid from './WidgetGrid'
 

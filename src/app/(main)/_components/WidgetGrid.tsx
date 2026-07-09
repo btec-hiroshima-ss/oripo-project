@@ -11,7 +11,7 @@ import {
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useState, useTransition } from 'react'
 import { Plus } from 'lucide-react'
-import { LAYOUT_COLUMNS, WIDGET_LABELS, type PageLayout, type PageWidget, type WidgetType } from '@/lib/pages'
+import { LAYOUT_COLUMNS, WIDGET_LABELS, type PageLayout, type PageWidget, type WidgetType } from '@/lib/pages.types'
 import { addWidgetAction, updateWidgetPositionAction } from '../actions'
 import WidgetWrapper from './WidgetWrapper'
 import ScheduleWidget from './widgets/ScheduleWidget'

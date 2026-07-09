@@ -1,51 +1,8 @@
 import { db } from './db'
+import type { PageLayout, PageWidget, WidgetType, Page } from './pages.types'
 
-export type PageLayout =
-  | 'OneColumn'
-  | 'TwoColumns'
-  | 'TwoColumnsRight'
-  | 'TwoColumnsLeft'
-  | 'ThreeColumns'
-
-export const LAYOUT_COLUMNS: Record<PageLayout, number> = {
-  OneColumn: 1,
-  TwoColumns: 2,
-  TwoColumnsRight: 2,
-  TwoColumnsLeft: 2,
-  ThreeColumns: 3,
-}
-
-export const LAYOUT_LABELS: Record<PageLayout, string> = {
-  OneColumn: '1列',
-  TwoColumns: '2列（等幅）',
-  TwoColumnsRight: '2列（右広）',
-  TwoColumnsLeft: '2列（左広）',
-  ThreeColumns: '3列',
-}
-
-export type WidgetType = 'Schedule' | 'Whatsnew' | 'UserList'
-
-export const WIDGET_LABELS: Record<WidgetType, string> = {
-  Schedule: 'スケジュール',
-  Whatsnew: '更新情報',
-  UserList: 'ユーザー名簿',
-}
-
-export type Page = {
-  pageId: number
-  pageName: string
-  layout: PageLayout
-  sortOrder: number
-  isDefault: boolean
-}
-
-export type PageWidget = {
-  widgetId: number
-  pageId: number
-  widgetType: WidgetType
-  col: number
-  row: number
-}
+export type { PageLayout, PageWidget, WidgetType, Page }
+export { LAYOUT_COLUMNS, LAYOUT_LABELS, WIDGET_LABELS } from './pages.types'
 
 const DEFAULT_PAGE_NAME = 'マイページ'
 const DEFAULT_LAYOUT: PageLayout = 'TwoColumnsRight'
@@ -129,10 +86,7 @@ export async function getPageWidgets(pageId: number): Promise<PageWidget[]> {
   }))
 }
 
-export async function createPage(
-  userId: number,
-  pageName: string
-): Promise<Page> {
+export async function createPage(userId: number, pageName: string): Promise<Page> {
   const existing = await getUserPages(userId)
   const maxOrder = existing.reduce((m, p) => Math.max(m, p.sortOrder), -1)
 
@@ -183,10 +137,7 @@ export async function deletePage(pageId: number, userId: number): Promise<void> 
     .execute()
 }
 
-export async function addWidget(
-  pageId: number,
-  widgetType: WidgetType
-): Promise<PageWidget> {
+export async function addWidget(pageId: number, widgetType: WidgetType): Promise<PageWidget> {
   const existing = await getPageWidgets(pageId)
   const colWidgets = existing.filter((w) => w.col === 0)
   const maxRow = colWidgets.reduce((m, w) => Math.max(m, w.row), -1)
@@ -206,11 +157,7 @@ export async function addWidget(
   }
 }
 
-export async function updateWidgetPosition(
-  widgetId: number,
-  col: number,
-  row: number
-): Promise<void> {
+export async function updateWidgetPosition(widgetId: number, col: number, row: number): Promise<void> {
   await db
     .updateTable('oripo_page_widgets')
     .set({ col, row, updated_at: new Date() })
@@ -225,10 +172,7 @@ export async function deleteWidget(widgetId: number): Promise<void> {
     .execute()
 }
 
-export async function reorderPages(
-  userId: number,
-  orderedPageIds: number[]
-): Promise<void> {
+export async function reorderPages(userId: number, orderedPageIds: number[]): Promise<void> {
   for (let i = 0; i < orderedPageIds.length; i++) {
     await db
       .updateTable('oripo_pages')

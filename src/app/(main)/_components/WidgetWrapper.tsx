@@ -4,7 +4,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, ChevronDown, ChevronUp, X } from 'lucide-react'
 import { useState } from 'react'
-import { WIDGET_LABELS, type WidgetType } from '@/lib/pages'
+import { WIDGET_LABELS, type WidgetType } from '@/lib/pages.types'
 import { deleteWidgetAction } from '../actions'
 
 type Props = {
