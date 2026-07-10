@@ -21,13 +21,12 @@ export default function AddPageModal({ onClose, onAdd }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50">
-      <div style={style} className="absolute top-1/2 left-1/2 w-full max-w-sm px-4">
-        <div className="bg-white rounded-xl shadow-xl">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div style={style} className="bg-white rounded-xl shadow-xl w-full max-w-sm">
         {/* ヘッダー: ここ全体をドラッグハンドルにする */}
         <div
           onMouseDown={onMouseDown}
-          className="flex items-center justify-between px-5 py-4 border-b border-gray-100 cursor-move select-none"
+          className="flex items-center justify-between px-5 py-4 border-b border-gray-100 cursor-grab active:cursor-grabbing select-none"
         >
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 bg-brand rounded flex items-center justify-center">
@@ -75,7 +74,6 @@ export default function AddPageModal({ onClose, onAdd }: Props) {
             </button>
           </div>
         </form>
-        </div>
       </div>
     </div>
   )

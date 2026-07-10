@@ -69,13 +69,12 @@ export default function LayoutModal({ currentLayout, onClose, onConfirm }: Props
   const { style, onMouseDown } = useModalDrag()
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50">
-      <div style={style} className="absolute top-1/2 left-1/2 w-full max-w-md px-4">
-        <div className="bg-white rounded-xl shadow-xl">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div style={style} className="bg-white rounded-xl shadow-xl w-full max-w-md">
         {/* ヘッダー: ここ全体をドラッグハンドルにする */}
         <div
           onMouseDown={onMouseDown}
-          className="flex items-center justify-between px-5 py-4 border-b border-gray-100 cursor-move select-none"
+          className="flex items-center justify-between px-5 py-4 border-b border-gray-100 cursor-grab active:cursor-grabbing select-none"
         >
           <span className="font-semibold text-gray-800">レイアウト設定</span>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 rounded p-0.5">
@@ -122,7 +121,6 @@ export default function LayoutModal({ currentLayout, onClose, onConfirm }: Props
             <Check className="w-3.5 h-3.5" />
             確認する
           </button>
-        </div>
         </div>
       </div>
     </div>

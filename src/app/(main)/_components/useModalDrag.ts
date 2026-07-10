@@ -30,9 +30,9 @@ export function useModalDrag() {
     window.addEventListener('mouseup', onMouseUp)
   }
 
-  // モーダルの style と、ヘッダーに付ける onMouseDown を返す
+  // flex で中央寄せされた状態からの追加オフセットとして使う
   const style = {
-    transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px))`,
+    transform: `translate(${offset.x}px, ${offset.y}px)`,
   }
 
   return { style, onMouseDown }

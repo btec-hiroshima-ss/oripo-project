@@ -2,7 +2,7 @@
 
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { WIDGET_LABELS, type WidgetType } from '@/lib/pages.types'
 import { deleteWidgetAction } from '../actions'
 
@@ -28,20 +28,18 @@ export default function WidgetWrapper({ widgetId, widgetType, children }: Props)
       style={style}
       className="bg-white rounded-lg border border-gray-200 overflow-hidden"
     >
-      <div className="flex items-center gap-1 px-3 py-2 bg-gray-50 border-b border-gray-200">
-        {/* モバイルでは hidden、デスクトップで表示 */}
-        <button
-          {...attributes}
-          {...listeners}
-          className="hidden lg:block text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing touch-none"
-          aria-label="移動"
-        >
-          <GripVertical className="w-4 h-4" />
-        </button>
+      {/* ヘッダー全体をD&Dハンドルにする（デスクトップのみ）。
+          削除ボタンは onPointerDown を止めてドラッグのトリガーを防ぐ。 */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="flex items-center gap-1 px-3 py-2 bg-gray-50 border-b border-gray-200 lg:cursor-grab lg:active:cursor-grabbing touch-none"
+      >
         <span className="flex-1 text-sm font-medium text-gray-700">
           {WIDGET_LABELS[widgetType]}
         </span>
         <button
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={async () => {
             if (confirm(`「${WIDGET_LABELS[widgetType]}」をこのページから削除しますか？`)) {
               await deleteWidgetAction(widgetId)
