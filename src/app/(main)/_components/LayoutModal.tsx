@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { X, Check } from 'lucide-react'
 import { LAYOUT_LABELS, type PageLayout } from '@/lib/pages.types'
+import { useModalDrag } from './useModalDrag'
 
 const LAYOUTS: { value: PageLayout; label: string; icon: React.ReactNode }[] = [
   {
@@ -65,12 +66,17 @@ type Props = {
 
 export default function LayoutModal({ currentLayout, onClose, onConfirm }: Props) {
   const [selected, setSelected] = useState<PageLayout>(currentLayout)
+  const { style, onMouseDown } = useModalDrag()
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-        {/* ヘッダー */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+    <div className="fixed inset-0 bg-black/40 z-50">
+      <div style={style} className="absolute top-1/2 left-1/2 w-full max-w-md px-4">
+        <div className="bg-white rounded-xl shadow-xl">
+        {/* ヘッダー: ここ全体をドラッグハンドルにする */}
+        <div
+          onMouseDown={onMouseDown}
+          className="flex items-center justify-between px-5 py-4 border-b border-gray-100 cursor-move select-none"
+        >
           <span className="font-semibold text-gray-800">レイアウト設定</span>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 rounded p-0.5">
             <X className="w-4 h-4" />
@@ -116,6 +122,7 @@ export default function LayoutModal({ currentLayout, onClose, onConfirm }: Props
             <Check className="w-3.5 h-3.5" />
             確認する
           </button>
+        </div>
         </div>
       </div>
     </div>

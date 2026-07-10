@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { LayoutGrid, X, Plus } from 'lucide-react'
+import { useModalDrag } from './useModalDrag'
 
 type Props = {
   onClose: () => void
@@ -10,6 +11,7 @@ type Props = {
 
 export default function AddPageModal({ onClose, onAdd }: Props) {
   const [name, setName] = useState('')
+  const { style, onMouseDown } = useModalDrag()
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -19,10 +21,14 @@ export default function AddPageModal({ onClose, onAdd }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm">
-        {/* ヘッダー */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+    <div className="fixed inset-0 bg-black/40 z-50">
+      <div style={style} className="absolute top-1/2 left-1/2 w-full max-w-sm px-4">
+        <div className="bg-white rounded-xl shadow-xl">
+        {/* ヘッダー: ここ全体をドラッグハンドルにする */}
+        <div
+          onMouseDown={onMouseDown}
+          className="flex items-center justify-between px-5 py-4 border-b border-gray-100 cursor-move select-none"
+        >
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 bg-brand rounded flex items-center justify-center">
               <LayoutGrid className="w-3.5 h-3.5 text-white" />
@@ -69,6 +75,7 @@ export default function AddPageModal({ onClose, onAdd }: Props) {
             </button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   )
