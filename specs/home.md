@@ -172,9 +172,13 @@ src/
     (main)/
       page.tsx                  ← ホーム画面（Server Component）
       _components/
-        HomeClient.tsx          ← タブ切り替え・D&D管理（Client Component）
-        PageTabBar.tsx          ← タブナビゲーションバー
-        WidgetGrid.tsx          ← カラムレイアウト + ウィジェット配置
+        HomeClient.tsx          ← タブ切り替え・ウィジェット state 管理（Client Component）
+        HomeHeader.tsx          ← ヘッダー全体（ページ CRUD・モーダル制御）
+        PageTab.tsx             ← 個々のページタブ（インライン編集・削除・レイアウト設定）
+        MobileDrawer.tsx        ← モバイル用スライドインドロワー
+        AddPageModal.tsx        ← ページ追加モーダル（ページ名入力）
+        LayoutModal.tsx         ← レイアウト選択モーダル
+        WidgetGrid.tsx          ← カラムレイアウト + ウィジェット配置・D&D
         WidgetWrapper.tsx       ← 各ウィジェットの外枠（ヘッダー・削除）
         widgets/
           ScheduleWidget.tsx    ← スケジュールウィジェット（#81）
@@ -183,6 +187,7 @@ src/
       actions.ts                ← Server Actions（ページ・ウィジェット CRUD）
   lib/
     pages.ts                    ← DBクエリ（oripo_pages / oripo_page_widgets）
+    pages.types.ts              ← 型定義・定数（PageLayout・WidgetType など）
 ```
 
 ---
