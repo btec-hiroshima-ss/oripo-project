@@ -1,32 +1,30 @@
 import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
+import { LayoutGrid } from 'lucide-react'
 import { getSession } from '@/lib/auth'
 import LoginForm from './LoginForm'
 
 export const metadata = { title: 'Oripo' }
 
+// Server Component: セッションチェックをサーバー側で行い、ログイン済みならリダイレクト
 export default async function LoginPage() {
   const session = await getSession()
+  // すでにログイン済みの場合はホームへ
   if (session.userId) redirect('/')
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4" style={{ background: 'radial-gradient(ellipse 70% 55% at 65% 15%, #fdeee8 0%, #fdf5f3 60%)' }}>
       <div className="w-full max-w-[340px]">
-        {/* Card */}
+        {/* カード */}
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-          {/* Red header */}
+          {/* ブランドカラーのヘッダー */}
           <div className="bg-brand flex items-center justify-center gap-2.5 py-5">
-            {/* Grid/calendar icon */}
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="3" y="3" width="7" height="7" rx="1.5" fill="white" />
-              <rect x="14" y="3" width="7" height="7" rx="1.5" fill="white" />
-              <rect x="3" y="14" width="7" height="7" rx="1.5" fill="white" />
-              <rect x="14" y="14" width="7" height="7" rx="1.5" fill="white" />
-            </svg>
+            {/* Oripoロゴアイコン（lucide-react の LayoutGrid） */}
+            <LayoutGrid className="w-6 h-6 text-white" />
             <span className="text-white text-2xl font-bold tracking-wide">Oripo</span>
           </div>
 
-          {/* Form area */}
+          {/* フォームエリア: LoginForm は useSearchParams を使うため Suspense が必要 */}
           <div className="px-8 pt-6 pb-8">
             <h2 className="text-center text-[15px] font-semibold text-gray-700 mb-1">サインイン</h2>
             <p className="text-center text-xs text-gray-400 mb-5">
