@@ -2,8 +2,7 @@
 
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, ChevronDown, ChevronUp, X } from 'lucide-react'
-import { useState } from 'react'
+import { GripVertical, X } from 'lucide-react'
 import { WIDGET_LABELS, type WidgetType } from '@/lib/pages.types'
 import { deleteWidgetAction } from '../actions'
 
@@ -14,7 +13,6 @@ type Props = {
 }
 
 export default function WidgetWrapper({ widgetId, widgetType, children }: Props) {
-  const [minimized, setMinimized] = useState(false)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: widgetId })
 
@@ -44,13 +42,6 @@ export default function WidgetWrapper({ widgetId, widgetType, children }: Props)
           {WIDGET_LABELS[widgetType]}
         </span>
         <button
-          onClick={() => setMinimized((v) => !v)}
-          className="text-gray-400 hover:text-gray-600 p-0.5 rounded"
-          aria-label={minimized ? '展開' : '最小化'}
-        >
-          {minimized ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-        </button>
-        <button
           onClick={async () => {
             if (confirm(`「${WIDGET_LABELS[widgetType]}」をこのページから削除しますか？`)) {
               await deleteWidgetAction(widgetId)
@@ -62,7 +53,7 @@ export default function WidgetWrapper({ widgetId, widgetType, children }: Props)
           <X className="w-4 h-4" />
         </button>
       </div>
-      {!minimized && <div>{children}</div>}
+      <div>{children}</div>
     </div>
   )
 }

@@ -66,7 +66,6 @@ Oripo 独自の正規化テーブル（`oripo_pages` / `oripo_page_widgets`）�
 | `UserList` | ユーザー名簿 | #83 |
 
 - 同一 widget_type を同じページに複数配置可能（AIPO から逸脱、ユーザーの自由度向上のため）
-- ウィジェット内には「最小化」ボタンを設け、折りたたみ表示が可能
 - 「追加」ボタンでウィジェット一覧を表示し、全種類を常に選択肢に出す
 - ウィジェットを「削除」するとそのページから取り除かれる（データは消えない）
 
@@ -176,7 +175,7 @@ src/
         HomeClient.tsx          ← タブ切り替え・D&D管理（Client Component）
         PageTabBar.tsx          ← タブナビゲーションバー
         WidgetGrid.tsx          ← カラムレイアウト + ウィジェット配置
-        WidgetWrapper.tsx       ← 各ウィジェットの外枠（ヘッダー・最小化・削除）
+        WidgetWrapper.tsx       ← 各ウィジェットの外枠（ヘッダー・削除）
         widgets/
           ScheduleWidget.tsx    ← スケジュールウィジェット（#81）
           WhatsnewWidget.tsx    ← 更新情報ウィジェット（#82）
@@ -207,7 +206,6 @@ src/
 - [ ] デフォルト配置（Whatsnew・UserList・Schedule）が表示される
 - [ ] 「ウィジェット追加」から未配置ウィジェットを追加できる
 - [ ] ウィジェットを削除できる
-- [ ] ウィジェットを最小化・展開できる
 
 ### ドラッグ＆ドロップ
 - [ ] デスクトップでウィジェットをカラム間・行間でD&D移動できる
