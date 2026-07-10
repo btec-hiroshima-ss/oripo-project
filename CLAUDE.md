@@ -146,6 +146,11 @@ gh api repos/arkjun/aipo/contents/jetspeed/src/main/java/org/apache/jetspeed/...
 
 規約の詳細は `docs/05_develop/implementation-rules.md` を参照。
 
+**コメントは保守性を重視して積極的に残すこと。**（詳細は `docs/05_develop/implementation-rules.md` の「コメント規約」参照）
+
+- なぜそう書いたか（WHY）・非自明な挙動・Next.js/React の制約を説明するコメントを残す
+- コードを読めばわかる「何をしているか（WHAT）」は書かない
+
 **実装前に必ず以下の両方を確認すること:**
 
 1. **仕様書** (`specs/{機能名}.md`) — 機能要件・API・データモデル・受け入れ条件

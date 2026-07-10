@@ -1,5 +1,40 @@
 # 実装規約
 
+## コメント規約
+
+**保守性を重視したコメントを積極的に残すこと。**
+
+コードを読む人が「なぜこう書いたのか」を理解できるようにすることが目的。
+
+### 書くべきコメント
+
+- **なぜそうしたか（WHY）** — 制約・仕様上の理由・回避策の意図
+- **非自明な挙動** — 読んだだけでは気づかない副作用・依存関係
+- **Next.js / React の仕組みによる制約** — `Suspense` が必要な理由・Server Component の制限など
+- **セクション区切り** — JSX の中で役割が変わる箇所（フォーム・エラー表示・ボタンなど）
+
+### 書かなくていいコメント
+
+- コードを読めばわかる「何をしているか（WHAT）」
+- 変数名・関数名で伝わること
+
+### 例
+
+```tsx
+// useTransition: ログイン処理中に UI をブロックせず isPending フラグを取得する
+const [isPending, startTransition] = useTransition()
+
+// フォームエリア: LoginForm は useSearchParams を使うため Suspense が必要
+<Suspense>
+  <LoginForm />
+</Suspense>
+
+// 認証前に訪問しようとしていたページへ戻す（なければホームへ）
+const redirectTo = searchParams.get('redirect') ?? '/'
+```
+
+---
+
 ## コンポーネント設計
 
 判断ルール:
