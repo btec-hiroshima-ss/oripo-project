@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { XCircle, User, Lock, Eye, EyeOff, LogIn } from 'lucide-react'
 import { login } from './actions'
 
+// サーバー側が返すエラーコードに対応するユーザー向けメッセージ
 const ERROR_MESSAGES = {
   invalid_credentials:
     'ユーザー名とパスワードを正しく入力してください。大文字と小文字は区別されます。',
@@ -15,19 +16,24 @@ const ERROR_MESSAGES = {
 export default function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
+
+  // フォーム入力値をリアクティブ変数で管理
+  const [loginName, setLoginName] = useState('')
+  const [password, setPassword] = useState('')
+
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
+
+  // useTransition: ログイン処理中に UI をブロックせず isPending フラグを取得する
   const [isPending, startTransition] = useTransition()
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const form = e.currentTarget
-    const loginName = (form.elements.namedItem('loginName') as HTMLInputElement).value
-    const password = (form.elements.namedItem('password') as HTMLInputElement).value
-
     startTransition(async () => {
+      // Server Action でDB認証 → 成功時はリダイレクト、失敗時はエラー表示
       const result = await login(loginName, password)
       if (result.ok) {
+        // 認証前に訪問しようとしていたページへ戻す（なければホームへ）
         const redirectTo = searchParams.get('redirect') ?? '/'
         router.push(redirectTo)
       } else {
@@ -38,7 +44,7 @@ export default function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Error message */}
+      {/* エラーメッセージ */}
       {error && (
         <div role="alert" className="flex items-start gap-2 bg-error-bg border border-error-border rounded-lg px-3 py-2.5">
           <XCircle className="w-4 h-4 text-brand mt-0.5 shrink-0" />
@@ -46,7 +52,7 @@ export default function LoginForm() {
         </div>
       )}
 
-      {/* Username */}
+      {/* ユーザー名 */}
       <div>
         <label htmlFor="loginName" className="block text-xs font-medium text-gray-600 mb-1.5">
           ユーザー名
@@ -62,12 +68,14 @@ export default function LoginForm() {
             maxLength={50}
             required
             disabled={isPending}
+            value={loginName}
+            onChange={(e) => setLoginName(e.target.value)}
             className="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand disabled:bg-gray-50 disabled:text-gray-400"
           />
         </div>
       </div>
 
-      {/* Password */}
+      {/* パスワード */}
       <div>
         <label htmlFor="password" className="block text-xs font-medium text-gray-600 mb-1.5">
           パスワード
@@ -82,8 +90,11 @@ export default function LoginForm() {
             maxLength={50}
             required
             disabled={isPending}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             className="w-full border border-gray-200 rounded-lg pl-9 pr-10 py-2.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand disabled:bg-gray-50 disabled:text-gray-400"
           />
+          {/* パスワード表示/非表示トグル */}
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
@@ -95,7 +106,7 @@ export default function LoginForm() {
         </div>
       </div>
 
-      {/* Login button */}
+      {/* ログインボタン: isPending 中は無効化してログイン中表示 */}
       <button
         type="submit"
         disabled={isPending}

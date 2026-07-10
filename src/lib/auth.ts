@@ -9,10 +9,12 @@ export type SessionData = {
 
 export const ironOptions = {
   cookieName: 'oripo_session',
+  // SESSION_SECRET が未設定だと起動時にクラッシュする（意図的: 設定漏れを早期検知）
   password: process.env.SESSION_SECRET!,
   ttl: 8 * 60 * 60, // 8時間
   cookieOptions: {
     httpOnly: true,
+    // ローカル開発は HTTP のため secure: false。本番（HTTPS）でのみ true にする
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict' as const,
   },
@@ -22,8 +24,9 @@ export async function getSession() {
   return getIronSession<SessionData>(await cookies(), ironOptions)
 }
 
-// ロックアウト管理（メモリ内、サーバー再起動でリセット）
-// 10分以内に5回失敗 → 10分ロック
+// ロックアウト管理（メモリ内）
+// 制約: サーバー再起動でリセットされる。複数インスタンス構成には非対応（Oripo は単一サーバーのため許容）
+// ルール: 10分以内に5回失敗 → 10分ロック
 const FAILURE_LIMIT = 5
 const WINDOW_MS = 10 * 60 * 1000 // 10分
 const LOCKOUT_MS = 10 * 60 * 1000 // 10分
