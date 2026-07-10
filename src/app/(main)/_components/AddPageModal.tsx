@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { LayoutGrid, X } from 'lucide-react'
+import { LayoutGrid, X, Plus } from 'lucide-react'
 
 type Props = {
   onClose: () => void
@@ -64,9 +64,7 @@ export default function AddPageModal({ onClose, onAdd }: Props) {
               disabled={!name.trim()}
               className="px-4 py-2 text-sm text-white bg-brand rounded-lg hover:bg-brand-dark disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
+              <Plus className="w-3.5 h-3.5" />
               追加する
             </button>
           </div>

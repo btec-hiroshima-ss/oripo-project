@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { X, Check } from 'lucide-react'
 import { LAYOUT_LABELS, type PageLayout } from '@/lib/pages.types'
 
 const LAYOUTS: { value: PageLayout; label: string; icon: React.ReactNode }[] = [
@@ -72,9 +73,7 @@ export default function LayoutModal({ currentLayout, onClose, onConfirm }: Props
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <span className="font-semibold text-gray-800">レイアウト設定</span>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 rounded p-0.5">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -114,9 +113,7 @@ export default function LayoutModal({ currentLayout, onClose, onConfirm }: Props
             onClick={() => onConfirm(selected)}
             className="px-4 py-2 text-sm text-white bg-brand rounded-lg hover:bg-brand-dark flex items-center gap-1"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M5 13l4 4L19 7" />
-            </svg>
+            <Check className="w-3.5 h-3.5" />
             確認する
           </button>
         </div>
