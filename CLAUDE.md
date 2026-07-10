@@ -104,15 +104,13 @@ gh api repos/arkjun/aipo/contents/jetspeed/src/main/java/org/apache/jetspeed/...
 
 ## ブランチ戦略
 
-**Phase 1〜4（ドキュメント整備中）**
-- `main` ブランチのみ
-- 作業ブランチ: `feature/issue-{番号}-{内容}` → PR → main
-
-**Phase 5以降（実装開始時に切り替え）**
+**現在: Phase 5（実装フェーズ）**
 - `main`: リリース済み・安定版
-- `develop`: 開発の集約先
-- 作業ブランチ: `feature/issue-{番号}-{内容}` → PR → develop
-- リリース時: develop → PR → main
+- `develop`: 開発の集約先（`main` から派生）
+- 作業ブランチ: `feature/issue-{番号}-{内容}` → PR → `develop`
+- リリース時: `develop` → PR → `main`
+
+> `develop` ブランチが存在しない場合は `git checkout -b develop main && git push -u origin develop` で作成すること。
 
 ## コミットメッセージ規約
 
@@ -134,11 +132,51 @@ gh api repos/arkjun/aipo/contents/jetspeed/src/main/java/org/apache/jetspeed/...
 
 **ファイルの編集・保存は確認不要。**
 
-`git push` の前に `/spec-check` を実行し、仕様書・実装・テストの整合性を確認すること。ズレがある場合はユーザーに確認を取ってから進む。
+Issue を受領したら以下のフローで進める。人間レビューは最後（ステップ 6 の PR）のみ。
 
-`git commit` / `git push` / `gh pr create` の前に必ず変更内容を提示してユーザーの確認を取ること。確認なしに実行しない。
+---
 
-既存ブランチで作業を始める前に、そのブランチの PR がマージ済みでないか確認すること。マージ済みの場合は main から新しいブランチを切り直す。
+### ステップ 1: 仕様書の作成・確認
+
+- `develop` から `feature/issue-{番号}-{内容}` ブランチを切る
+- 仕様書がない場合: `specs/{機能名}.md` を新規作成（下記テンプレート参照）
+- 既存の場合: 現実装・Issue の内容と照らして差異を修正
+- 必ず AIPO の現行仕様（`docs/01_current/`・AIPO ソースコード）を確認してから設計すること
+
+### ステップ 2: 仕様書レビュー（別エージェント）
+
+`/spec-review` を実行する（`.claude/commands/spec-review.md`）。指摘があれば修正してから次へ。
+
+### ステップ 3: 実装・テスト
+
+- `/check-implementation` で規約を確認してから着手すること
+- 実装と同時にテストコード（Vitest）も作成する（`src/**/*.test.ts` に同置）
+- テストは仕様書の `## 受け入れ条件` をもとに生成する
+
+### ステップ 4: コードレビュー（別エージェント）
+
+`/code-review` を実行する（`.claude/commands/code-review.md`）。指摘があれば修正してから次へ。
+
+### ステップ 5: ブラウザ動作確認（別エージェント）
+
+`/browser-check` を実行する（`.claude/commands/browser-check.md`）。NG があれば修正する。仕様の解釈に疑問がある場合はユーザーに確認を取ること。
+
+### ステップ 6: push & PR 作成（唯一の人間レビューポイント）
+
+- `/spec-check` で仕様書・実装・テストの整合性を最終確認する
+- push して PR を作成する（`develop` ← `feature/issue-{番号}-{内容}`）
+- PR 本文に仕様書の要点・受け入れ条件・動作確認結果を記載する
+- ユーザーにレビューを依頼する
+
+### ステップ 7: ユーザーフィードバック対応
+
+- ユーザーから指摘・疑問点が発生した場合は Issue に追記して再依頼
+- 修正が必要な場合はステップ 3 から再開する
+
+---
+
+**全般的な注意:**
+- 既存ブランチで作業を始める前に PR がマージ済みでないか確認すること。マージ済みの場合は `develop` から新しいブランチを切り直す
 
 ## 実装規約
 
