@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { LayoutGrid, X } from 'lucide-react'
 
 type Props = {
   onClose: () => void
@@ -24,19 +25,12 @@ export default function AddPageModal({ onClose, onAdd }: Props) {
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 bg-brand rounded flex items-center justify-center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <rect x="3" y="3" width="7" height="7" rx="1.5" fill="white" />
-                <rect x="14" y="3" width="7" height="7" rx="1.5" fill="white" />
-                <rect x="3" y="14" width="7" height="7" rx="1.5" fill="white" />
-                <rect x="14" y="14" width="7" height="7" rx="1.5" fill="white" />
-              </svg>
+              <LayoutGrid className="w-3.5 h-3.5 text-white" />
             </div>
             <span className="font-semibold text-gray-800">ページ追加</span>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 rounded p-0.5">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
+            <X className="w-4 h-4" />
           </button>
         </div>
 
