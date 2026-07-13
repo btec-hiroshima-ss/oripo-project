@@ -2,12 +2,12 @@
 
 ## 前提条件（共通）
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) がインストール済みであること
+- WSL に Docker がインストール済みであること
 - [VS Code](https://code.visualstudio.com/) がインストール済みであること
 
 ---
 
-## パターン A: Claude Code で開発する（推奨）
+## パターン A: Claude Code で開発する
 
 AI アシスタント（Claude Code）を使って開発する場合の手順。
 
@@ -122,23 +122,16 @@ Claude コンテナ・バックアップコンテナ・Chrome コンテナは起
 
 ---
 
-## よく使うコマンド
+## DB リストア
+
+既存の AIPO データを開発環境に取り込む場合、以下の手順でリストアする。
+
+リストアファイルは担当者に確認すること。
 
 ```bash
-# 全サービス起動（パターン A 用）
-docker compose up
-
-# アプリ・DB のみ起動（パターン B 用）
-docker compose up app db
-
-# 全サービス停止
-docker compose down
-
-# DB データを含め完全削除（やり直し時）
-docker compose down -v
-
-# アプリのログ確認（マイグレーション実行ログも含む）
-docker compose logs -f app
+# DB コンテナにリストアファイルを転送してリストア
+docker compose cp <リストアファイル>.sql db:/tmp/restore.sql
+docker compose exec db psql -U aipo_postgres -d aipo -f /tmp/restore.sql
 ```
 
 ---
