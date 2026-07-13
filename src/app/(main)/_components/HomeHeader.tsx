@@ -115,17 +115,6 @@ export default function HomeHeader({
             ))
           )}
 
-          {/* タブ上限（10枚）未満のときのみ追加ボタンを表示。個人設定中も常に表示（AIPO準拠） */}
-          {pages.length < 10 && (
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded transition-colors"
-              aria-label="タブを追加"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          )}
-
           {/* 個人設定: アクティブ時は白ピル、非アクティブ時はテキストリンク */}
           <button
             onClick={settingsActive ? onCloseSettings : onOpenSettings}
@@ -137,6 +126,17 @@ export default function HomeHeader({
           >
             個人設定
           </button>
+
+          {/* タブ上限（10枚）未満のときのみ追加ボタンを表示。個人設定中も常に表示（AIPO準拠） */}
+          {pages.length < 10 && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded transition-colors"
+              aria-label="タブを追加"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          )}
         </nav>
 
         {/* 右端: お知らせ・ユーザー名・ログアウト */}
