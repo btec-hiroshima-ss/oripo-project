@@ -27,7 +27,12 @@ export default function HomeClient({ loginName, initialPages, initialWidgetsByPa
         pages={pages}
         activePage={activePage}
         onSelectPage={setActivePage}
-        onPagesChange={setPages}
+        onPagesChange={(updated) => {
+          setPages(updated)
+          // ページ名・レイアウト変更を activePage にも反映する
+          const current = updated.find((p) => p.pageId === activePage.pageId)
+          if (current) setActivePage(current)
+        }}
       />
       <div className="flex-1 p-4">
         <WidgetGrid
@@ -35,6 +40,9 @@ export default function HomeClient({ loginName, initialPages, initialWidgetsByPa
           pageId={activePage.pageId}
           layout={activePage.layout}
           widgets={widgets}
+          onWidgetsChange={(updated) =>
+            setWidgetsByPage((prev) => ({ ...prev, [activePage.pageId]: updated }))
+          }
         />
       </div>
     </div>

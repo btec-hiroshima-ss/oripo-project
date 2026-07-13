@@ -2,14 +2,15 @@
 
 import {
   DndContext,
-  closestCenter,
+  rectIntersection,
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
   type DragEndEvent,
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import { LAYOUT_COLUMNS, WIDGET_LABELS, type PageLayout, type PageWidget, type WidgetType } from '@/lib/pages.types'
 import { addWidgetAction, updateWidgetPositionAction } from '../actions'
@@ -20,7 +21,6 @@ import UserListWidget from './widgets/UserListWidget'
 
 const ALL_WIDGET_TYPES: WidgetType[] = ['Schedule', 'Whatsnew', 'UserList']
 
-// レイアウトごとのデスクトップ用 grid-template-columns
 const LAYOUT_GRID: Record<PageLayout, string> = {
   OneColumn:        'lg:grid-cols-1',
   TwoColumns:       'lg:grid-cols-2',
@@ -36,16 +36,33 @@ function WidgetContent({ widgetType }: { widgetType: WidgetType }) {
   return null
 }
 
+// 各列を droppable にするコンポーネント。
+// useDroppable によって「列の空き領域」もドロップ先として認識される。
+function DroppableColumn({ colIndex, children }: { colIndex: number; children: React.ReactNode }) {
+  const { setNodeRef } = useDroppable({ id: `col-${colIndex}` })
+  return (
+    <div ref={setNodeRef} className="flex flex-col gap-3 min-h-16 pb-10">
+      {children}
+    </div>
+  )
+}
+
 type Props = {
   pageId: number
   layout: PageLayout
   widgets: PageWidget[]
+  onWidgetsChange: (widgets: PageWidget[]) => void
 }
 
-export default function WidgetGrid({ pageId, layout, widgets: initialWidgets }: Props) {
+export default function WidgetGrid({ pageId, layout, widgets: initialWidgets, onWidgetsChange }: Props) {
   const [widgets, setWidgets] = useState(initialWidgets)
   const [showAddMenu, setShowAddMenu] = useState(false)
   const [, startTransition] = useTransition()
+
+  // ページ設定など外部でウィジェットが変更された場合に内部 state を同期する
+  useEffect(() => {
+    setWidgets(initialWidgets)
+  }, [initialWidgets])
 
   const columnCount = LAYOUT_COLUMNS[layout]
 
@@ -53,7 +70,6 @@ export default function WidgetGrid({ pageId, layout, widgets: initialWidgets }: 
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   )
 
-  // カラムごとにウィジェットを振り分け
   const columns: PageWidget[][] = Array.from({ length: columnCount }, () => [])
   for (const w of widgets) {
     const col = Math.min(w.col, columnCount - 1)
@@ -63,39 +79,109 @@ export default function WidgetGrid({ pageId, layout, widgets: initialWidgets }: 
     col.sort((a, b) => a.row - b.row)
   }
 
-  const availableTypes = ALL_WIDGET_TYPES
-
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
-    if (!over || active.id === over.id) return
+    if (!over) return
 
     const activeWidget = widgets.find((w) => w.widgetId === active.id)
-    const overWidget = widgets.find((w) => w.widgetId === over.id)
-    if (!activeWidget || !overWidget) return
+    if (!activeWidget) return
+
+    const overId = over.id
+
+    // カラム空き領域へのドロップ: そのカラムの末尾に追加（AIPO の末尾 add と同等）
+    if (typeof overId === 'string' && overId.startsWith('col-')) {
+      const targetCol = parseInt(overId.slice(4))
+      const sourceCol = activeWidget.col
+      // すでに同カラムの末尾にいる場合はスキップ
+      if (sourceCol === targetCol && columns[targetCol].at(-1)?.widgetId === activeWidget.widgetId) return
+
+      const rowMap = new Map<number, { col: number; row: number }>()
+      // active をターゲットカラムの末尾に配置
+      const targetWithoutActive = columns[targetCol].filter((w) => w.widgetId !== activeWidget.widgetId)
+      rowMap.set(activeWidget.widgetId, { col: targetCol, row: targetWithoutActive.length })
+      if (sourceCol !== targetCol) {
+        // カラムをまたぐ場合: ソースカラムの残存ウィジェットも row を振り直す
+        const sourceItems = columns[sourceCol].filter((w) => w.widgetId !== activeWidget.widgetId)
+        sourceItems.forEach((w, idx) => rowMap.set(w.widgetId, { col: sourceCol, row: idx }))
+      } else {
+        // 同一カラム末尾ドロップ: 残存ウィジェットの row も振り直す
+        targetWithoutActive.forEach((w, idx) => rowMap.set(w.widgetId, { col: targetCol, row: idx }))
+      }
+
+      const newWidgets = widgets.map((w) => {
+        const newPos = rowMap.get(w.widgetId)
+        return newPos ? { ...w, ...newPos } : w
+      })
+      setWidgets(newWidgets)
+      onWidgetsChange(newWidgets)
+      startTransition(async () => {
+        await Promise.all(
+          [...rowMap.entries()].map(([widgetId, { col, row }]) =>
+            updateWidgetPositionAction(widgetId, col, row)
+          )
+        )
+      })
+      return
+    }
+
+    // 別ウィジェットへのドロップ: AIPO 準拠の INSERT（ドラッグ元をドロップ先の直前に挿入）
+    const overWidget = widgets.find((w) => w.widgetId === overId)
+    if (!overWidget || activeWidget.widgetId === overWidget.widgetId) return
+
+    const sourceCol = activeWidget.col
+    const targetCol = overWidget.col
+
+    // ソースカラムから active を除いたリスト
+    const sourceItems = columns[sourceCol].filter((w) => w.widgetId !== activeWidget.widgetId)
+
+    let targetItems: PageWidget[]
+    if (sourceCol === targetCol) {
+      // 同一カラム: active 除去後のリストに overWidget の直前で挿入
+      const overIdx = sourceItems.findIndex((w) => w.widgetId === overWidget.widgetId)
+      targetItems = [...sourceItems]
+      targetItems.splice(overIdx, 0, activeWidget)
+    } else {
+      // 別カラム: ターゲットカラムの overWidget の直前に挿入
+      targetItems = [...columns[targetCol]]
+      const overIdx = targetItems.findIndex((w) => w.widgetId === overWidget.widgetId)
+      targetItems.splice(overIdx, 0, activeWidget)
+    }
+
+    // 影響するカラムの row を 0 から振り直す
+    const rowMap = new Map<number, { col: number; row: number }>()
+    targetItems.forEach((w, idx) => rowMap.set(w.widgetId, { col: targetCol, row: idx }))
+    if (sourceCol !== targetCol) {
+      sourceItems.forEach((w, idx) => rowMap.set(w.widgetId, { col: sourceCol, row: idx }))
+    }
 
     const newWidgets = widgets.map((w) => {
-      if (w.widgetId === activeWidget.widgetId) return { ...w, col: overWidget.col, row: overWidget.row }
-      if (w.widgetId === overWidget.widgetId) return { ...w, col: activeWidget.col, row: activeWidget.row }
-      return w
+      const newPos = rowMap.get(w.widgetId)
+      return newPos ? { ...w, ...newPos } : w
     })
     setWidgets(newWidgets)
-
+    onWidgetsChange(newWidgets)
     startTransition(async () => {
-      await updateWidgetPositionAction(activeWidget.widgetId, overWidget.col, overWidget.row)
-      await updateWidgetPositionAction(overWidget.widgetId, activeWidget.col, activeWidget.row)
+      await Promise.all(
+        [...rowMap.entries()].map(([widgetId, { col, row }]) =>
+          updateWidgetPositionAction(widgetId, col, row)
+        )
+      )
     })
   }
 
   async function handleAddWidget(widgetType: WidgetType) {
     setShowAddMenu(false)
     const newWidget = await addWidgetAction(pageId, widgetType)
-    setWidgets((prev) => [...prev, newWidget])
+    const updated = [...widgets, newWidget]
+    setWidgets(updated)
+    onWidgetsChange(updated)
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <DndContext id="widget-dnd" sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        {/* モバイル: grid-cols-1（1列に強制）、デスクトップ: レイアウト設定に従う */}
+      {/* rectIntersection: ドラッグ矩形と droppable 矩形の重なりで判定するため
+          closestCenter より列跨ぎドラッグの精度が高い */}
+      <DndContext id="widget-dnd" sensors={sensors} collisionDetection={rectIntersection} onDragEnd={handleDragEnd}>
         <div className={`grid grid-cols-1 gap-4 ${LAYOUT_GRID[layout]}`}>
           {columns.map((colWidgets, colIndex) => (
             <SortableContext
@@ -103,46 +189,49 @@ export default function WidgetGrid({ pageId, layout, widgets: initialWidgets }: 
               items={colWidgets.map((w) => w.widgetId)}
               strategy={verticalListSortingStrategy}
             >
-              <div className="flex flex-col gap-3">
+              <DroppableColumn colIndex={colIndex}>
                 {colWidgets.map((w) => (
                   <WidgetWrapper
                     key={w.widgetId}
                     widgetId={w.widgetId}
                     widgetType={w.widgetType}
+                    onDeleted={() => {
+                      const updated = widgets.filter((x) => x.widgetId !== w.widgetId)
+                      setWidgets(updated)
+                      onWidgetsChange(updated)
+                    }}
                   >
                     <WidgetContent widgetType={w.widgetType} />
                   </WidgetWrapper>
                 ))}
-              </div>
+              </DroppableColumn>
             </SortableContext>
           ))}
         </div>
       </DndContext>
 
-      {availableTypes.length > 0 && (
-        <div className="relative">
-          <button
-            onClick={() => setShowAddMenu((v) => !v)}
-            className="flex items-center gap-1.5 text-sm text-brand hover:text-brand-dark font-medium"
-          >
-            <Plus className="w-4 h-4" />
-            ウィジェットを追加
-          </button>
-          {showAddMenu && (
-            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-40">
-              {availableTypes.map((type) => (
-                <button
-                  key={type}
-                  onClick={() => handleAddWidget(type)}
-                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg"
-                >
-                  {WIDGET_LABELS[type]}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <div className="relative">
+        <button
+          onClick={() => setShowAddMenu((v) => !v)}
+          className="flex items-center gap-1.5 text-sm text-brand hover:text-brand-dark font-medium"
+        >
+          <Plus className="w-4 h-4" />
+          ウィジェットを追加
+        </button>
+        {showAddMenu && (
+          <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-40">
+            {ALL_WIDGET_TYPES.map((type) => (
+              <button
+                key={type}
+                onClick={() => handleAddWidget(type)}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg"
+              >
+                {WIDGET_LABELS[type]}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

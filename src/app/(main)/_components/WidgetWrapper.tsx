@@ -10,9 +10,10 @@ type Props = {
   widgetId: number
   widgetType: WidgetType
   children: React.ReactNode
+  onDeleted: () => void
 }
 
-export default function WidgetWrapper({ widgetId, widgetType, children }: Props) {
+export default function WidgetWrapper({ widgetId, widgetType, children, onDeleted }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: widgetId })
 
@@ -43,6 +44,7 @@ export default function WidgetWrapper({ widgetId, widgetType, children }: Props)
           onClick={async () => {
             if (confirm(`「${WIDGET_LABELS[widgetType]}」をこのページから削除しますか？`)) {
               await deleteWidgetAction(widgetId)
+              onDeleted()
             }
           }}
           className="text-gray-400 hover:text-red-500 p-0.5 rounded"
