@@ -4,6 +4,7 @@ import HomeClient from './_components/HomeClient'
 
 export default async function HomePage() {
   const session = await getSession()
+
   const pages = await getOrCreateDefaultPages(session.userId!)
 
   const widgetsByPage: Record<number, Awaited<ReturnType<typeof getPageWidgets>>> = {}

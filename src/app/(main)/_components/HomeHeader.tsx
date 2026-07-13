@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { LogOut, Bell, Menu, Plus, LayoutGrid } from 'lucide-react'
+import Link from 'next/link'
 import { logout } from '@/app/login/actions'
 import type { Page, PageLayout } from '@/lib/pages.types'
 import { addPageAction, deletePageAction, updatePageAction } from '../actions'
@@ -15,14 +15,26 @@ type Props = {
   loginName: string
   pages: Page[]
   activePage: Page
+  settingsActive: boolean
   onSelectPage: (page: Page) => void
   onPagesChange: (pages: Page[]) => void
+  onOpenSettings: () => void
+  onCloseSettings: () => void
 }
 
 // ホーム画面のヘッダー全体を管理するコンポーネント。
 // ページ CRUD のハンドラーとモーダル表示制御を担う。
 // 各 UI 部品は PageTab / MobileDrawer に分離している。
-export default function HomeHeader({ loginName, pages, activePage, onSelectPage, onPagesChange }: Props) {
+export default function HomeHeader({
+  loginName,
+  pages,
+  activePage,
+  settingsActive,
+  onSelectPage,
+  onPagesChange,
+  onOpenSettings,
+  onCloseSettings,
+}: Props) {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showLayoutModal, setShowLayoutModal] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -77,36 +89,55 @@ export default function HomeHeader({ loginName, pages, activePage, onSelectPage,
 
         {/* デスクトップ: ページタブ一覧 + ナビ */}
         <nav className="hidden lg:flex items-center gap-0 flex-1 overflow-x-hidden">
-          {pages.map((page) => (
-            <PageTab
-              key={page.pageId}
-              page={page}
-              isActive={page.pageId === activePage.pageId}
-              showDelete={pages.length > 1}
-              onSelect={() => onSelectPage(page)}
-              onDelete={() => handleDeletePage(page)}
-              onLayoutOpen={() => setShowLayoutModal(true)}
-              onRename={(name) => handleRename(page.pageId, name)}
-            />
-          ))}
-
-          {/* タブ上限（10枚）未満のときのみ追加ボタンを表示 */}
-          {pages.length < 10 && (
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded transition-colors"
-              aria-label="タブを追加"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
+          {settingsActive ? (
+            // 個人設定表示中はページタブをシンプルなリンクとして表示
+            pages.map((page) => (
+              <button
+                key={page.pageId}
+                onClick={() => onSelectPage(page)}
+                className="px-3 py-1.5 rounded text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+              >
+                {page.pageName}
+              </button>
+            ))
+          ) : (
+            <>
+              {pages.map((page) => (
+                <PageTab
+                  key={page.pageId}
+                  page={page}
+                  isActive={page.pageId === activePage.pageId}
+                  showDelete={pages.length > 1}
+                  onSelect={() => onSelectPage(page)}
+                  onDelete={() => handleDeletePage(page)}
+                  onLayoutOpen={() => setShowLayoutModal(true)}
+                  onRename={(name) => handleRename(page.pageId, name)}
+                />
+              ))}
+              {/* タブ上限（10枚）未満のときのみ追加ボタンを表示 */}
+              {pages.length < 10 && (
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded transition-colors"
+                  aria-label="タブを追加"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              )}
+            </>
           )}
 
-          <Link
-            href="/settings"
-            className="px-3 py-1.5 rounded text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-colors ml-1"
+          {/* 個人設定: アクティブ時は白ピル、非アクティブ時はテキストリンク */}
+          <button
+            onClick={settingsActive ? onCloseSettings : onOpenSettings}
+            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ml-1 ${
+              settingsActive
+                ? 'bg-white text-brand font-semibold'
+                : 'text-white/80 hover:bg-white/10 hover:text-white'
+            }`}
           >
             個人設定
-          </Link>
+          </button>
         </nav>
 
         {/* 右端: お知らせ・ユーザー名・ログアウト */}
