@@ -21,18 +21,15 @@ AIPO 準拠: AIPO のヘッダー・グローバルナビゲーションに相�
 
 - Next.js App Router のルートグループ `(main)` で認証済みページをグループ化する
 - 認証チェックは `src/middleware.ts` で処理済み（レイアウト側では不要）
-- ホームはページタブをヘッダー内に組み込む独自ヘッダー（`HomeHeader.tsx`）を使うため、
-  共通ヘッダーを提供する `(with-header)` サブグループには含めない
+- 個人設定はモーダルとして `/` 上に実装する（別 URL にしない）
+  - 理由: ページタブを全画面で常に表示するため、URL を分けない設計とした
 
 ```
 src/app/
   (main)/
-    layout.tsx             ← 背景色など最小限のラッパー
-    page.tsx               ← ホーム画面（/）HomeHeader を使用
-    (with-header)/
-      layout.tsx           ← 共通ヘッダー（Header.tsx）を配線
-      settings/            ← 個人設定（/settings）など
-  login/                   ← 共通レイアウト適用外
+    layout.tsx   ← 共通ラッパー（背景色のみ）
+    page.tsx     ← ホーム画面（/）ヘッダー・ページタブ・ウィジェットを管理
+  login/         ← 共通レイアウト適用外
 ```
 
 ### ヘッダー
