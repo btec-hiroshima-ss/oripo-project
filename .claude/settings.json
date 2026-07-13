@@ -1,13 +1,28 @@
 {
+  "defaultMode": "auto",
   "permissions": {
     "allow": [
-      "Bash(git add *)",
-      "Bash(git commit -m ' *)",
-      "Bash(git push *)",
-      "Bash(git checkout *)",
-      "Bash(gh pr *)",
-      "Bash(git fetch *)",
-      "Bash(git cherry-pick *)"
+      "Bash(git *)",
+      "Bash(gh *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(echo *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(mkdir *)",
+      "Bash(touch *)",
+      "Bash(jq *)",
+      "Bash(curl *)",
+      "Bash(docker *)",
+      "Bash(psql *)"
     ]
   }
 }
