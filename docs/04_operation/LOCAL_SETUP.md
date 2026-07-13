@@ -6,13 +6,15 @@
 - [VS Code](https://code.visualstudio.com/) がインストール済みであること
 - [Dev Containers 拡張機能](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) がインストール済みであること
 - [DBeaver](https://dbeaver.io/) がインストール済みであること
-- GitHub の Personal Access Token（`repo` + `read:packages` スコープ）を発行済みであること
+- GitHub アカウントを持っていること
 
 ---
 
 ## 手順
 
 ### 1. GitHub PAT の発行
+
+> すでに `repo` + `read:packages` スコープの PAT を持っている場合はスキップしてよい。
 
 GitHub にログインし、[Personal Access Tokens](https://github.com/settings/tokens) ページで PAT を発行する。
 
