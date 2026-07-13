@@ -35,6 +35,24 @@ const redirectTo = searchParams.get('redirect') ?? '/'
 
 ---
 
+## 定数
+
+ファイル内で複数箇所から参照される文字列・数値は、ファイル上部（import の直後）で定数として定義する。
+
+- 命名は `UPPER_SNAKE_CASE`
+- **WHY コメントを必ず付ける** — 何の定数かだけでなく、なぜ分離したかを残す
+
+```tsx
+// DroppableColumn の id 生成（`col-0`, `col-1`, ...）と dragEnd 時の列ドロップ判定で共用するプレフィックス
+const COL_DROP_PREFIX = 'col-'
+
+// 後でスライスで列インデックスを取り出す: overId.slice(COL_DROP_PREFIX.length)
+```
+
+マジックナンバーや繰り返し登場するリテラルは、ロジックの中に直書きせず必ず定数化すること。
+
+---
+
 ## コンポーネント設計
 
 判断ルール:

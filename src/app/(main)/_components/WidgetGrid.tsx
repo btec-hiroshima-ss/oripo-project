@@ -7,6 +7,7 @@ import {
   useSensor,
   useSensors,
   useDroppable,
+  useDndContext,
   type DragEndEvent,
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -20,6 +21,9 @@ import WhatsnewWidget from './widgets/WhatsnewWidget'
 import UserListWidget from './widgets/UserListWidget'
 
 const ALL_WIDGET_TYPES: WidgetType[] = ['Schedule', 'Whatsnew', 'UserList']
+
+// DroppableColumn の id 生成（`col-0`, `col-1`, ...）と dragEnd 時の列ドロップ判定で共用するプレフィックス
+const COL_DROP_PREFIX = 'col-'
 
 const LAYOUT_GRID: Record<PageLayout, string> = {
   OneColumn:        'lg:grid-cols-1',
@@ -38,11 +42,21 @@ function WidgetContent({ widgetType }: { widgetType: WidgetType }) {
 
 // 各列を droppable にするコンポーネント。
 // useDroppable によって「列の空き領域」もドロップ先として認識される。
+// ドラッグ中は末尾にドロップ可能領域（点線枠）を表示し、ホバー時はブランドカラーでハイライトする。
 function DroppableColumn({ colIndex, children }: { colIndex: number; children: React.ReactNode }) {
-  const { setNodeRef } = useDroppable({ id: `col-${colIndex}` })
+  const { setNodeRef, isOver } = useDroppable({ id: `${COL_DROP_PREFIX}${colIndex}` })
+  const { active } = useDndContext()
+  const isDragging = active !== null
   return (
-    <div ref={setNodeRef} className="flex flex-col gap-3 min-h-16 pb-10">
+    <div ref={setNodeRef} className="flex flex-col gap-3 min-h-16">
       {children}
+      {isDragging && (
+        <div
+          className={`min-h-10 rounded-lg border-2 border-dashed transition-colors ${
+            isOver ? 'border-brand bg-brand/5' : 'border-gray-200'
+          }`}
+        />
+      )}
     </div>
   )
 }
@@ -89,8 +103,8 @@ export default function WidgetGrid({ pageId, layout, widgets: initialWidgets, on
     const overId = over.id
 
     // カラム空き領域へのドロップ: そのカラムの末尾に追加（AIPO の末尾 add と同等）
-    if (typeof overId === 'string' && overId.startsWith('col-')) {
-      const targetCol = parseInt(overId.slice(4))
+    if (typeof overId === 'string' && overId.startsWith(COL_DROP_PREFIX)) {
+      const targetCol = parseInt(overId.slice(COL_DROP_PREFIX.length))
       const sourceCol = activeWidget.col
       // すでに同カラムの末尾にいる場合はスキップ
       if (sourceCol === targetCol && columns[targetCol].at(-1)?.widgetId === activeWidget.widgetId) return
