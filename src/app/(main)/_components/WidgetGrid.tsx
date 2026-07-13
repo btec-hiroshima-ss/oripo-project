@@ -136,10 +136,11 @@ export default function WidgetGrid({ pageId, layout, widgets: initialWidgets, on
 
     let targetItems: PageWidget[]
     if (sourceCol === targetCol) {
-      // 同一カラム: active 除去後のリストに overWidget の直前で挿入
-      const overIdx = sourceItems.findIndex((w) => w.widgetId === overWidget.widgetId)
+      // 同一カラム: AIPO 方式では active 除去「前」の元インデックスに挿入する。
+      // 除去後の配列でインデックスを探すと、下方向ドラッグ時に常に元の位置に戻ってしまう。
+      const origIdx = columns[sourceCol].findIndex((w) => w.widgetId === overWidget.widgetId)
       targetItems = [...sourceItems]
-      targetItems.splice(overIdx, 0, activeWidget)
+      targetItems.splice(origIdx, 0, activeWidget)
     } else {
       // 別カラム: ターゲットカラムの overWidget の直前に挿入
       targetItems = [...columns[targetCol]]
