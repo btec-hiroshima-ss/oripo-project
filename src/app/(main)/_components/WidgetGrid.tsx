@@ -20,11 +20,13 @@ import ScheduleWidget from './widgets/ScheduleWidget'
 import WhatsnewWidget from './widgets/WhatsnewWidget'
 import UserListWidget from './widgets/UserListWidget'
 
+// 「ウィジェットを追加」メニューに表示する種別一覧（実装済みウィジェット）
 const ALL_WIDGET_TYPES: WidgetType[] = ['Schedule', 'Whatsnew', 'UserList']
 
 // DroppableColumn の id 生成（`col-0`, `col-1`, ...）と dragEnd 時の列ドロップ判定で共用するプレフィックス
 const COL_DROP_PREFIX = 'col-'
 
+// レイアウト種別ごとの CSS グリッドクラス。lg ブレークポイント以上で列比率が適用される。
 const LAYOUT_GRID: Record<PageLayout, string> = {
   OneColumn:        'lg:grid-cols-1',
   TwoColumns:       'lg:grid-cols-2',

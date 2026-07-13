@@ -51,6 +51,7 @@ export async function reorderPagesAction(orderedPageIds: number[]) {
 export async function addWidgetAction(pageId: number, widgetType: WidgetType) {
   const widget = await addWidget(pageId, widgetType)
   // revalidatePath を呼ばない: 戻り値で楽観的更新するため、即時 RSC 再レンダリング不要
+  // TODO: 楽観的更新が失敗した場合（ネットワークエラーなど）のロールバック未実装
   return widget
 }
 
