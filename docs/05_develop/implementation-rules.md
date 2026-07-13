@@ -35,6 +35,38 @@ const redirectTo = searchParams.get('redirect') ?? '/'
 
 ---
 
+## 定数・変数定義
+
+### モジュールレベルの定数
+
+ファイル内で複数箇所から参照される文字列・数値は、ファイル上部（import の直後）で定数として定義する。
+
+- 命名は `UPPER_SNAKE_CASE`
+- **WHY コメントを必ず付ける** — 何の定数かだけでなく、なぜ分離したかを残す
+
+```tsx
+// DroppableColumn の id 生成（`col-0`, `col-1`, ...）と dragEnd 時の列ドロップ判定で共用するプレフィックス
+const COL_DROP_PREFIX = 'col-'
+```
+
+マジックナンバーや繰り返し登場するリテラルは、ロジックの中に直書きせず必ず定数化すること。
+
+### 関数内の変数定義
+
+目的が自明でない変数には、定義の直前に WHY コメントを付ける。
+
+```tsx
+// レイアウト種別から算出したカラム数（ウィジェットを何列に分割するか）
+const columnCount = LAYOUT_COLUMNS[layout]
+
+// col インデックスをキーに widgets を列単位で分割し、row 昇順にソートした配列
+const columns: PageWidget[][] = Array.from({ length: columnCount }, () => [])
+```
+
+変数名だけで意図が伝わる場合（例: `userId`、`isLoading`）はコメント不要。
+
+---
+
 ## コンポーネント設計
 
 判断ルール:

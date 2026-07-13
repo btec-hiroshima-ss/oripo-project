@@ -77,6 +77,16 @@ Oripo 独自の正規化テーブル（`oripo_pages` / `oripo_page_widgets`）�
 - 移動後は即時 API 保存（楽観的更新 + エラー時ロールバック）
 - モバイルでは D&D 無効（代わりに設定メニューで列選択）
 
+**ドロップ挙動（AIPO 準拠 INSERT 方式）:**
+
+| ドロップ先 | 挙動 |
+|---|---|
+| 別ウィジェットの上 | ドラッグ元をそのウィジェットの直前に挿入（後続要素の row を繰り下げ） |
+| カラムの空き領域（末尾） | ドラッグ元をそのカラムの末尾に追加 |
+
+- 同一カラム内での並び替え・末尾への移動も上記ルールに従う
+- カラム末尾のドロップ可能領域は常に視認できる高さを確保する（最低 40px）
+
 ### デフォルト設定（新規ユーザー / 初回ログイン時）
 
 以下の設定で `oripo_pages` と `oripo_page_widgets` を自動生成する。
@@ -157,8 +167,8 @@ CREATE TABLE oripo_page_widgets (
   col         INTEGER NOT NULL DEFAULT 0,
   row         INTEGER NOT NULL DEFAULT 0,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (page_id, widget_type)
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  -- UNIQUE (page_id, widget_type) は migration で削除済み（同一種別の複数配置を許可するため）
 );
 ```
 
@@ -214,6 +224,10 @@ src/
 
 ### ドラッグ＆ドロップ
 - [ ] デスクトップでウィジェットをカラム間・行間でD&D移動できる
+- [ ] 別ウィジェットの上にドロップすると、その直前に挿入される（後続要素がずれる）
+- [ ] カラムの空き領域（末尾）にドロップするとそのカラムの最後尾に移動する
+- [ ] 同一カラム内で末尾にドロップして順序を変更できる
+- [ ] 3列レイアウトで各カラムに複数ウィジェットがある場合も末尾ドロップが機能する
 - [ ] 移動後の位置がDBに保存され、リロード後も維持される
 
 ### レスポンシブ
