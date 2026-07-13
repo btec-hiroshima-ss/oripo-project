@@ -61,13 +61,32 @@ Dev Containers: Reopen in Container
 
 起動後、VS Code のターミナルが `/workspace` をルートとした Claude コンテナ内に接続される。
 
-### 5. 動作確認
+### 5. DB リストア（DBeaver）
+
+既存の AIPO データを開発環境に取り込む。リストアファイルは担当者に確認すること。
+
+DBeaver を起動し、新規接続（PostgreSQL）を作成：
+
+| 項目 | 値 |
+|---|---|
+| Host | `localhost` |
+| Port | `5432` |
+| Database | `aipo` |
+| Username | `aipo_postgres` |
+| Password | `aipo` |
+
+接続後、`aipo` データベースを右クリックしてリストアを実行：
+
+- **SQL ファイル（.sql）**:「ツール」→「SQL スクリプトの実行」→ファイルを選択して実行
+- **ダンプファイル（.dump / .backup）**:「ツール」→「リストア」→ファイルを選択して実行
+
+### 6. 動作確認
 
 ブラウザで `http://localhost:3000` を開き、ログイン画面が表示されれば OK。
 
 > DB マイグレーションはアプリ起動時に自動実行されるため、手動での実行は不要。
 
-### 6. Claude Code にログイン（Claude を使う場合のみ）
+### 7. Claude Code にログイン（Claude を使う場合のみ）
 
 ```bash
 claude login
@@ -83,44 +102,6 @@ claude login
 |---|---|
 | ユーザー名 | `Rescho` |
 | パスワード | `rescho` |
-
----
-
-## DB 接続（DBeaver）
-
-DB の確認・操作には [DBeaver](https://dbeaver.io/) を使用する。
-
-### 接続設定
-
-DBeaver を起動し、新規接続（PostgreSQL）を作成して以下を入力：
-
-| 項目 | 値 |
-|---|---|
-| Host | `localhost` |
-| Port | `5432` |
-| Database | `aipo` |
-| Username | `aipo_postgres` |
-| Password | `aipo` |
-
-「テスト接続」をクリックして成功すれば OK。
-
----
-
-## DB リストア（DBeaver）
-
-既存の AIPO データを開発環境に取り込む場合、DBeaver でリストアする。
-
-リストアファイルは担当者に確認すること。
-
-### SQL ファイル（.sql）の場合
-
-1. DBeaver で `aipo` データベースを右クリック →「ツール」→「SQL スクリプトの実行」
-2. リストアファイルを選択して実行
-
-### ダンプファイル（.dump / .backup）の場合
-
-1. DBeaver で `aipo` データベースを右クリック →「ツール」→「リストア」
-2. リストアファイルを選択して実行
 
 ---
 
