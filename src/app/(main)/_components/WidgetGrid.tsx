@@ -80,12 +80,15 @@ export default function WidgetGrid({ pageId, layout, widgets: initialWidgets, on
     setWidgets(initialWidgets)
   }, [initialWidgets])
 
+  // レイアウト種別から算出したカラム数（ウィジェットを何列に分割するか）
   const columnCount = LAYOUT_COLUMNS[layout]
 
+  // distance: 8 で微小な移動をクリックと区別してからドラッグ開始する
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   )
 
+  // col インデックスをキーに widgets を列単位で分割し、row 昇順にソートした配列
   const columns: PageWidget[][] = Array.from({ length: columnCount }, () => [])
   for (const w of widgets) {
     const col = Math.min(w.col, columnCount - 1)
