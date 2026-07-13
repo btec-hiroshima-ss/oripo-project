@@ -50,7 +50,7 @@ export async function reorderPagesAction(orderedPageIds: number[]) {
 
 export async function addWidgetAction(pageId: number, widgetType: WidgetType) {
   const widget = await addWidget(pageId, widgetType)
-  revalidatePath('/')
+  // revalidatePath を呼ばない: 戻り値で楽観的更新するため、即時 RSC 再レンダリング不要
   return widget
 }
 
@@ -60,10 +60,11 @@ export async function updateWidgetPositionAction(
   row: number
 ) {
   await updateWidgetPosition(widgetId, col, row)
-  revalidatePath('/')
+  // revalidatePath を呼ばない: D&D で複数件 Promise.all するため revalidatePath が競合し
+  // "unexpected response from server" エラーを引き起こす。楽観的更新で UI は同期済み。
 }
 
 export async function deleteWidgetAction(widgetId: number) {
   await deleteWidget(widgetId)
-  revalidatePath('/')
+  // revalidatePath を呼ばない: onDeleted コールバックで楽観的更新するため不要
 }
