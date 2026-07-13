@@ -71,8 +71,8 @@ export default function PageTab({ page, isActive, showDelete, onSelect, onDelete
         </button>
       )}
 
-      {/* 複数ページ時のみ削除ボタンを表示 */}
-      {showDelete && (
+      {/* アクティブかつ複数ページ時のみ削除ボタンを表示 */}
+      {isActive && showDelete && (
         <button
           onClick={(e) => { e.stopPropagation(); onDelete() }}
           className="text-white/50 hover:text-white rounded p-1 -mr-1"
