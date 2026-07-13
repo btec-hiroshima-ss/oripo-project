@@ -29,7 +29,7 @@ Claudeを最大限活用。成果物・ローカルテストはすべてClaude�
 
 ## ローカル環境構築
 
-[docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md) を参照。
+[docs/04_operation/LOCAL_SETUP.md](docs/04_operation/LOCAL_SETUP.md) を参照。
 
 ## 進捗管理
 
