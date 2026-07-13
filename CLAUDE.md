@@ -32,33 +32,33 @@ gh api graphql -f query='...'
 
 ## ディレクトリ構成
 
-| パス | 内容 |
-|---|---|
-| shareDir/ | 一時参照ドキュメント置き場（git管理外） |
-| .claude/ | Claude設定・MCP設定（settings.json） |
-| .devcontainer/ | Dev Container設定 |
-| docker/claude/ | claudeコンテナ用Dockerfile |
-| docker-compose.yml | ローカル開発環境（claude + app + db） |
-| docker-compose.prod.yml | 本番サーバー用 compose |
-| scripts/ | セットアップ・デプロイスクリプト |
+| パス                    | 内容                                    |
+| ----------------------- | --------------------------------------- |
+| shareDir/               | 一時参照ドキュメント置き場（git管理外） |
+| .claude/                | Claude設定・MCP設定（settings.json）    |
+| .devcontainer/          | Dev Container設定                       |
+| docker/claude/          | claudeコンテナ用Dockerfile              |
+| docker-compose.yml      | ローカル開発環境（claude + app + db）   |
+| docker-compose.prod.yml | 本番サーバー用 compose                  |
+| scripts/                | セットアップ・デプロイスクリプト        |
 
 ### ドキュメント構成
 
-| パス | 内容 |
-|---|---|
-| docs/01_current/ | 現行AIPO調査・仕様書 |
-| docs/02_requirements/ | 要件定義 |
-| docs/03_migration/ | 移行計画 |
-| docs/04_operation/ | 環境構築・サーバー運用手順 |
-| docs/05_develop/ | 実装フロー・コーディング規約 |
+| パス                  | 内容                         |
+| --------------------- | ---------------------------- |
+| docs/01_current/      | 現行AIPO調査・仕様書         |
+| docs/02_requirements/ | 要件定義                     |
+| docs/03_migration/    | 移行計画                     |
+| docs/04_operation/    | 環境構築・サーバー運用手順   |
+| docs/05_develop/      | 実装フロー・コーディング規約 |
 
 ### プロジェクト構成
 
-| ディレクトリ | 内容 |
-|---|---|
-| specs/ | 新システム仕様書（SDD・Markdown） |
-| src/ | 実装（Phase5以降） |
-| db/migrations/ | マイグレーションSQL |
+| ディレクトリ   | 内容                              |
+| -------------- | --------------------------------- |
+| specs/         | 新システム仕様書（SDD・Markdown） |
+| src/           | 実装（Phase5以降）                |
+| db/migrations/ | マイグレーションSQL               |
 
 ## Tech Stack
 
@@ -105,6 +105,7 @@ gh api repos/arkjun/aipo/contents/jetspeed/src/main/java/org/apache/jetspeed/...
 ## ブランチ戦略
 
 **現在: Phase 5（実装フェーズ）**
+
 - `main`: リリース済み・安定版
 - `develop`: 開発の集約先（`main` から派生）
 - 作業ブランチ: `feature/issue-{番号}-{内容}` → PR → `develop`
@@ -155,6 +156,7 @@ Issue を受領したら以下のフローで進める。人間レビューは�
 - `/check-implementation` で規約を確認してから着手すること
 - 実装と同時にテストコード（Vitest）も作成する（`src/**/*.test.ts` に同置）
 - テストは仕様書の `## 受け入れ条件` をもとに生成する
+- **テストファイルの作成は必須。テストなしでステップ 4 に進まないこと。**
 
 ### ステップ 4: コードレビュー（別エージェント）
 
@@ -179,6 +181,7 @@ Issue を受領したら以下のフローで進める。人間レビューは�
 ---
 
 **全般的な注意:**
+
 - 既存ブランチで作業を始める前に PR がマージ済みでないか確認すること。マージ済みの場合は `develop` から新しいブランチを切り直す
 
 ## 実装規約
@@ -226,8 +229,8 @@ UI の確認・デバッグが必要な場合は **chrome-devtools MCP でブラ
 
 **開発用ログイン情報:**
 
-| 項目 | 値 |
-|---|---|
+| 項目       | 値       |
+| ---------- | -------- |
 | ユーザー名 | `Rescho` |
 | パスワード | `rescho` |
 
