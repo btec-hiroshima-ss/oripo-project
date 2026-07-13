@@ -7,6 +7,10 @@
         "@modelcontextprotocol/server-postgres",
         "postgres://aipo_postgres:aipo@db:5432/aipo"
       ]
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote@latest", "http://chrome:3100/mcp", "--allow-http"]
     }
   }
 }

@@ -1,5 +1,72 @@
 # 実装規約
 
+## コメント規約
+
+**保守性を重視したコメントを積極的に残すこと。**
+
+コードを読む人が「なぜこう書いたのか」を理解できるようにすることが目的。
+
+### 書くべきコメント
+
+- **なぜそうしたか（WHY）** — 制約・仕様上の理由・回避策の意図
+- **非自明な挙動** — 読んだだけでは気づかない副作用・依存関係
+- **Next.js / React の仕組みによる制約** — `Suspense` が必要な理由・Server Component の制限など
+- **セクション区切り** — JSX の中で役割が変わる箇所（フォーム・エラー表示・ボタンなど）
+
+### 書かなくていいコメント
+
+- コードを読めばわかる「何をしているか（WHAT）」
+- 変数名・関数名で伝わること
+
+### 例
+
+```tsx
+// useTransition: ログイン処理中に UI をブロックせず isPending フラグを取得する
+const [isPending, startTransition] = useTransition()
+
+// フォームエリア: LoginForm は useSearchParams を使うため Suspense が必要
+<Suspense>
+  <LoginForm />
+</Suspense>
+
+// 認証前に訪問しようとしていたページへ戻す（なければホームへ）
+const redirectTo = searchParams.get('redirect') ?? '/'
+```
+
+---
+
+## 定数・変数定義
+
+### モジュールレベルの定数
+
+ファイル内で複数箇所から参照される文字列・数値は、ファイル上部（import の直後）で定数として定義する。
+
+- 命名は `UPPER_SNAKE_CASE`
+- **WHY コメントを必ず付ける** — 何の定数かだけでなく、なぜ分離したかを残す
+
+```tsx
+// DroppableColumn の id 生成（`col-0`, `col-1`, ...）と dragEnd 時の列ドロップ判定で共用するプレフィックス
+const COL_DROP_PREFIX = 'col-'
+```
+
+マジックナンバーや繰り返し登場するリテラルは、ロジックの中に直書きせず必ず定数化すること。
+
+### 関数内の変数定義
+
+目的が自明でない変数には、定義の直前に WHY コメントを付ける。
+
+```tsx
+// レイアウト種別から算出したカラム数（ウィジェットを何列に分割するか）
+const columnCount = LAYOUT_COLUMNS[layout]
+
+// col インデックスをキーに widgets を列単位で分割し、row 昇順にソートした配列
+const columns: PageWidget[][] = Array.from({ length: columnCount }, () => [])
+```
+
+変数名だけで意図が伝わる場合（例: `userId`、`isLoading`）はコメント不要。
+
+---
+
 ## コンポーネント設計
 
 判断ルール:
@@ -71,6 +138,69 @@ vi.mock('@/lib/schedule', () => ({
 
 - 認証ロジックは `src/lib/auth.ts` に集約する
 - セッション確認が必要なページは `src/lib/auth.ts` の関数を呼び出す（散らばせない）
+
+## ログ出力
+
+### 基本ルール
+
+- `logger` は `@/lib/logger` からインポートする
+- **サーバーサイド専用**（Server Component・Server Actions・middleware・`src/lib/`）。Client Component には書かない
+- ログには必ず `event` フィールドを含める（検索・集計のキーになる）
+
+```ts
+import { logger } from '@/lib/logger'
+
+// 第1引数: 構造化データ（event 必須）
+// 第2引数: 人間向けの説明メッセージ
+logger.info({ event: 'auth.login.success', loginName, userId }, 'ログイン成功')
+logger.warn({ event: 'auth.login.failure', loginName }, 'ログイン失敗: 認証情報不一致')
+```
+
+### ログレベル
+
+| レベル | 用途 | 例 |
+|---|---|---|
+| `info` | 正常系の重要イベント | ログイン成功・ログアウト |
+| `warn` | 失敗・セキュリティ上の異常 | ログイン失敗・ロックアウト・未認証アクセス |
+| `error` | 予期しないエラー・例外 | DB接続失敗・外部API障害 |
+
+- `debug` は本番では出力しない（`LOG_LEVEL` 環境変数で制御）
+- ルーティング・静的ファイル配信など高頻度の正常リクエストは記録しない
+
+### event フィールドの命名規則
+
+`{ドメイン}.{アクション}[.{結果}]` の形式で統一する。
+
+```
+auth.login.success
+auth.login.failure
+auth.login.locked_out
+auth.login.disabled
+auth.logout
+auth.lockout
+auth.unauthorized
+schedule.create
+schedule.delete
+```
+
+### 含めてよいデータ・含めてはいけないデータ
+
+**含めてよい:**
+- `loginName`（ログイン名）
+- `userId`（数値ID）
+- `pathname`（リクエストパス）
+- エラーコード・ステータスコード
+
+**含めてはいけない:**
+- パスワード・ハッシュ値
+- セッショントークン・Cookie値
+- 個人情報（氏名・メールアドレス・生年月日など）
+
+### ログファイル
+
+- 出力先: stdout（`docker compose logs app`）と `/var/log/app/app.YYYY-MM-DD.log`（同時）
+- 日次ローテーション（pino-roll）
+- 30日分のバックアップを `backups/logs/` に保持（バックアップコンテナが毎日3時に実行）
 
 ## 依存パッケージのバージョン管理
 

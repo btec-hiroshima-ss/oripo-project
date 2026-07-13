@@ -6,8 +6,11 @@ node_modules/
 # macOS
 .DS_Store
 
-# DBバックアップ
-backups/
+# バックアップ（ファイルは管理外、ディレクトリのみ管理）
+backups/*.dump.gz
+
+# アプリログ（ファイルは管理外、ディレクトリのみ管理）
+logs/*.log
 
 # Claude ローカル設定
 .claude/settings.local.json

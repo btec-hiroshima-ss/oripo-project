@@ -6,21 +6,33 @@
     "dev": "next dev -H 0.0.0.0",
     "build": "next build",
     "start": "next start -H 0.0.0.0",
-    "db:generate": "kysely-codegen --url $DATABASE_URL --out-file src/lib/db.types.ts"
+    "db:generate": "kysely-codegen --url $DATABASE_URL --out-file src/lib/db.types.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@tailwindcss/postcss": "^4.3.2",
+    "iron-session": "^8.0.4",
     "kysely": "^0.28.17",
+    "lucide-react": "^1.23.0",
     "next": "^15.3.2",
     "pg": "^8.22.0",
+    "pino": "^10.3.1",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.3.2"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.0.0",
     "kysely-codegen": "^0.20.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.0.0"
   }
 }
