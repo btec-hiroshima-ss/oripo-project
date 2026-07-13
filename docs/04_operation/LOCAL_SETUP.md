@@ -5,6 +5,7 @@
 - WSL に Docker がインストール済みであること（→ [付録: WSL への Docker インストール](#付録-wsl-への-docker-インストール)）
 - [VS Code](https://code.visualstudio.com/) がインストール済みであること
 - [Dev Containers 拡張機能](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) がインストール済みであること
+- [DBeaver](https://dbeaver.io/) がインストール済みであること
 - GitHub の Personal Access Token（`repo` + `read:packages` スコープ）を発行済みであること
 
 ---
@@ -69,17 +70,41 @@ claude login
 
 ---
 
-## DB リストア
+## DB 接続（DBeaver）
 
-既存の AIPO データを開発環境に取り込む場合、以下の手順でリストアする。
+DB の確認・操作には [DBeaver](https://dbeaver.io/) を使用する。
+
+### 接続設定
+
+DBeaver を起動し、新規接続（PostgreSQL）を作成して以下を入力：
+
+| 項目 | 値 |
+|---|---|
+| Host | `localhost` |
+| Port | `5432` |
+| Database | `aipo` |
+| Username | `aipo_postgres` |
+| Password | `aipo` |
+
+「テスト接続」をクリックして成功すれば OK。
+
+---
+
+## DB リストア（DBeaver）
+
+既存の AIPO データを開発環境に取り込む場合、DBeaver でリストアする。
 
 リストアファイルは担当者に確認すること。
 
-```bash
-# DB コンテナにリストアファイルを転送してリストア
-docker compose cp <リストアファイル>.sql db:/tmp/restore.sql
-docker compose exec db psql -U aipo_postgres -d aipo -f /tmp/restore.sql
-```
+### SQL ファイル（.sql）の場合
+
+1. DBeaver で `aipo` データベースを右クリック →「ツール」→「SQL スクリプトの実行」
+2. リストアファイルを選択して実行
+
+### ダンプファイル（.dump / .backup）の場合
+
+1. DBeaver で `aipo` データベースを右クリック →「ツール」→「リストア」
+2. リストアファイルを選択して実行
 
 ---
 
