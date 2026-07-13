@@ -37,7 +37,7 @@ export default function PageTab({ page, isActive, showDelete, onSelect, onDelete
   return (
     <div
       className={`group relative flex items-center gap-1 px-3 py-1.5 rounded text-sm font-medium cursor-pointer transition-colors ${
-        isActive ? 'bg-white/20 text-white' : 'text-white/80 hover:bg-white/10 hover:text-white'
+        isActive ? 'bg-white text-brand font-semibold' : 'text-white/80 hover:bg-white/10 hover:text-white'
       }`}
       onClick={onSelect}
       onDoubleClick={startEdit}
@@ -64,7 +64,7 @@ export default function PageTab({ page, isActive, showDelete, onSelect, onDelete
       {isActive && (
         <button
           onClick={(e) => { e.stopPropagation(); onLayoutOpen() }}
-          className="opacity-0 group-hover:opacity-100 text-white/70 hover:text-white rounded p-1"
+          className="opacity-0 group-hover:opacity-100 text-brand/50 hover:text-brand rounded p-1"
           aria-label="レイアウト設定"
         >
           <Settings className="w-3.5 h-3.5" />
