@@ -143,13 +143,20 @@ DBeaver を起動し、新規接続（PostgreSQL）を作成して以下を入�
 
 ## 付録: WSL への Docker インストール
 
+> WSL がすでにインストール済みの場合は「Docker Engine のインストール」から始めること。
+> WSL のインストール確認: PowerShell で `wsl -l -v` を実行し、ディストリビューション一覧が表示されれば導入済み。
+
+### WSL のインストール（未導入の場合のみ）
+
 Windows の PowerShell（管理者権限）で実行：
 
 ```powershell
 wsl --install
 ```
 
-インストール後、WSL（Ubuntu）を起動して以下を実行：
+### Docker Engine のインストール
+
+WSL（Ubuntu）を起動して以下を実行：
 
 ```bash
 # Docker Engine インストール
