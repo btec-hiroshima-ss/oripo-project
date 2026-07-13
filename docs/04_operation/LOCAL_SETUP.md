@@ -1,32 +1,24 @@
 # ローカル環境構築手順
 
-## 前提条件（共通）
+## 前提条件
 
-- WSL に Docker がインストール済みであること
+- WSL に Docker がインストール済みであること（→ [付録: WSL への Docker インストール](#付録-wsl-への-docker-インストール)）
 - [VS Code](https://code.visualstudio.com/) がインストール済みであること
+- [Dev Containers 拡張機能](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) がインストール済みであること
+- GitHub の Personal Access Token（`repo` + `read:packages` スコープ）を発行済みであること
 
 ---
 
-## パターン A: Claude Code で開発する
+## 手順
 
-AI アシスタント（Claude Code）を使って開発する場合の手順。
-
-### 追加前提
-
-- [Dev Containers 拡張機能](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) がインストール済みであること
-- Anthropic の Claude Code アカウントを持っていること
-- GitHub の Personal Access Token（`repo` + `read:packages` スコープ）を発行済みであること
-
-### 手順
-
-#### 1. リポジトリのクローン
+### 1. リポジトリのクローン
 
 ```bash
 git clone https://github.com/btec-hiroshima-ss/oripo-project.git
 cd oripo-project
 ```
 
-#### 2. 環境変数ファイルの作成
+### 2. 環境変数ファイルの作成
 
 ```bash
 cp .env.example .env
@@ -40,7 +32,7 @@ cp .env.example .env
 | `GIT_USER_NAME` | コンテナ内で使用する git ユーザー名 |
 | `GIT_USER_EMAIL` | コンテナ内で使用する git メールアドレス |
 
-#### 3. Dev Container で開く
+### 3. Dev Container で開く
 
 VS Code でプロジェクトを開き、コマンドパレット（`Ctrl+Shift+P` / `Cmd+Shift+P`）から：
 
@@ -52,64 +44,19 @@ Dev Containers: Reopen in Container
 
 起動後、VS Code のターミナルが `/workspace` をルートとした Claude コンテナ内に接続される。
 
-#### 4. Claude Code にログイン
+### 4. 動作確認
 
-コンテナ内のターミナルで：
+ブラウザで `http://localhost:3000` を開き、ログイン画面が表示されれば OK。
+
+> DB マイグレーションはアプリ起動時に自動実行されるため、手動での実行は不要。
+
+### 5. Claude Code にログイン（Claude を使う場合のみ）
 
 ```bash
 claude login
 ```
 
 ブラウザが開くので Anthropic アカウントでログインする。
-
-#### 5. 動作確認
-
-ブラウザで `http://localhost:3000` を開き、ログイン画面が表示されれば OK。
-
-> DB マイグレーションはアプリ起動時に自動実行されるため、手動での実行は不要。
-
----
-
-## パターン B: Claude なしで開発する
-
-Claude Code のサブスクリプションがない場合、またはシンプルな環境で開発したい場合の手順。
-
-### 手順
-
-#### 1. リポジトリのクローン
-
-```bash
-git clone https://github.com/btec-hiroshima-ss/oripo-project.git
-cd oripo-project
-```
-
-#### 2. 環境変数ファイルの作成
-
-```bash
-cp .env.example .env
-```
-
-`.env` の `GITHUB_PERSONAL_ACCESS_TOKEN`・`GIT_USER_NAME`・`GIT_USER_EMAIL` は省略しても構わない（Claude コンテナを起動しないため）。
-
-#### 3. アプリ・DB のみ起動
-
-```bash
-docker compose up app db --build
-```
-
-Claude コンテナ・バックアップコンテナ・Chrome コンテナは起動しない。
-
-#### 4. 動作確認
-
-ブラウザで `http://localhost:3000` を開き、ログイン画面が表示されれば OK。
-
-> DB マイグレーションはアプリ起動時に自動実行されるため、手動での実行は不要。
-
-#### 5. コードの編集
-
-`src/` 配下のファイルをホスト側で直接編集する。app コンテナがホットリロードを検知して自動更新される。
-
-エディタは VS Code、Cursor など何でもよい。
 
 ---
 
@@ -132,6 +79,39 @@ Claude コンテナ・バックアップコンテナ・Chrome コンテナは起
 # DB コンテナにリストアファイルを転送してリストア
 docker compose cp <リストアファイル>.sql db:/tmp/restore.sql
 docker compose exec db psql -U aipo_postgres -d aipo -f /tmp/restore.sql
+```
+
+---
+
+## 付録: WSL への Docker インストール
+
+Windows の PowerShell（管理者権限）で実行：
+
+```powershell
+wsl --install
+```
+
+インストール後、WSL（Ubuntu）を起動して以下を実行：
+
+```bash
+# Docker Engine インストール
+curl -fsSL https://get.docker.com | sh
+
+# 現在のユーザーを docker グループに追加（sudo なしで実行できるようにする）
+sudo usermod -aG docker $USER
+```
+
+WSL を再起動して反映：
+
+```powershell
+# PowerShell で実行
+wsl --shutdown
+```
+
+WSL を再度開き、動作確認：
+
+```bash
+docker compose version
 ```
 
 ---
