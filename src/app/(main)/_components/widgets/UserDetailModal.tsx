@@ -58,11 +58,10 @@ export default function UserDetailModal({ user, onClose }: Props) {
             </div>
           </div>
 
-          {/* 詳細フィールド: 要件定義書 2.5 準拠。部署・携帯・メールはすべて空でも常に表示。 */}
+          {/* 詳細フィールド: 要件定義書 2.5 準拠。部署・携帯は空でも常に表示。 */}
           <dl className="space-y-2">
             <DetailRow label="部署" value={user.departments.join(' / ')} />
             <DetailRow label="携帯" value={user.cellularPhone ?? ''} />
-            <DetailRow label="メール" value={user.email ?? ''} />
           </dl>
         </div>
 

@@ -12,5 +12,4 @@ export type UserListDetail = {
   fullNameKana: string
   departments: string[]
   cellularPhone: string | null
-  email: string | null
 }

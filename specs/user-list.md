@@ -38,9 +38,8 @@
 | 氏名カナ | `last_name_kana + first_name_kana` | 常に表示 |
 | 部署 | `eip_m_post.post_name`（複数ある場合はすべて） | 空欄のまま表示 |
 | 携帯電話 | `turbine_user.cellular_phone` | 空欄のまま表示 |
-| メール | `turbine_user.email` | 空欄のまま表示 |
 
-- 役職・外線・内線・写真は Oripo の管理対象外のため非表示
+- 役職・メール・外線・内線・写真は Oripo の管理対象外のため非表示（要件定義書 2.5 準拠）
 
 ### ユーザーリスト
 
@@ -110,10 +109,6 @@ type UserListDetail = {
   fullName: string
   fullNameKana: string
   departments: string[]  // 複数部署対応
-  position: string | null
-  email: string | null
-  outTelephone: string | null
-  inTelephone: string | null
   cellularPhone: string | null
 }
 ```
@@ -168,7 +163,7 @@ src/
 
 ### 詳細モーダル
 - [ ] ユーザー行をクリックするとモーダルが開く
-- [ ] モーダルに氏名・カナ・部署・携帯・メールが表示される
-- [ ] 部署・携帯・メールは値が空でも行ごと表示される（空欄のまま）
+- [ ] モーダルに氏名・カナ・部署・携帯が表示される
+- [ ] 部署・携帯は値が空でも行ごと表示される（空欄のまま）
 - [ ] 複数部署に所属しているユーザーはすべての部署が表示される
 - [ ] モーダルを閉じるとリスト画面に戻る
