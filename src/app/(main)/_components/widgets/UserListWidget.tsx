@@ -1,7 +1,84 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { Search } from 'lucide-react'
+import { getUserListAction } from '../../actions'
+// user-list.utils のみインポート: user-list.ts 経由だと db→pg→fs がクライアントバンドルに混入する
+import { getIconColor, filterUsers } from '@/lib/user-list.utils'
+import type { UserListUser } from '@/lib/user-list.types'
+
 export default function UserListWidget() {
+  const [users, setUsers] = useState<UserListUser[]>([])
+  const [keyword, setKeyword] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+
+  // コンポーネントマウント時に1回だけ取得。ユーザー名簿は頻繁に変わらないためキャッシュなし。
+  useEffect(() => {
+    getUserListAction()
+      .then((data) => setUsers(data))
+      .catch(() => {}) // エラー時もローディングを終了させる（一覧は空のまま）
+      .finally(() => setIsLoading(false))
+  }, [])
+
+  const filtered = filterUsers(users, keyword)
+
   return (
-    <div className="p-4 text-sm text-gray-500">
-      ユーザー名簿（実装予定 #83）
+    <div className="flex flex-col max-h-[400px]">
+      {/* 検索ボックス */}
+      <div className="px-3 py-2 border-b border-gray-100">
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            placeholder="名前で検索"
+            // 16px 以上にする: iOS Safari はフォントサイズ 16px 未満の input でページをズームする
+            className="w-full pl-7 pr-2 py-1 text-base sm:text-sm bg-gray-50 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
+            aria-label="ユーザーを名前で検索"
+          />
+        </div>
+      </div>
+
+      {/* ユーザーリスト */}
+      <div className="overflow-y-auto flex-1">
+        {isLoading ? (
+          <p className="text-sm text-gray-400 text-center py-4">読み込み中...</p>
+        ) : filtered.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-4">
+            {keyword ? '該当するユーザーがいません' : 'ユーザーがいません'}
+          </p>
+        ) : (
+          <ul>
+            {filtered.map((user) => (
+              <UserRow key={user.userId} user={user} />
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
+  )
+}
+
+function UserRow({ user }: { user: UserListUser }) {
+  // 苗字の先頭1文字をアイコンに使う
+  const initial = user.fullName.charAt(0)
+  const colorClass = getIconColor(user.userId)
+
+  return (
+    <li className="flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 transition-colors">
+      <div
+        className={`${colorClass} w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold`}
+        aria-hidden="true"
+      >
+        {initial}
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-gray-800 truncate">{user.fullName}</p>
+        {user.department && (
+          <p className="text-xs text-gray-500 truncate">{user.department}</p>
+        )}
+      </div>
+    </li>
   )
 }

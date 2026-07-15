@@ -13,6 +13,8 @@ import {
   type PageLayout,
   type WidgetType,
 } from '@/lib/pages'
+import { getUserList } from '@/lib/user-list'
+import type { UserListUser } from '@/lib/user-list.types'
 
 async function getUserId(): Promise<number> {
   const session = await getSession()
@@ -68,4 +70,12 @@ export async function updateWidgetPositionAction(
 export async function deleteWidgetAction(widgetId: number) {
   await deleteWidget(widgetId)
   // revalidatePath を呼ばない: onDeleted コールバックで楽観的更新するため不要
+}
+
+// ユーザー名簿ウィジェット用。ログイン済みユーザーなら誰でも閲覧可能。
+export async function getUserListAction(): Promise<UserListUser[]> {
+  // 他の Action と同じパターンで userId 存在確認まで行う
+  const session = await getSession()
+  if (!session.userId) throw new Error('Unauthorized')
+  return getUserList()
 }
