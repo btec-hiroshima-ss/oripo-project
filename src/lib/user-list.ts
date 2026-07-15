@@ -37,7 +37,8 @@ export async function getUserList(): Promise<UserListUser[]> {
       'eip_m_post.post_name',
       'eip_m_post.post_id',
     ])
-    .where('turbine_user.disabled', '=', 'N')
+    // AIPO の disabled フラグは 'T'=無効 / 'F'=有効（ログイン処理と同じ判定）
+    .where('turbine_user.disabled', '!=', 'T')
     // 部署あり（post_id が小さい = 先頭）を優先するための並び順。
     // この時点では user_id の重複を含む。
     .orderBy('eip_m_post.post_id', 'asc')
