@@ -76,6 +76,7 @@ export async function getUserDetail(userId: number): Promise<UserListDetail | nu
       sql<string>`turbine_user.last_name || ' ' || turbine_user.first_name`.as('full_name'),
       sql<string>`COALESCE(turbine_user.last_name_kana, '') || ' ' || COALESCE(turbine_user.first_name_kana, '')`.as('full_name_kana'),
       'turbine_user.cellular_phone',
+      'turbine_user.email',
     ])
     .where('turbine_user.user_id', '=', userId)
     .executeTakeFirst()
@@ -102,5 +103,6 @@ export async function getUserDetail(userId: number): Promise<UserListDetail | nu
     fullNameKana: userRow.full_name_kana,
     departments: deptRows.map((r) => r.post_name),
     cellularPhone: userRow.cellular_phone ?? null,
+    email: userRow.email ?? null,
   }
 }
