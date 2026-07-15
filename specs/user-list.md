@@ -27,11 +27,30 @@
 - キーワード検索ボックス（氏名の部分一致）
 - ユーザーリスト（スクロール可能）
 
+### ユーザー詳細モーダル（クリック時）
+
+ユーザー行をクリックするとモーダルで詳細を表示する（AIPO の UserDetailScreen 相当）。
+
+**表示項目:**
+| 項目 | 取得元 |
+|---|---|
+| 氏名 | `last_name + first_name` |
+| 氏名カナ | `last_name_kana + first_name_kana` |
+| 部署 | `eip_m_post.post_name`（複数ある場合はすべて表示） |
+| 役職 | `eip_m_position.position_name` |
+| メール | `turbine_user.email` |
+| 外線電話 | `turbine_user.out_telephone` |
+| 内線電話 | `turbine_user.in_telephone` |
+| 携帯電話 | `turbine_user.cellular_phone` |
+
+- 写真（`turbine_user.photo`）は今フェーズでは非表示
+- 値が空の項目は行ごと非表示
+
 ### ユーザーリスト
 
 - 表示項目: イニシャルアイコン（色付き）、氏名、部署名
   - 携帯電話番号は今フェーズでは非表示（電話直接発信が今後の機能のため、要件定義書 2.5 参照）
-- ソート: 氏名カナ昇順
+- ソート: 氏名カナ昇順（AIPO はデフォルト登録順だが、利便性のためカナ昇順に変更）
 - disabled != 'T' のユーザーのみ表示（AIPO は 'T'=無効 / 'F'=有効の文字列フラグ。ログイン処理と同じ判定）
 - キーワード検索: 入力中にリアルタイムでクライアント側フィルタ（最大約200名のため）
 - 部署・グループでの絞り込みは全件一覧ページで実装（ウィジェットはキーワードのみ）
@@ -73,6 +92,7 @@ Server Action で実装（Route Handler は使わない）。
 ```ts
 // src/app/(main)/actions.ts に追加
 getUserListAction(): Promise<UserListUser[]>
+getUserDetailAction(userId: number): Promise<UserListDetail | null>
 ```
 
 ### UserListUser 型
@@ -83,6 +103,22 @@ type UserListUser = {
   fullName: string      // "苗字 名前"
   fullNameKana: string  // "ナミョジ ナマエ"
   department: string | null
+}
+```
+
+### UserListDetail 型
+
+```ts
+type UserListDetail = {
+  userId: number
+  fullName: string
+  fullNameKana: string
+  departments: string[]  // 複数部署対応
+  position: string | null
+  email: string | null
+  outTelephone: string | null
+  inTelephone: string | null
+  cellularPhone: string | null
 }
 ```
 
@@ -107,14 +143,15 @@ type UserListUser = {
 src/
   app/
     (main)/
-      actions.ts                              ← getUserListAction を追加
+      actions.ts                              ← getUserListAction / getUserDetailAction を追加
       _components/
         widgets/
           UserListWidget.tsx                  ← ウィジェット本体（'use client'）
+          UserDetailModal.tsx                 ← ユーザー詳細モーダル（'use client'）
   lib/
-    user-list.ts                              ← DBクエリ（getUserList）
+    user-list.ts                              ← DBクエリ（getUserList / getUserDetail）
     user-list.utils.ts                        ← 純粋関数（getIconColor・filterUsers）Client Component から安全にインポートできる
-    user-list.types.ts                        ← UserListUser 型
+    user-list.types.ts                        ← UserListUser / UserListDetail 型
     user-list.test.ts                         ← Vitestユニットテスト
 ```
 
@@ -124,10 +161,18 @@ src/
 
 ## 受け入れ条件
 
+### ウィジェット
 - [ ] ユーザー名簿ウィジェットがホーム画面に表示される
 - [ ] disabled = 'T'（無効）のユーザーは表示されない（有効ユーザーは disabled != 'T'）
 - [ ] 氏名カナ昇順でリスト表示される
-- [ ] キーワード入力で氏名（全角・部分一致）が絞り込まれる
+- [ ] キーワード入力で氏名（漢字・カナ・ひらがな変換・部分一致）が絞り込まれる
 - [ ] 各ユーザー行にイニシャルアイコン・氏名・部署名が表示される
 - [ ] イニシャルアイコンの色はユーザーIDで固定（同一ユーザーは常に同じ色）
 - [ ] モバイル（375px）で正常に表示・操作できる
+
+### 詳細モーダル
+- [ ] ユーザー行をクリックするとモーダルが開く
+- [ ] モーダルに氏名・カナ・部署・役職・メール・電話番号が表示される
+- [ ] 値が空の項目は行ごと表示されない
+- [ ] 複数部署に所属しているユーザーはすべての部署が表示される
+- [ ] モーダルを閉じるとリスト画面に戻る

@@ -2,15 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import { Search } from 'lucide-react'
-import { getUserListAction } from '../../actions'
+import { getUserListAction, getUserDetailAction } from '../../actions'
 // user-list.utils のみインポート: user-list.ts 経由だと db→pg→fs がクライアントバンドルに混入する
 import { getIconColor, filterUsers } from '@/lib/user-list.utils'
-import type { UserListUser } from '@/lib/user-list.types'
+import type { UserListUser, UserListDetail } from '@/lib/user-list.types'
+import UserDetailModal from './UserDetailModal'
 
 export default function UserListWidget() {
   const [users, setUsers] = useState<UserListUser[]>([])
   const [keyword, setKeyword] = useState('')
   const [isLoading, setIsLoading] = useState(true)
+  const [selectedUser, setSelectedUser] = useState<UserListDetail | null>(null)
 
   // コンポーネントマウント時に1回だけ取得。ユーザー名簿は頻繁に変わらないためキャッシュなし。
   useEffect(() => {
@@ -20,53 +22,75 @@ export default function UserListWidget() {
       .finally(() => setIsLoading(false))
   }, [])
 
+  async function handleUserClick(userId: number) {
+    const detail = await getUserDetailAction(userId)
+    if (detail) setSelectedUser(detail)
+  }
+
   const filtered = filterUsers(users, keyword)
 
   return (
-    <div className="flex flex-col max-h-[400px]">
-      {/* 検索ボックス */}
-      <div className="px-3 py-2 border-b border-gray-100">
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-          <input
-            type="text"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder="名前で検索"
-            // 16px 以上にする: iOS Safari はフォントサイズ 16px 未満の input でページをズームする
-            className="w-full pl-7 pr-2 py-1 text-base sm:text-sm bg-gray-50 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
-            aria-label="ユーザーを名前で検索"
-          />
+    <>
+      <div className="flex flex-col max-h-[400px]">
+        {/* 検索ボックス */}
+        <div className="px-3 py-2 border-b border-gray-100">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder="名前で検索"
+              // 16px 以上にする: iOS Safari はフォントサイズ 16px 未満の input でページをズームする
+              className="w-full pl-7 pr-2 py-1 text-base sm:text-sm bg-gray-50 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
+              aria-label="ユーザーを名前で検索"
+            />
+          </div>
+        </div>
+
+        {/* ユーザーリスト */}
+        <div className="overflow-y-auto flex-1">
+          {isLoading ? (
+            <p className="text-sm text-gray-400 text-center py-4">読み込み中...</p>
+          ) : filtered.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">
+              {keyword ? '該当するユーザーがいません' : 'ユーザーがいません'}
+            </p>
+          ) : (
+            <ul>
+              {filtered.map((user) => (
+                <UserRow key={user.userId} user={user} onClick={handleUserClick} />
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 
-      {/* ユーザーリスト */}
-      <div className="overflow-y-auto flex-1">
-        {isLoading ? (
-          <p className="text-sm text-gray-400 text-center py-4">読み込み中...</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">
-            {keyword ? '該当するユーザーがいません' : 'ユーザーがいません'}
-          </p>
-        ) : (
-          <ul>
-            {filtered.map((user) => (
-              <UserRow key={user.userId} user={user} />
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
+      {selectedUser && (
+        <UserDetailModal user={selectedUser} onClose={() => setSelectedUser(null)} />
+      )}
+    </>
   )
 }
 
-function UserRow({ user }: { user: UserListUser }) {
+type UserRowProps = {
+  user: UserListUser
+  onClick: (userId: number) => void
+}
+
+function UserRow({ user, onClick }: UserRowProps) {
   // 苗字の先頭1文字をアイコンに使う
   const initial = user.fullName.charAt(0)
   const colorClass = getIconColor(user.userId)
 
   return (
-    <li className="flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 transition-colors">
+    <li
+      className="flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 transition-colors cursor-pointer"
+      onClick={() => onClick(user.userId)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' && onClick(user.userId)}
+    >
       {/* span を使用: li 内でインライン要素として扱う */}
       <span
         className={`${colorClass} w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold`}

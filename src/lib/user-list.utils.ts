@@ -31,8 +31,9 @@ export function filterUsers(users: UserListUser[], keyword: string): UserListUse
     String.fromCharCode(c.charCodeAt(0) + 0x60)
   )
   return users.filter((u) => {
-    const name = u.fullName.replace(/\s+/g, '')
-    const kana = u.fullNameKana.replace(/\s+/g, '')
+    const name = (u.fullName ?? '').replace(/\s+/g, '')
+    // fullNameKana は DB の kana カラムが null のユーザーがいるため null ガードを入れる
+    const kana = (u.fullNameKana ?? '').replace(/\s+/g, '')
     return name.includes(normalized) || kana.includes(normalized) || kana.includes(katakana)
   })
 }

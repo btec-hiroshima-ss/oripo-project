@@ -13,8 +13,8 @@ import {
   type PageLayout,
   type WidgetType,
 } from '@/lib/pages'
-import { getUserList } from '@/lib/user-list'
-import type { UserListUser } from '@/lib/user-list.types'
+import { getUserList, getUserDetail } from '@/lib/user-list'
+import type { UserListUser, UserListDetail } from '@/lib/user-list.types'
 
 async function getUserId(): Promise<number> {
   const session = await getSession()
@@ -78,4 +78,11 @@ export async function getUserListAction(): Promise<UserListUser[]> {
   const session = await getSession()
   if (!session.userId) throw new Error('Unauthorized')
   return getUserList()
+}
+
+// ユーザー詳細モーダル用。ログイン済みユーザーなら誰でも閲覧可能。
+export async function getUserDetailAction(userId: number): Promise<UserListDetail | null> {
+  const session = await getSession()
+  if (!session.userId) throw new Error('Unauthorized')
+  return getUserDetail(userId)
 }
