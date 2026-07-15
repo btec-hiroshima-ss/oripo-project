@@ -31,20 +31,16 @@
 
 ユーザー行をクリックするとモーダルで詳細を表示する（AIPO の UserDetailScreen 相当）。
 
-**表示項目:**
+**表示項目（要件定義書 2.5 準拠）:**
 | 項目 | 取得元 |
 |---|---|
 | 氏名 | `last_name + first_name` |
 | 氏名カナ | `last_name_kana + first_name_kana` |
 | 部署 | `eip_m_post.post_name`（複数ある場合はすべて表示） |
-| 役職 | `eip_m_position.position_name` |
-| メール | `turbine_user.email` |
-| 外線電話 | `turbine_user.out_telephone` |
-| 内線電話 | `turbine_user.in_telephone` |
 | 携帯電話 | `turbine_user.cellular_phone` |
 
-- 写真（`turbine_user.photo`）は今フェーズでは非表示
-- 値が空の項目は行ごと非表示
+- 値が空の項目も行を表示する（空欄のまま表示）
+- 役職・メール・外線・内線・写真は Oripo の管理対象外のため非表示
 
 ### ユーザーリスト
 

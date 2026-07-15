@@ -67,30 +67,15 @@ export async function getUserList(): Promise<UserListUser[]> {
 }
 
 // ユーザー詳細を取得する。
-// 部署は複数所属対応のため配列で返す。役職は eip_m_user_position → eip_m_position JOIN。
+// 要件定義書 2.5 準拠: 氏名・カナ・部署・携帯電話番号のみ。役職・メール・外線・内線は Oripo 管理対象外。
 export async function getUserDetail(userId: number): Promise<UserListDetail | null> {
-  // 基本情報 + 役職（1行になる想定）
   const userRow = await db
     .selectFrom('turbine_user')
-    .leftJoin(
-      'eip_m_user_position',
-      'eip_m_user_position.user_id',
-      'turbine_user.user_id'
-    )
-    .leftJoin(
-      'eip_m_position',
-      'eip_m_position.position_id',
-      'eip_m_user_position.position'
-    )
     .select([
       'turbine_user.user_id',
       sql<string>`turbine_user.last_name || ' ' || turbine_user.first_name`.as('full_name'),
       sql<string>`COALESCE(turbine_user.last_name_kana, '') || ' ' || COALESCE(turbine_user.first_name_kana, '')`.as('full_name_kana'),
-      'turbine_user.email',
-      'turbine_user.out_telephone',
-      'turbine_user.in_telephone',
       'turbine_user.cellular_phone',
-      'eip_m_position.position_name',
     ])
     .where('turbine_user.user_id', '=', userId)
     .executeTakeFirst()
@@ -116,10 +101,6 @@ export async function getUserDetail(userId: number): Promise<UserListDetail | nu
     fullName: userRow.full_name,
     fullNameKana: userRow.full_name_kana,
     departments: deptRows.map((r) => r.post_name),
-    position: userRow.position_name ?? null,
-    email: userRow.email ?? null,
-    outTelephone: userRow.out_telephone ?? null,
-    inTelephone: userRow.in_telephone ?? null,
     cellularPhone: userRow.cellular_phone ?? null,
   }
 }

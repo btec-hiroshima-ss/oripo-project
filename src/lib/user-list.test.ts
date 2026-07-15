@@ -3,10 +3,10 @@ import { getIconColor, filterUsers } from './user-list.utils'
 import type { UserListUser } from './user-list.types'
 
 const MOCK_USERS: UserListUser[] = [
-  { userId: 1, fullName: '田中 美咲', fullNameKana: 'タナカ ミサキ', department: 'サービス推進部' },
-  { userId: 2, fullName: '田所 健一', fullNameKana: 'タドコロ ケンイチ', department: '営業グループ' },
-  { userId: 3, fullName: '田崎 結衣', fullNameKana: 'タサキ ユイ', department: null },
-  { userId: 4, fullName: '山田 太郎', fullNameKana: 'ヤマダ タロウ', department: '開発部' },
+  { userId: 1, fullName: '田中 美咲', fullNameKana: 'タナカ ミサキ', department: 'サービス推進部', cellularPhone: '090-1234-5678' },
+  { userId: 2, fullName: '田所 健一', fullNameKana: 'タドコロ ケンイチ', department: '営業グループ', cellularPhone: null },
+  { userId: 3, fullName: '田崎 結衣', fullNameKana: 'タサキ ユイ', department: null, cellularPhone: null },
+  { userId: 4, fullName: '山田 太郎', fullNameKana: 'ヤマダ タロウ', department: '開発部', cellularPhone: null },
 ]
 
 describe('getIconColor', () => {

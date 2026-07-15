@@ -58,16 +58,10 @@ export default function UserDetailModal({ user, onClose }: Props) {
             </div>
           </div>
 
-          {/* 詳細フィールド: 値がある項目のみ表示 */}
+          {/* 詳細フィールド: 要件定義書 2.5 準拠。空でも常に行を表示する。 */}
           <dl className="space-y-2">
-            {user.departments.length > 0 && (
-              <DetailRow label="部署" value={user.departments.join(' / ')} />
-            )}
-            {user.position && <DetailRow label="役職" value={user.position} />}
-            {user.email && <DetailRow label="メール" value={user.email} />}
-            {user.outTelephone && <DetailRow label="外線" value={user.outTelephone} />}
-            {user.inTelephone && <DetailRow label="内線" value={user.inTelephone} />}
-            {user.cellularPhone && <DetailRow label="携帯" value={user.cellularPhone} />}
+            <DetailRow label="部署" value={user.departments.join(' / ')} />
+            <DetailRow label="携帯" value={user.cellularPhone ?? ''} />
           </dl>
         </div>
 
