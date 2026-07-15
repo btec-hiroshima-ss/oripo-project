@@ -103,6 +103,9 @@ function UserRow({ user, onClick }: UserRowProps) {
         {user.department && (
           <p className="text-xs text-gray-500 truncate">{user.department}</p>
         )}
+        {user.cellularPhone && (
+          <p className="text-xs text-gray-400 truncate">{user.cellularPhone}</p>
+        )}
       </div>
     </li>
   )

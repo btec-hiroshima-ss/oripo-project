@@ -36,6 +36,7 @@ export async function getUserList(): Promise<UserListUser[]> {
       ),
       'eip_m_post.post_name',
       'eip_m_post.post_id',
+      'turbine_user.cellular_phone',
     ])
     // AIPO の disabled フラグは 'T'=無効 / 'F'=有効（ログイン処理と同じ判定）
     .where('turbine_user.disabled', '!=', 'T')
@@ -54,6 +55,7 @@ export async function getUserList(): Promise<UserListUser[]> {
         fullName: row.full_name,
         fullNameKana: row.full_name_kana,
         department: row.post_name ?? null,
+        cellularPhone: row.cellular_phone ?? null,
       })
     }
   }

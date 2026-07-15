@@ -3,6 +3,7 @@ export type UserListUser = {
   fullName: string
   fullNameKana: string
   department: string | null
+  cellularPhone: string | null
 }
 
 export type UserListDetail = {

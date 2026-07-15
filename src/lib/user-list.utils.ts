@@ -16,7 +16,10 @@ const ICON_COLORS = [
 export type IconColor = (typeof ICON_COLORS)[number]
 
 export function getIconColor(userId: number): IconColor {
-  return ICON_COLORS[userId % ICON_COLORS.length]
+  // 単純な剰余だと user_id が飛び番（例: 66, 86, 166...）のとき特定の色に偏る。
+  // Knuth の乗算ハッシュで分布を均一にする（>>> 0 で符号なし32bit整数に変換）。
+  const hash = Math.imul(userId, 2654435761) >>> 0
+  return ICON_COLORS[hash % ICON_COLORS.length]
 }
 
 // キーワードで氏名・氏名カナを絞り込む（全角スペース・ひらがな→カタカナ変換対応）
