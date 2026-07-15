@@ -10,10 +10,10 @@ const MOCK_USERS: UserListUser[] = [
 ]
 
 describe('getIconColor', () => {
-  it('userId の剰余でパレット内の色を返す', () => {
-    // 同じ userId は常に同じ色になる（参照一貫性）
+  it('同じ userId は常に同じ色を返す（参照一貫性）', () => {
     expect(getIconColor(0)).toBe(getIconColor(0))
-    expect(getIconColor(1)).toBe(getIconColor(1))
+    expect(getIconColor(46)).toBe(getIconColor(46))
+    expect(getIconColor(166)).toBe(getIconColor(166))
   })
 
   it('8色パレットの範囲内に収まる', () => {
@@ -26,9 +26,13 @@ describe('getIconColor', () => {
     }
   })
 
-  it('userId が 8 の倍数のとき userId=0 と同じ色になる（周期性）', () => {
-    expect(getIconColor(0)).toBe(getIconColor(8))
-    expect(getIconColor(0)).toBe(getIconColor(16))
+  it('DB の user_id が 20 刻みでも多様な色が出る（Murmur3 バイアス解消確認）', () => {
+    // 実 DB の user_id は 46, 66, 86, 106, 126, 146... と 20 刻み。
+    // Knuth 乗算だけだと gcd(20,8)=4 で amber と indigo の 2 色しか出なかった。
+    const ids = [46, 66, 86, 106, 126, 146, 166, 186]
+    const colors = new Set(ids.map(getIconColor))
+    // 8 色中 5 色以上を使えていれば十分な分散とみなす
+    expect(colors.size).toBeGreaterThanOrEqual(5)
   })
 })
 

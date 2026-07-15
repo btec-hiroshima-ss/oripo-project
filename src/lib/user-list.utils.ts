@@ -16,10 +16,13 @@ const ICON_COLORS = [
 export type IconColor = (typeof ICON_COLORS)[number]
 
 export function getIconColor(userId: number): IconColor {
-  // 単純な剰余だと user_id が飛び番（例: 66, 86, 166...）のとき特定の色に偏る。
-  // Knuth の乗算ハッシュで分布を均一にする（>>> 0 で符号なし32bit整数に変換）。
-  const hash = Math.imul(userId, 2654435761) >>> 0
-  return ICON_COLORS[hash % ICON_COLORS.length]
+  // Murmur3 finalizer: DB の user_id が 20 刻み（46, 66, 86...）のため
+  // Knuth 乗算だけでは mod 8 で2色しか出ない（gcd(20, 8)=4 による線形バイアス）。
+  // XOR-shift → multiply → XOR-shift の2段混合で非線形にしてバイアスを除去する。
+  let h = userId ^ (userId >>> 16)
+  h = Math.imul(h, 0x45d9f3b) >>> 0
+  h ^= h >>> 16
+  return ICON_COLORS[h % ICON_COLORS.length]
 }
 
 // キーワードで氏名・氏名カナを絞り込む（全角スペース・ひらがな→カタカナ変換対応）
