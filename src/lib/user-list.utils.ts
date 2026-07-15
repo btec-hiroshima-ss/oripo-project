@@ -21,7 +21,9 @@ export function getIconColor(userId: number): IconColor {
   // XOR-shift → multiply → XOR-shift の2段混合で非線形にしてバイアスを除去する。
   let h = userId ^ (userId >>> 16)
   h = Math.imul(h, 0x45d9f3b) >>> 0
-  h ^= h >>> 16
+  // XOR演算はsigned 32-bitを返すため、高ビットが立つと % 8 が負になり undefined になる。
+  // >>> 0 で unsigned 32-bit に戻してから剰余をとる。
+  h = (h ^ (h >>> 16)) >>> 0
   return ICON_COLORS[h % ICON_COLORS.length]
 }
 
