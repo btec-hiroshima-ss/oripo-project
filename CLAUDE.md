@@ -175,8 +175,12 @@ Issue を受領したら以下のフローで進める。人間レビューは�
 
 ### ステップ 7: ユーザーフィードバック対応
 
-- ユーザーから指摘・疑問点が発生した場合は Issue に追記して再依頼
-- 修正が必要な場合はステップ 3 から再開する
+- PR のインラインコメントに **GraphQL で返信**する（`addPullRequestReviewThreadReply` mutation）
+- 修正が必要なコメントは対応後に push し、返信で「修正しました」と報告する
+- 修正完了後はステップ 3 から再開する
+
+**pending review でブロックされた場合:**  
+GitHub は1ユーザーが PR に持てる pending review が1つだけという制限がある。返信 API が `user_id can only have one pending review` エラーになった場合は、ユーザーに「GitHub UI でドラフトレビューを Submit してください」と依頼し、Submit 後に返信を再開すること。新しいコメントは全返信が完了してから投稿する。
 
 ---
 
@@ -267,7 +271,8 @@ UI の確認・デバッグが必要な場合は **chrome-devtools MCP でブラ
 - **仕様書**: Markdownで記述 → 社内レビュー・合意 → Claudeが実装・テスト生成
 - **テスト**:
   - ユニットテスト（Vitest）: 仕様書の受け入れ条件をもとにClaudeが生成。GitHub Actionsで自動実行。テストファイルはソースと同置（`schedule.ts` の隣に `schedule.test.ts`）。
-  - 最終確認: 人間が手動で実施。仕様書の `## 受け入れ条件` をチェックリストとして使う。
+  - 手動確認チェックリスト: `specs/checklists/{機能名}.md` に保存。`/generate-checklist` で自動生成。Vitest でカバーできない「ブラウザで目視確認が必要な項目」を操作手順・期待結果の形式で記載する。リリース前に人間が手元で操作しながら使う。
+  - 最終確認: 人間が手動で実施。`specs/checklists/{機能名}.md` のチェックリストを使う。
 
 ## 仕様書（specs/）
 
@@ -277,7 +282,8 @@ UI の確認・デバッグが必要な場合は **chrome-devtools MCP でブラ
 
 ```
 specs/
-  images/        # モックアップ画像（Claude Designで作成）
+  images/          # モックアップ画像（Claude Designで作成）
+  checklists/      # 手動確認用テストケース一覧（/generate-checklist で生成）
   login.md
   home.md
   schedule.md
