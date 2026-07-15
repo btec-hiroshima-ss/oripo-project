@@ -19,11 +19,20 @@ export function getIconColor(userId: number): IconColor {
   return ICON_COLORS[userId % ICON_COLORS.length]
 }
 
-// キーワードで氏名を絞り込む（全角スペース対応）
+// キーワードで氏名・氏名カナを絞り込む（全角スペース・ひらがな→カタカナ変換対応）
+// AIPO 準拠: 漢字・カナ・ひらがなで検索できること
 export function filterUsers(users: UserListUser[], keyword: string): UserListUser[] {
   const trimmed = keyword.trim()
   if (!trimmed) return users
-  // 全角スペースも区切り文字として扱い、スペースを除去して氏名に含まれるか判定
+  // 全角スペースを除去してスペースなし文字列として比較
   const normalized = trimmed.replace(/\s+/g, '')
-  return users.filter((u) => u.fullName.replace(/\s+/g, '').includes(normalized))
+  // ひらがな → カタカナ変換（AIPOはひらがな入力でもカナ氏名にヒットさせる）
+  const katakana = normalized.replace(/[ぁ-ゖ]/g, (c) =>
+    String.fromCharCode(c.charCodeAt(0) + 0x60)
+  )
+  return users.filter((u) => {
+    const name = u.fullName.replace(/\s+/g, '')
+    const kana = u.fullNameKana.replace(/\s+/g, '')
+    return name.includes(normalized) || kana.includes(normalized) || kana.includes(katakana)
+  })
 }

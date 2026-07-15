@@ -56,6 +56,20 @@ describe('filterUsers', () => {
     expect(result[0].fullName).toBe('田中 美咲')
   })
 
+  it('カナで検索できる', () => {
+    // カナ（タナカ）でも氏名カナ（タナカ ミサキ）にヒットする
+    const result = filterUsers(MOCK_USERS, 'タナカ')
+    expect(result).toHaveLength(1)
+    expect(result[0].fullName).toBe('田中 美咲')
+  })
+
+  it('ひらがなでカナ検索できる（ひらがな→カタカナ変換）', () => {
+    // 「たなか」と入力しても「タナカ ミサキ」にヒットする（AIPO準拠）
+    const result = filterUsers(MOCK_USERS, 'たなか')
+    expect(result).toHaveLength(1)
+    expect(result[0].fullName).toBe('田中 美咲')
+  })
+
   it('一致しないキーワードは0件を返す', () => {
     expect(filterUsers(MOCK_USERS, '佐藤')).toHaveLength(0)
   })

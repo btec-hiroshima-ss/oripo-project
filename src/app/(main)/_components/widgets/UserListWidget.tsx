@@ -67,12 +67,13 @@ function UserRow({ user }: { user: UserListUser }) {
 
   return (
     <li className="flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 transition-colors">
-      <div
+      {/* span を使用: li 内でインライン要素として扱う */}
+      <span
         className={`${colorClass} w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold`}
         aria-hidden="true"
       >
         {initial}
-      </div>
+      </span>
       <div className="min-w-0">
         <p className="text-sm font-medium text-gray-800 truncate">{user.fullName}</p>
         {user.department && (
