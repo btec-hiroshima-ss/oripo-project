@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { getSession } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth'
 import {
   createPage,
   updatePage,
@@ -15,15 +15,11 @@ import {
 } from '@/lib/pages'
 import { getUserList, getUserDetail } from '@/lib/user-list'
 import type { UserListUser, UserListDetail } from '@/lib/user-list.types'
-
-async function getUserId(): Promise<number> {
-  const session = await getSession()
-  if (!session.userId) throw new Error('Unauthorized')
-  return session.userId
-}
+import { getActivityList } from '@/lib/activity'
+import type { ActivityEntry } from '@/lib/activity.types'
 
 export async function addPageAction(pageName: string) {
-  const userId = await getUserId()
+  const { userId } = await requireAuth()
   const page = await createPage(userId, pageName)
   revalidatePath('/')
   return page
@@ -33,19 +29,19 @@ export async function updatePageAction(
   pageId: number,
   updates: Partial<{ pageName: string; layout: PageLayout; sortOrder: number }>
 ) {
-  const userId = await getUserId()
+  const { userId } = await requireAuth()
   await updatePage(pageId, userId, updates)
   revalidatePath('/')
 }
 
 export async function deletePageAction(pageId: number) {
-  const userId = await getUserId()
+  const { userId } = await requireAuth()
   await deletePage(pageId, userId)
   revalidatePath('/')
 }
 
 export async function reorderPagesAction(orderedPageIds: number[]) {
-  const userId = await getUserId()
+  const { userId } = await requireAuth()
   await reorderPages(userId, orderedPageIds)
   revalidatePath('/')
 }
@@ -74,15 +70,21 @@ export async function deleteWidgetAction(widgetId: number) {
 
 // ユーザー名簿ウィジェット用。ログイン済みユーザーなら誰でも閲覧可能。
 export async function getUserListAction(): Promise<UserListUser[]> {
-  // 他の Action と同じパターンで userId 存在確認まで行う
-  const session = await getSession()
-  if (!session.userId) throw new Error('Unauthorized')
+  await requireAuth()
   return getUserList()
 }
 
 // ユーザー詳細モーダル用。ログイン済みユーザーなら誰でも閲覧可能。
 export async function getUserDetailAction(userId: number): Promise<UserListDetail | null> {
-  const session = await getSession()
-  if (!session.userId) throw new Error('Unauthorized')
+  await requireAuth()
   return getUserDetail(userId)
+}
+
+// 更新情報ウィジェット用。ログイン済みユーザーなら誰でも閲覧可能。
+// page: 1始まり。loginName を渡して全員向け + 自分が共有相手のアクティビティを取得する。
+export async function getActivityAction(
+  page = 1
+): Promise<{ entries: ActivityEntry[]; totalCount: number }> {
+  const { loginName } = await requireAuth()
+  return getActivityList(loginName, page)
 }

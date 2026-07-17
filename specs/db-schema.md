@@ -26,7 +26,7 @@ AIPOテーブルをそのまま使用し、Oripoで新規に必要なテーブ�
 |---|---|
 | ログイン・認証 | `turbine_user`, `oripo_sessions` ★ |
 | ホーム画面 | `oripo_pages` ★, `oripo_page_widgets` ★ |
-| 更新情報 | `eip_t_whatsnew`, `eip_t_schedule`（テキスト取得用JOIN） |
+| 更新情報 | `activity`, `activity_map`（スケジュール更新の書き込み先。AIPO調査で判明） |
 | スケジュール | `eip_t_schedule`, `eip_t_schedule_map`, `eip_m_facility` |
 | ユーザー名簿 | `turbine_user`, `turbine_user_group_role`, `turbine_group`, `eip_m_post` |
 | 個人設定（ユーザー情報） | `turbine_user` |
