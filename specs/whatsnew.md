@@ -59,10 +59,15 @@ eip_t_whatsnew
   → turbine_user（user_id）                  → last_name, first_name（更新者名）
 ```
 
-#### `eip_t_whatsnew` への書き込みについて
+#### データソースについて（暫定実装）
 
-`eip_t_whatsnew` への書き込みはスケジュール機能（#81）の実装に含める。  
-#81 が完了するまでウィジェットに表示されるエントリはない（「更新情報はありません」が表示される）。
+AIPO の `eip_t_whatsnew` は調査の結果、スケジュール機能からの書き込みコードが存在しないことが判明。  
+開発 DB の `eip_t_whatsnew` は空のため、現在は **`eip_t_schedule` を直接参照**して最新更新を表示している。
+
+`eip_t_schedule` には `update_user_id`（更新者）・`create_user_id` が残っており読み取り可能。
+
+**将来の対応（#81）**: スケジュール登録・編集時に `eip_t_whatsnew` へ書き込む実装を追加し、  
+そちらをデータソースに切り替える予定（現時点では `eip_t_schedule` 直接参照で動作中）。
 
 #### スケジュール削除済みエントリの扱い
 
