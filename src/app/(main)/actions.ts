@@ -13,6 +13,7 @@ import {
   type PageLayout,
   type WidgetType,
 } from '@/lib/pages'
+import type { PageWidget } from '@/lib/pages.types'
 import { getUserList, getUserDetail } from '@/lib/user-list'
 import type { UserListUser, UserListDetail } from '@/lib/user-list.types'
 import { getActivityList } from '@/lib/activity'
@@ -51,6 +52,12 @@ export async function addWidgetAction(pageId: number, widgetType: WidgetType) {
   // revalidatePath を呼ばない: 戻り値で楽観的更新するため、即時 RSC 再レンダリング不要
   // TODO: 楽観的更新が失敗した場合（ネットワークエラーなど）のロールバック未実装
   return widget
+}
+
+// AIPO 方式のページ設定モーダルから複数ウィジェットを一括追加する。
+// 1件ずつ addWidgetAction を呼ぶよりも往復回数が少ない。
+export async function addWidgetsAction(pageId: number, widgetTypes: WidgetType[]): Promise<PageWidget[]> {
+  return Promise.all(widgetTypes.map((type) => addWidget(pageId, type)))
 }
 
 export async function updateWidgetPositionAction(
