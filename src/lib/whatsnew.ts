@@ -5,8 +5,9 @@ import type { WhatsnewEntry } from './whatsnew.types'
 // ウィジェットの表示件数上限（要件定義書 2.3: 最新 N 件）
 const WHATSNEW_LIMIT = 20
 
-// eip_t_whatsnew は Oripo 側のスケジュール書き込み実装（#81）が完了するまで空のため、
-// 暫定として eip_t_schedule を直接参照して最新更新を表示する。
+// AIPO ソース全検索の結果、eip_t_whatsnew へのスケジュール書き込みコードが存在しないことが判明。
+// 本番 DB の eip_t_whatsnew も空のため、AIPO も eip_t_schedule を直接参照していると判断し、
+// Oripo でも同方針を正式採用する。
 // update_user_id / create_user_id は migration で「不使用」コメントが付いているが
 // カラム自体は残っており、AIPO が書き込んだ値が入っているため読み取りに使用できる。
 export async function getWhatsnewList(): Promise<WhatsnewEntry[]> {

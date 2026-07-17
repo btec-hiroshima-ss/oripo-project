@@ -59,15 +59,13 @@ eip_t_whatsnew
   → turbine_user（user_id）                  → last_name, first_name（更新者名）
 ```
 
-#### データソースについて（暫定実装）
+#### データソースについて
 
-AIPO の `eip_t_whatsnew` は調査の結果、スケジュール機能からの書き込みコードが存在しないことが判明。  
-開発 DB の `eip_t_whatsnew` は空のため、現在は **`eip_t_schedule` を直接参照**して最新更新を表示している。
+AIPO ソースを全検索した結果、スケジュールから `eip_t_whatsnew` への書き込みコードが存在しないことが判明。  
+本番 DB の `eip_t_whatsnew` も空であることから、AIPO も `eip_t_schedule` を直接参照していると判断。
 
-`eip_t_schedule` には `update_user_id`（更新者）・`create_user_id` が残っており読み取り可能。
-
-**将来の対応（#81）**: スケジュール登録・編集時に `eip_t_whatsnew` へ書き込む実装を追加し、  
-そちらをデータソースに切り替える予定（現時点では `eip_t_schedule` 直接参照で動作中）。
+Oripo でも **`eip_t_schedule` を直接参照**する設計を正式採用する。  
+`eip_t_schedule.update_user_id`（更新者）・`create_user_id` はカラムが残っており読み取り可能。
 
 #### スケジュール削除済みエントリの扱い
 
