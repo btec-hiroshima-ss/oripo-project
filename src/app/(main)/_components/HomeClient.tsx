@@ -1,10 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 import type { Page, PageWidget } from '@/lib/pages.types'
 import HomeHeader from './HomeHeader'
-import WidgetGrid from './WidgetGrid'
 import SettingsView from './SettingsView'
+
+// WidgetGrid は @dnd-kit と Server Actions の組み合わせにより SSR で undefined になるため ssr: false
+const WidgetGrid = dynamic(() => import('./WidgetGrid'), { ssr: false })
 
 type Props = {
   loginName: string

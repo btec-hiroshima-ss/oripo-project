@@ -15,7 +15,7 @@
 ## モックアップ
 
 **ホーム画面（左カラム）:**
-![ホーム](../docs/02_requirements/mockups/ホーム.png)
+![ホーム](images/ホーム.png)
 
 ---
 
