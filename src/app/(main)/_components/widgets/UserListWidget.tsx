@@ -38,6 +38,7 @@ export default function UserListWidget() {
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
             <input
               type="text"
+              name="user-search"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               placeholder="名前で検索"
