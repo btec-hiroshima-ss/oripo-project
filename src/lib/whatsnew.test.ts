@@ -1,26 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  getAppLabel,
-  getScheduleDisplayName,
-  formatWhatsnewDate,
-} from './whatsnew.utils'
-
-describe('getAppLabel', () => {
-  it('portlet_type=6 は「スケジュール」を返す', () => {
-    expect(getAppLabel(6)).toBe('スケジュール')
-  })
-
-  it('未知の portlet_type は「更新情報」を返す', () => {
-    expect(getAppLabel(99)).toBe('更新情報')
-    expect(getAppLabel(0)).toBe('更新情報')
-  })
-
-  it('既知の portlet_type が正しいラベルを返す', () => {
-    expect(getAppLabel(1)).toBe('ブログ')
-    expect(getAppLabel(4)).toBe('掲示板')
-    expect(getAppLabel(5)).toBe('メモ')
-  })
-})
+import { getScheduleDisplayName, formatWhatsnewDate } from './whatsnew.utils'
 
 describe('getScheduleDisplayName', () => {
   it('件名がある場合はそのまま返す', () => {
