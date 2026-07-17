@@ -17,7 +17,7 @@ import { LAYOUT_COLUMNS, WIDGET_LABELS, type PageLayout, type PageWidget, type W
 import { addWidgetAction, updateWidgetPositionAction } from '../actions'
 import WidgetWrapper from './WidgetWrapper'
 import ScheduleWidget from './widgets/ScheduleWidget'
-import WhatsnewWidget from './widgets/WhatsnewWidget'
+import ActivityWidget from './widgets/ActivityWidget'
 import UserListWidget from './widgets/UserListWidget'
 
 // 「ウィジェットを追加」メニューに表示する種別一覧（実装済みウィジェット）
@@ -37,7 +37,7 @@ const LAYOUT_GRID: Record<PageLayout, string> = {
 
 function WidgetContent({ widgetType }: { widgetType: WidgetType }) {
   if (widgetType === 'Schedule') return <ScheduleWidget />
-  if (widgetType === 'Whatsnew') return <WhatsnewWidget />
+  if (widgetType === 'Whatsnew') return <ActivityWidget />
   if (widgetType === 'UserList') return <UserListWidget />
   return null
 }

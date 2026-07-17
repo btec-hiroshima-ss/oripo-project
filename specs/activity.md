@@ -6,8 +6,6 @@
 
 要件定義書 2.3「更新情報（タイムライン）」に対応する、ホームウィジェット（コンパクト版）。
 
-**このフェーズのスコープ:** ホームウィジェットのみ。全件一覧ページ・キーワード検索・ページングは別 Issue で実装する。
-
 関連 Issue: #82（更新情報コンポーネント）、#80（ホーム画面）、#81（スケジュール）
 
 ---
@@ -24,8 +22,18 @@
 ### ウィジェット表示
 
 - ウィジェットヘッダー: 「更新情報」タイトル
-- 更新エントリの一覧（最新 20 件）
+- 更新エントリの一覧（1ページ10件、AIPO 準拠）
 - 更新日時の新しい順（降順）で表示
+
+### ページング（AIPO 準拠）
+
+AIPO のウィジェットは「1 〜 10 / 550 ◄ ►」形式のページングを持つ。
+
+- 1ページあたり10件（`ACTIVITY_PAGE_SIZE = 10`）
+- ウィジェット上部に件数表示と前後ページボタン（◄ ►）を表示
+- 表示形式: `{start} 〜 {end} / {total}`
+- ◄ で前ページ、► で次ページ
+- 先頭ページで ◄ 無効、末尾ページで ► 無効
 
 ### 更新エントリの表示項目
 
@@ -38,7 +46,7 @@
 | 更新者氏名 | `last_name + ' ' + first_name`（`turbine_user` から取得） |
 | アクション | 「予定「[件名]」を**追加/編集**しました。」（追加/編集を赤で強調） |
 
-- 追加/編集の判定: `create_date` と `update_date` の差が 5 秒未満 → 追加、それ以上 → 編集
+- 追加/編集の判定: `activity.title` に「追加」が含まれるか否か（AIPO が書き込む時点で判定済み）
 - エントリはクリック不可（スケジュール機能 #81 が未実装のためリンクなし。#81 完了後に追加予定）
 - 投稿・編集・削除は不可（閲覧専用）
 
@@ -49,7 +57,7 @@
 - `app_id = 'Schedule'`（スケジュール）
 - `activity_map.login_name = '-1'`（全員向け公開）**または** `activity_map.login_name = 現在のユーザーloginName`（共有先）
 - `update_date DESC` 順
-- 最大 20 件
+- 1ページ10件・オフセットページング
 
 #### テーブル JOIN
 
@@ -104,23 +112,22 @@ AIPO が書き込む時点で完成形テキストが格納されている。
 Server Action で実装（Route Handler は使わない）。
 
 ```ts
-// src/app/(main)/actions.ts に追加
-getWhatsnewAction(): Promise<WhatsnewEntry[]>
+// src/app/(main)/actions.ts
+getActivityAction(page?: number): Promise<{ entries: ActivityEntry[]; totalCount: number }>
 ```
 
-### WhatsnewEntry 型
+### ActivityEntry 型
 
 ```ts
-type WhatsnewEntry = {
-  whatsnewId: number
-  portletType: number       // 6 = スケジュール（将来の拡張に備えて保持）
-  entityId: number          // 参照先レコードID（スケジュールIDなど）
-  scheduleName: string | null // スケジュール件名（削除済みの場合 null）
-  updaterName: string       // 更新者氏名（姓名結合）
-  updaterInitial: string    // 苗字の先頭1文字（イニシャルアイコン用）
-  updaterUserId: number     // アイコン色の決定に使用（Murmur3ハッシュ適用）
+type ActivityEntry = {
+  activityId: number
+  entityId: number              // スケジュールID（activity.external_id）
+  scheduleName: string | null   // title の「」内から抽出。削除済みでも title に残るため通常は非 null
+  updaterName: string           // 更新者氏名（姓名結合）
+  updaterInitial: string        // 苗字の先頭1文字（イニシャルアイコン用）
+  updaterUserId: number         // アイコン色の決定に使用（Murmur3ハッシュ適用）
   updateDate: Date
-  isNew: boolean            // true=追加, false=編集（create_date と update_date の差分で判定）
+  isNew: boolean                // true=追加, false=編集（activity.title の「追加」「編集」で判定）
 }
 ```
 
@@ -165,14 +172,15 @@ type WhatsnewEntry = {
 src/
   app/
     (main)/
-      actions.ts                              ← getWhatsnewAction を追加
+      actions.ts                              ← getActivityAction を追加
       _components/
         widgets/
-          WhatsnewWidget.tsx                  ← ウィジェット本体（'use client'）
+          ActivityWidget.tsx                  ← ウィジェット本体（'use client'）
   lib/
-    whatsnew.ts                               ← DBクエリ（getWhatsnewList）
-    whatsnew.types.ts                         ← WhatsnewEntry 型
-    whatsnew.test.ts                          ← Vitestユニットテスト（型整合・フィルタ確認）
+    activity.ts                               ← DBクエリ（getActivityList）
+    activity.types.ts                         ← ActivityEntry 型
+    activity.utils.ts                         ← 純粋関数（getScheduleDisplayName・formatActivityDate）
+    activity.test.ts                          ← Vitestユニットテスト
 ```
 
 ---
@@ -182,7 +190,9 @@ src/
 ### ウィジェット
 - [ ] 更新情報ウィジェットがホーム画面に表示される
 - [ ] 「更新情報」タイトルが表示される
-- [ ] スケジュールの更新エントリが最新 20 件・更新日時降順で表示される
+- [ ] スケジュールの更新エントリが1ページ10件・更新日時降順で表示される
+- [ ] ウィジェット上部に「{start} 〜 {end} / {total} ◄ ►」のページング表示がある
+- [ ] ◄ / ► ボタンでページ移動できる（先頭/末尾で無効化）
 - [ ] 各エントリに更新者イニシャルアイコン・時刻・氏名・アクションテキスト（「予定「件名」を追加/編集しました。」）が表示される
 - [ ] エントリが 0 件のとき「更新情報はありません」と表示される
 - [ ] スケジュール削除済みエントリは件名が「（削除済み）」と表示される

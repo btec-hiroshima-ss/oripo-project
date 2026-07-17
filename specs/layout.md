@@ -13,7 +13,7 @@ AIPO 準拠: AIPO のヘッダー・グローバルナビゲーションに相�
 ![ホーム](images/ホーム.png)
 
 **モバイル:**
-![スマホWEB版](../docs/02_requirements/mockups/スマホWEB版.png)
+![スマホWEB版](images/スマホWEB版.png)
 
 ## 機能要件
 

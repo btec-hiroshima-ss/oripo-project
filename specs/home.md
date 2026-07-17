@@ -21,7 +21,7 @@ Oripo 独自の正規化テーブル（`oripo_pages` / `oripo_page_widgets`）�
 ![ホーム](images/ホーム.png)
 
 **モバイル:**
-![スマホWEB版](../docs/02_requirements/mockups/スマホWEB版.png)
+![スマホWEB版](images/スマホWEB版.png)
 
 ---
 

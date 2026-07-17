@@ -24,6 +24,14 @@ export async function getSession() {
   return getIronSession<SessionData>(await cookies(), ironOptions)
 }
 
+// 認証必須の Server Action で使う共通ヘルパー。
+// 未認証の場合は例外を投げるため、呼び出し元は認証チェックを個別に書かなくてよい。
+export async function requireAuth(): Promise<SessionData> {
+  const session = await getSession()
+  if (!session.userId) throw new Error('Unauthorized')
+  return session
+}
+
 // ロックアウト管理（メモリ内）
 // 制約: サーバー再起動でリセットされる。複数インスタンス構成には非対応（Oripo は単一サーバーのため許容）
 // ルール: 10分以内に5回失敗 → 10分ロック
