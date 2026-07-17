@@ -96,11 +96,14 @@ getWhatsnewAction(): Promise<WhatsnewEntry[]>
 ```ts
 type WhatsnewEntry = {
   whatsnewId: number
-  portletType: number   // 6 = スケジュール（将来の拡張に備えて保持）
-  entityId: number      // 参照先レコードID（スケジュールIDなど）
-  scheduleName: string | null   // スケジュール件名（削除済みの場合 null）
-  updaterName: string   // 更新者氏名（姓名結合）
+  portletType: number       // 6 = スケジュール（将来の拡張に備えて保持）
+  entityId: number          // 参照先レコードID（スケジュールIDなど）
+  scheduleName: string | null // スケジュール件名（削除済みの場合 null）
+  updaterName: string       // 更新者氏名（姓名結合）
+  updaterInitial: string    // 苗字の先頭1文字（イニシャルアイコン用）
+  updaterUserId: number     // アイコン色の決定に使用（Murmur3ハッシュ適用）
   updateDate: Date
+  isNew: boolean            // true=追加, false=編集（create_date と update_date の差分で判定）
 }
 ```
 
