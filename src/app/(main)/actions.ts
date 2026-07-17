@@ -15,6 +15,8 @@ import {
 } from '@/lib/pages'
 import { getUserList, getUserDetail } from '@/lib/user-list'
 import type { UserListUser, UserListDetail } from '@/lib/user-list.types'
+import { getWhatsnewList } from '@/lib/whatsnew'
+import type { WhatsnewEntry } from '@/lib/whatsnew.types'
 
 async function getUserId(): Promise<number> {
   const session = await getSession()
@@ -85,4 +87,11 @@ export async function getUserDetailAction(userId: number): Promise<UserListDetai
   const session = await getSession()
   if (!session.userId) throw new Error('Unauthorized')
   return getUserDetail(userId)
+}
+
+// 更新情報ウィジェット用。ログイン済みユーザーなら誰でも閲覧可能。
+export async function getWhatsnewAction(): Promise<WhatsnewEntry[]> {
+  const session = await getSession()
+  if (!session.userId) throw new Error('Unauthorized')
+  return getWhatsnewList()
 }

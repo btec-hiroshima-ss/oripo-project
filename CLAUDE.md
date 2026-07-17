@@ -239,7 +239,7 @@ GitHub は1ユーザーが PR に持てる pending review が1つだけという
 
 - モバイル（スマートフォン）を含む全デバイスで正常に表示・操作できること
 - PC 版と同一 URL・同一コードベース（レスポンシブデザイン）
-- スマホ版のレイアウト・ナビゲーション方針は `docs/02_requirements/mockups/スマホWEB版.png` を必ず確認すること
+- スマホ版のレイアウト・ナビゲーション方針は `specs/images/スマホWEB版.png` を必ず確認すること（`docs/02_requirements/mockups/` は旧版）
 - フォームの `<input>` はフォントサイズを 16px 以上にする（`text-base` または `text-base sm:text-sm`）。14px 未満だと iOS Safari が入力時に自動ズームする
 - 仕様書の `## 機能要件` に `### レスポンシブ対応` セクションを追加して、ブレークポイントごとの挙動を記載すること
 - 実装後は chrome-devtools MCP でモバイルサイズ（375px 等）にリサイズして確認すること
