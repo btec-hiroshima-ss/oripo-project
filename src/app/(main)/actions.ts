@@ -93,5 +93,6 @@ export async function getUserDetailAction(userId: number): Promise<UserListDetai
 export async function getWhatsnewAction(): Promise<WhatsnewEntry[]> {
   const session = await getSession()
   if (!session.userId) throw new Error('Unauthorized')
-  return getWhatsnewList()
+  // loginName を渡すことで、全員向け（"-1"）+ 自分が共有相手のアクティビティを取得する
+  return getWhatsnewList(session.loginName)
 }

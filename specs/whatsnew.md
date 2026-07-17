@@ -34,7 +34,7 @@
 | 項目 | 内容 |
 |---|---|
 | イニシャルアイコン | 更新者の苗字先頭1文字 + ユーザーIDベースの固定色（ユーザー名簿と同じロジック） |
-| 更新時刻 | `HH:mm` 形式（`eip_t_whatsnew.update_date`） |
+| 更新時刻 | `HH:mm` 形式（`activity.update_date`） |
 | 更新者氏名 | `last_name + ' ' + first_name`（`turbine_user` から取得） |
 | アクション | 「予定「[件名]」を**追加/編集**しました。」（追加/編集を赤で強調） |
 
@@ -44,33 +44,47 @@
 
 ### データ取得条件
 
-`eip_t_whatsnew` から以下の条件でレコードを取得する:
+`activity` テーブルから以下の条件でレコードを取得する:
 
-- `parent_id = 0`（全員向け公開エントリのみ。`-1`=個人宛・`>0`=既読フラグは除外）
-- `portlet_type = 6`（スケジュール。将来的に他機能も追加可能な設計とする）
+- `app_id = 'Schedule'`（スケジュール）
+- `activity_map.login_name = '-1'`（全員向け公開）**または** `activity_map.login_name = 現在のユーザーloginName`（共有先）
 - `update_date DESC` 順
 - 最大 20 件
 
 #### テーブル JOIN
 
 ```
-eip_t_whatsnew
-  → eip_t_schedule（entity_id = schedule_id） → name（件名）
-  → turbine_user（user_id）                  → last_name, first_name（更新者名）
+activity
+  JOIN activity_map ON activity_map.activity_id = activity.id
+  JOIN turbine_user ON turbine_user.login_name = activity.login_name
 ```
 
-#### データソースについて
+#### データソースについて（AIPO調査結果）
 
-AIPO ソースを全検索した結果、スケジュールから `eip_t_whatsnew` への書き込みコードが存在しないことが判明。  
-本番 DB の `eip_t_whatsnew` も空であることから、AIPO も `eip_t_schedule` を直接参照していると判断。
+AIPO はスケジュール保存時に `ALActivityService.create()` を呼び出し、`activity` + `activity_map` テーブルに書き込む（`ScheduleUtils.createNewScheduleActivity()` / `createShareScheduleActivity()` — `portlets/schedule/src/main/java/.../ScheduleUtils.java` 参照）。
 
-Oripo でも **`eip_t_schedule` を直接参照**する設計を正式採用する。  
-`eip_t_schedule.update_user_id`（更新者）・`create_user_id` はカラムが残っており読み取り可能。
+`eip_t_whatsnew` はスケジュールでは使用されていない（全ソース検索で呼び出し元なし、本番 DB も空）。
+
+`activity.priority` の意味:
+
+| 値 | 意味 | `activity_map.login_name` |
+|---|---|---|
+| 0 | 全員向け公開（作成者が自分のアクティビティを全体に公開） | `"-1"` |
+| 1 | 共有先限定（スケジュール共有相手への通知） | 特定ユーザーの `login_name` |
+
+#### `activity.title` のフォーマット
+
+AIPO が書き込む時点で完成形テキストが格納されている。
+
+- 追加: `"予定「〇〇」を追加しました。"`
+- 編集: `"予定「〇〇」を編集しました。"`
+
+件名は `「」` 内を正規表現で抽出。追加/編集の判定は `"追加"` を含むかで行う。
 
 #### スケジュール削除済みエントリの扱い
 
-`eip_t_schedule` が削除されても `eip_t_whatsnew` は残る（AIPO の仕様）。
-JOIN で取得できなかった場合は件名を「（削除済み）」として表示する。
+`activity` レコードはスケジュール削除後も残る（AIPO の仕様）。  
+`title` に件名が格納済みのため、`eip_t_schedule` が削除されても件名は表示できる。
 
 ### データなし時の表示
 
@@ -118,20 +132,30 @@ type WhatsnewEntry = {
 
 | テーブル | 用途 |
 |---|---|
-| `eip_t_whatsnew` | 更新情報（portlet_type・entity_id・user_id・update_date） |
-| `eip_t_schedule` | スケジュール件名（LEFT JOIN で取得） |
-| `turbine_user` | 更新者氏名 |
+| `activity` | 更新情報本体（title・login_name・update_date・priority） |
+| `activity_map` | 更新情報の配信先（login_name='-1' で全員向け、特定名で共有先） |
+| `turbine_user` | 更新者の氏名取得（`login_name` で JOIN） |
 
-### eip_t_whatsnew のカラム
+### activity のカラム
 
 | カラム | 型 | 用途 |
 |---|---|---|
-| `whatsnew_id` | integer | PK |
-| `user_id` | integer | 更新者（`turbine_user.user_id` に対応） |
-| `portlet_type` | integer | アプリ種別（6=スケジュール） |
-| `parent_id` | integer | 0=全員向け / -1=個人宛 / >0=既読フラグ |
-| `entity_id` | integer | 対象レコードID（スケジュールIDなど） |
+| `id` | integer | PK |
+| `app_id` | varchar | アプリ種別（`'Schedule'`） |
+| `login_name` | varchar | 更新者のログイン名 |
+| `title` | varchar | 完成形タイトル（「予定「〇〇」を追加/編集しました。」） |
+| `external_id` | varchar | スケジュールID（文字列） |
+| `priority` | float | 0=全員向け / 1=共有先限定 |
 | `update_date` | timestamp | 更新日時 |
+
+### activity_map のカラム
+
+| カラム | 型 | 用途 |
+|---|---|---|
+| `id` | integer | PK |
+| `activity_id` | integer | FK → `activity.id` |
+| `login_name` | varchar | `'-1'`=全員向け / 特定ユーザー名=共有先 |
+| `is_read` | integer | 既読フラグ（0=未読, 1=既読） |
 
 ---
 
