@@ -6,12 +6,16 @@ import { logout } from '@/app/login/actions'
 import type { Page, PageLayout, PageWidget, WidgetType } from '@/lib/pages.types'
 import { addPageAction, deletePageAction, updatePageAction } from '../actions'
 import AddPageModal from './AddPageModal'
+import InitialAvatar from './InitialAvatar'
 import PageSettingsModal from './PageSettingsModal'
 import PageTab from './PageTab'
 import MobileDrawer from './MobileDrawer'
+import UserEditModal from './UserEditModal'
 
 type Props = {
   loginName: string
+  userId: number
+  fullName: string
   department: string | null
   pages: Page[]
   activePage: Page
@@ -28,6 +32,8 @@ type Props = {
 // PageSettingsModal でレイアウト変更＋ウィジェット追加を一体化（AIPO 準拠）。
 export default function AppHeader({
   loginName,
+  userId,
+  fullName,
   department,
   pages,
   activePage,
@@ -42,6 +48,7 @@ export default function AppHeader({
   const [showAddModal, setShowAddModal] = useState(false)
   const [showPageSettings, setShowPageSettings] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [showUserEdit, setShowUserEdit] = useState(false)
 
   async function handleAddPage(pageName: string) {
     setShowAddModal(false)
@@ -78,8 +85,6 @@ export default function AppHeader({
     }
   }
 
-  // アバターのイニシャル: loginName の先頭1文字を大文字で表示
-  const initial = loginName.charAt(0).toUpperCase()
 
   return (
     <>
@@ -154,20 +159,19 @@ export default function AppHeader({
             <Bell className="w-5 h-5" />
           </button>
 
-          {/* デスクトップ: アバター（イニシャル円）＋部署名 */}
+          {/* デスクトップ: アバター（イニシャル円）＋氏名＋部署名 */}
           <div className="hidden lg:flex items-center gap-1.5">
-            <div className="w-7 h-7 rounded-full bg-white/25 flex items-center justify-center text-xs font-bold shrink-0">
-              {initial}
-            </div>
+            <InitialAvatar userId={userId} name={fullName} onClick={() => setShowUserEdit(true)} />
+            <span className="text-sm text-white/90">{fullName}</span>
             {department && (
-              <span className="text-sm text-white/90">{department}</span>
+              <span className="text-xs text-white/60">{department}</span>
             )}
           </div>
 
           <form action={logout} className="hidden lg:block">
             <button
               type="submit"
-              className="flex items-center gap-1.5 border border-white/50 rounded px-2.5 py-1 text-sm hover:bg-white/10 transition-colors"
+              className="flex items-center gap-1.5 bg-black/70 hover:bg-black/90 rounded px-2.5 py-1 text-sm transition-colors"
             >
               <LogOut className="w-3.5 h-3.5" />
               ログアウト
@@ -175,8 +179,8 @@ export default function AppHeader({
           </form>
 
           {/* モバイル: イニシャルアバターのみ */}
-          <div className="lg:hidden w-7 h-7 rounded-full bg-white/25 flex items-center justify-center text-xs font-bold">
-            {initial}
+          <div className="lg:hidden">
+            <InitialAvatar userId={userId} name={fullName} onClick={() => setShowUserEdit(true)} />
           </div>
         </div>
       </header>
@@ -204,6 +208,10 @@ export default function AppHeader({
           onClose={() => setShowPageSettings(false)}
           onConfirm={handlePageSettingsConfirm}
         />
+      )}
+
+      {showUserEdit && (
+        <UserEditModal onClose={() => setShowUserEdit(false)} />
       )}
     </>
   )
