@@ -98,6 +98,40 @@ claude login
 
 ---
 
+## 管理ツール
+
+`docker compose up` で以下のツールが起動する。
+
+### pgAdmin（DB管理・バックアップ・リストア）
+
+URL: `http://localhost:5050`
+
+| 項目 | 値 |
+|---|---|
+| Email | `admin@oripo.com` |
+| Password | `oripo` |
+
+#### DB接続の登録（初回のみ）
+
+1. 左ペインの「Servers」を右クリック →「Register」→「Server」
+2. 「General」タブ: Name に `oripo-local`（任意）を入力
+3. 「Connection」タブに以下を入力して「Save」
+
+| 項目 | 値 |
+|---|---|
+| Host | `db` |
+| Port | `5432` |
+| Database | `aipo` |
+| Username | `aipo_postgres` |
+| Password | `aipo` |
+
+#### DBリストア
+
+1. 左ペインで `aipo` データベースを右クリック →「Restore」
+2. バックアップファイル（`backups/` 配下の `.dump.gz`）を選択して実行
+
+---
+
 ## 開発用ログイン情報
 
 | 項目 | 値 |

@@ -204,7 +204,7 @@ src/
   lib/
     pages.ts                      ← DBクエリ（oripo_pages / oripo_page_widgets）
     pages.types.ts                ← 型定義・定数（PageLayout・WidgetType など）
-    user-list.ts                  ← getUserDepartment など（ヘッダー部署名取得に使用）
+    user-list.ts                  ← getUserDetail（ヘッダーの氏名・部署名取得に使用）
 ```
 
 ---
@@ -225,7 +225,8 @@ src/
 - [ ] 列数を超えたウィジェットが自動的に最後の列に移動する
 
 ### ヘッダー
-- [ ] ヘッダー右側にアバター（イニシャル円）＋部署名が表示される
+- [ ] ヘッダー右側にアバター（イニシャル円）＋氏名＋部署名が表示される
+- [ ] アバターをクリックするとユーザー情報編集モーダルが開く（実装は #140 で追加予定）
 
 ### ウィジェット
 - [ ] デフォルト配置（Whatsnew・UserList・Schedule）が表示される

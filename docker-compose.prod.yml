@@ -1,5 +1,6 @@
 volumes:
   oripo-db-data:
+  pgadmin-data:
 
 services:
   app:
@@ -30,6 +31,23 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  # pgAdmin: DB 管理 UI（リモートデスクトップ接続時に http://localhost:5050 でアクセス）
+  # 初期ログイン: admin@oripo.com / oripo
+  # 接続先: host=db port=5432（.env.production の DB_USER / DB_PASSWORD / DB_NAME を使用）
+  pgadmin:
+    image: dpage/pgadmin4:8.14
+    ports:
+      - "127.0.0.1:5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@oripo.com
+      PGADMIN_DEFAULT_PASSWORD: oripo
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
 
   backup:
     image: postgres:16-alpine
