@@ -190,7 +190,9 @@ export default function AppHeader({
         loginName={loginName}
         pages={pages}
         activePage={activePage}
+        settingsActive={settingsActive}
         onSelectPage={onSelectPage}
+        onOpenSettings={onOpenSettings}
         onClose={() => setDrawerOpen(false)}
       />
 
