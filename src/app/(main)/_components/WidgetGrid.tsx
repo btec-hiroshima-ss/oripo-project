@@ -12,16 +12,12 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useState, useTransition, useEffect } from 'react'
-import { Plus } from 'lucide-react'
-import { LAYOUT_COLUMNS, WIDGET_LABELS, type PageLayout, type PageWidget, type WidgetType } from '@/lib/pages.types'
-import { addWidgetAction, updateWidgetPositionAction } from '../actions'
+import { LAYOUT_COLUMNS, type PageLayout, type PageWidget, type WidgetType } from '@/lib/pages.types'
+import { updateWidgetPositionAction } from '../actions'
 import WidgetWrapper from './WidgetWrapper'
 import ScheduleWidget from './widgets/ScheduleWidget'
 import ActivityWidget from './widgets/ActivityWidget'
 import UserListWidget from './widgets/UserListWidget'
-
-// 「ウィジェットを追加」メニューに表示する種別一覧（実装済みウィジェット）
-const ALL_WIDGET_TYPES: WidgetType[] = ['Schedule', 'Whatsnew', 'UserList']
 
 // DroppableColumn の id 生成（`col-0`, `col-1`, ...）と dragEnd 時の列ドロップ判定で共用するプレフィックス
 const COL_DROP_PREFIX = 'col-'
@@ -64,15 +60,13 @@ function DroppableColumn({ colIndex, children }: { colIndex: number; children: R
 }
 
 type Props = {
-  pageId: number
   layout: PageLayout
   widgets: PageWidget[]
   onWidgetsChange: (widgets: PageWidget[]) => void
 }
 
-export default function WidgetGrid({ pageId, layout, widgets: initialWidgets, onWidgetsChange }: Props) {
+export default function WidgetGrid({ layout, widgets: initialWidgets, onWidgetsChange }: Props) {
   const [widgets, setWidgets] = useState(initialWidgets)
-  const [showAddMenu, setShowAddMenu] = useState(false)
   const [, startTransition] = useTransition()
 
   // ページ設定など外部でウィジェットが変更された場合に内部 state を同期する
@@ -189,14 +183,6 @@ export default function WidgetGrid({ pageId, layout, widgets: initialWidgets, on
     })
   }
 
-  async function handleAddWidget(widgetType: WidgetType) {
-    setShowAddMenu(false)
-    const newWidget = await addWidgetAction(pageId, widgetType)
-    const updated = [...widgets, newWidget]
-    setWidgets(updated)
-    onWidgetsChange(updated)
-  }
-
   return (
     <div className="flex flex-col gap-4">
       {/* rectIntersection: ドラッグ矩形と droppable 矩形の重なりで判定するため
@@ -229,29 +215,6 @@ export default function WidgetGrid({ pageId, layout, widgets: initialWidgets, on
           ))}
         </div>
       </DndContext>
-
-      <div className="relative">
-        <button
-          onClick={() => setShowAddMenu((v) => !v)}
-          className="flex items-center gap-1.5 text-sm text-brand hover:text-brand-dark font-medium"
-        >
-          <Plus className="w-4 h-4" />
-          ウィジェットを追加
-        </button>
-        {showAddMenu && (
-          <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-40">
-            {ALL_WIDGET_TYPES.map((type) => (
-              <button
-                key={type}
-                onClick={() => handleAddWidget(type)}
-                className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg"
-              >
-                {WIDGET_LABELS[type]}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   )
 }

@@ -69,7 +69,10 @@ Oripo 独自の正規化テーブル（`oripo_pages` / `oripo_page_widgets`）�
 | `UserList` | ユーザー名簿 | #83 |
 
 - 同一 widget_type を同じページに複数配置可能（AIPO から逸脱、ユーザーの自由度向上のため）
-- 「追加」ボタンでウィジェット一覧を表示し、全種類を常に選択肢に出す
+- ウィジェット追加は「ページ設定」モーダルで行う（AIPO の「追加アプリの設定」モーダルに相当）
+  - タブ横の歯車アイコン → ページ設定モーダルが開く
+  - モーダル上部でレイアウト選択、下部でウィジェット種別をチェックして一括追加
+  - 各種別の「現在数」（同ページに現在配置されている個数）を表示
 - ウィジェットを「削除」するとそのページから取り除かれる（データは消えない）
 
 ### ドラッグ＆ドロップ
@@ -183,24 +186,25 @@ CREATE TABLE oripo_page_widgets (
 src/
   app/
     (main)/
-      page.tsx                  ← ホーム画面（Server Component）
+      page.tsx                    ← メインページ（Server Component）
       _components/
-        HomeClient.tsx          ← タブ切り替え・ウィジェット state 管理（Client Component）
-        HomeHeader.tsx          ← ヘッダー全体（ページ CRUD・モーダル制御）
-        PageTab.tsx             ← 個々のページタブ（インライン編集・削除・レイアウト設定）
-        MobileDrawer.tsx        ← モバイル用スライドインドロワー
-        AddPageModal.tsx        ← ページ追加モーダル（ページ名入力）
-        LayoutModal.tsx         ← レイアウト選択モーダル
-        WidgetGrid.tsx          ← カラムレイアウト + ウィジェット配置・D&D
-        WidgetWrapper.tsx       ← 各ウィジェットの外枠（ヘッダー・削除）
+        PageClient.tsx            ← タブ切り替え・ウィジェット state 管理（Client Component）
+        AppHeader.tsx             ← アプリヘッダー全体（ページ CRUD・モーダル制御）
+        PageTab.tsx               ← 個々のページタブ（インライン編集・削除・ページ設定）
+        PageSettingsModal.tsx     ← ページ設定モーダル（レイアウト＋ウィジェット追加一体）
+        MobileDrawer.tsx          ← モバイル用スライドインドロワー
+        AddPageModal.tsx          ← ページ追加モーダル（ページ名入力）
+        WidgetGrid.tsx            ← カラムレイアウト + ウィジェット配置・D&D
+        WidgetWrapper.tsx         ← 各ウィジェットの外枠（ヘッダー・削除）
         widgets/
-          ScheduleWidget.tsx    ← スケジュールウィジェット（#81）
-          WhatsnewWidget.tsx    ← 更新情報ウィジェット（#82）
-          UserListWidget.tsx    ← ユーザー名簿ウィジェット（#83）
-      actions.ts                ← Server Actions（ページ・ウィジェット CRUD）
+          ScheduleWidget.tsx      ← スケジュールウィジェット（#81）
+          ActivityWidget.tsx      ← 更新情報ウィジェット（#82）
+          UserListWidget.tsx      ← ユーザー名簿ウィジェット（#83）
+      actions.ts                  ← Server Actions（ページ・ウィジェット CRUD）
   lib/
-    pages.ts                    ← DBクエリ（oripo_pages / oripo_page_widgets）
-    pages.types.ts              ← 型定義・定数（PageLayout・WidgetType など）
+    pages.ts                      ← DBクエリ（oripo_pages / oripo_page_widgets）
+    pages.types.ts                ← 型定義・定数（PageLayout・WidgetType など）
+    user-list.ts                  ← getUserDepartment など（ヘッダー部署名取得に使用）
 ```
 
 ---
@@ -220,9 +224,13 @@ src/
 - [ ] レイアウト変更が即時反映される
 - [ ] 列数を超えたウィジェットが自動的に最後の列に移動する
 
+### ヘッダー
+- [ ] ヘッダー右側にアバター（イニシャル円）＋部署名が表示される
+
 ### ウィジェット
 - [ ] デフォルト配置（Whatsnew・UserList・Schedule）が表示される
-- [ ] 「ウィジェット追加」から未配置ウィジェットを追加できる
+- [ ] タブ横の歯車アイコン → ページ設定モーダルでウィジェットを追加できる
+- [ ] ページ設定モーダルに現在のウィジェット数（現在数）が表示される
 - [ ] ウィジェットを削除できる
 
 ### ドラッグ＆ドロップ
