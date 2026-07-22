@@ -15,7 +15,7 @@ Claudeを最大限活用。成果物・ローカルテストはすべてClaude�
 
 ### 開発手法
 
-シンプルSDD（Spec-Driven Development）。仕様書（Markdown）を先に書いて社内合意 → Claudeが実装・テスト生成。
+シンプルSDD（Spec-Driven Development）。要件定義書（Markdown）を先に書いて社内合意 → Claudeが実装・テスト生成。
 
 ## リポジトリ構成
 
