@@ -137,7 +137,7 @@ URL: `http://localhost:9000`
 | 項目 | 値 |
 |---|---|
 | Username | `admin` |
-| Password | `Oripo123` |
+| Password | `Oripo12345678` |
 
 ### pgAdmin（DB管理・バックアップ・リストア）
 
@@ -146,7 +146,7 @@ URL: `http://localhost:5050`
 | 項目 | 値 |
 |---|---|
 | Email | `admin@oripo.com` |
-| Password | `Oripo123` |
+| Password | `Oripo12345678` |
 
 #### DB接続の登録（初回のみ）
 
