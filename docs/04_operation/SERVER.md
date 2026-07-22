@@ -125,6 +125,50 @@ sudo systemctl stop lightdm
 
 ---
 
+## 管理ツール（リモートデスクトップ接続後にブラウザでアクセス）
+
+サーバーにリモートデスクトップ（RDP）で接続し、サーバー上のブラウザから以下の URL にアクセスする。
+外部からは直接アクセス不可（127.0.0.1 バインド）。
+
+### Portainer（コンテナ管理）
+
+URL: `http://localhost:9000`
+
+| 項目 | 値 |
+|---|---|
+| Username | `admin` |
+| Password | `Oripo123` |
+
+### pgAdmin（DB管理・バックアップ・リストア）
+
+URL: `http://localhost:5050`
+
+| 項目 | 値 |
+|---|---|
+| Email | `admin@oripo.com` |
+| Password | `Oripo123` |
+
+#### DB接続の登録（初回のみ）
+
+1. 左ペインの「Servers」を右クリック →「Register」→「Server」
+2. 「General」タブ: Name に任意の名前を入力
+3. 「Connection」タブに以下を入力して「Save」
+
+| 項目 | 値 |
+|---|---|
+| Host | `db` |
+| Port | `5432` |
+| Database | `aipo`（または `.env.production` の `DB_NAME`） |
+| Username | `.env.production` の `DB_USER` |
+| Password | `.env.production` の `DB_PASSWORD` |
+
+#### DBリストア
+
+1. 左ペインで対象データベースを右クリック →「Restore」
+2. バックアップファイル（`backups/` 配下の `.dump.gz`）を選択して実行
+
+---
+
 ## トラブルシューティング
 
 ### `git clone` で SSL エラー（server certificate verification failed）
