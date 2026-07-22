@@ -2,13 +2,18 @@
 
 import { useState } from 'react'
 import SettingsMenu, { type SettingsMenuKey } from './SettingsMenu'
-import UserInfoPanel from './settings-panels/UserInfoPanel'
-import MyGroupPanel from './settings-panels/MyGroupPanel'
-import PageSettingsPanel from './settings-panels/PageSettingsPanel'
 
-// 個人設定画面。左メニューの選択に応じてコンテンツエリアのパネルを切り替える。
+const PANEL_LABELS: Record<SettingsMenuKey, string> = {
+  userInfo: 'ユーザー情報',
+  myGroup: 'Myグループ',
+  pageSettings: 'ページ設定',
+}
+
+// 個人設定画面。左メニューの選択に応じてコンテンツエリアの表示を切り替える。
 // SettingsView は showSettings が true の間だけマウントされるため、
 // 個人設定を閉じて再度開くと selected は必ず初期値（ユーザー情報）に戻る。
+// 各パネルの中身（ユーザー情報・Myグループ・ページ設定）は #143〜#145 で実装するため、
+// ここでは選択中のパネル名のみ表示する。
 export default function SettingsView() {
   const [selected, setSelected] = useState<SettingsMenuKey>('userInfo')
 
@@ -16,10 +21,8 @@ export default function SettingsView() {
     <div className="flex-1 p-4 flex flex-col lg:flex-row gap-4">
       <SettingsMenu selected={selected} onSelect={setSelected} />
 
-      <div className="flex-1">
-        {selected === 'userInfo' && <UserInfoPanel />}
-        {selected === 'myGroup' && <MyGroupPanel />}
-        {selected === 'pageSettings' && <PageSettingsPanel />}
+      <div className="flex-1 bg-white rounded-lg shadow-sm p-6">
+        <span className="font-semibold text-gray-800">{PANEL_LABELS[selected]}</span>
       </div>
     </div>
   )
