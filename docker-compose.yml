@@ -2,7 +2,6 @@ volumes:
   claude-code-bashhistory:
   claude-code-config:
   oripo-db-data:
-  portainer-data:
   pgadmin-data:
 
 services:
@@ -84,19 +83,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-
-  # Portainer: コンテナ管理 UI（http://localhost:9000）
-  # 初期ログイン: admin / Oripo12345678
-  portainer:
-    image: portainer/portainer-ce:2.21.5
-    ports:
-      - "127.0.0.1:9000:9000"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - portainer-data:/data
-      - ./docker/portainer/admin_password.txt:/run/secrets/admin_password:ro
-    command: --admin-password-file /run/secrets/admin_password
-    restart: unless-stopped
 
   # pgAdmin: DB 管理 UI（http://localhost:5050）
   # 初期ログイン: admin@oripo.com / Oripo12345678

@@ -130,15 +130,6 @@ sudo systemctl stop lightdm
 サーバーにリモートデスクトップ（RDP）で接続し、サーバー上のブラウザから以下の URL にアクセスする。
 外部からは直接アクセス不可（127.0.0.1 バインド）。
 
-### Portainer（コンテナ管理）
-
-URL: `http://localhost:9000`
-
-| 項目 | 値 |
-|---|---|
-| Username | `admin` |
-| Password | `Oripo12345678` |
-
 ### pgAdmin（DB管理・バックアップ・リストア）
 
 URL: `http://localhost:5050`

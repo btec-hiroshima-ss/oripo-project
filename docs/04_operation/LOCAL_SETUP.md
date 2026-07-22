@@ -102,15 +102,6 @@ claude login
 
 `docker compose up` で以下のツールが起動する。
 
-### Portainer（コンテナ管理）
-
-URL: `http://localhost:9000`
-
-| 項目 | 値 |
-|---|---|
-| Username | `admin` |
-| Password | `Oripo12345678` |
-
 ### pgAdmin（DB管理・バックアップ・リストア）
 
 URL: `http://localhost:5050`

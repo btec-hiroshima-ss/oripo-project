@@ -1,6 +1,5 @@
 volumes:
   oripo-db-data:
-  portainer-data:
   pgadmin-data:
 
 services:
@@ -32,19 +31,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-
-  # Portainer: コンテナ管理 UI（リモートデスクトップ接続時に http://localhost:9000 でアクセス）
-  # 初期ログイン: admin / ${PORTAINER_ADMIN_PASSWORD}（.env.production で設定）
-  portainer:
-    image: portainer/portainer-ce:2.21.5
-    ports:
-      - "127.0.0.1:9000:9000"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - portainer-data:/data
-      - ./docker/portainer/admin_password.txt:/run/secrets/admin_password:ro
-    command: --admin-password-file /run/secrets/admin_password
-    restart: unless-stopped
 
   # pgAdmin: DB 管理 UI（リモートデスクトップ接続時に http://localhost:5050 でアクセス）
   # 初期ログイン: admin@oripo.com / Oripo12345678

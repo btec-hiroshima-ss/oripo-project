@@ -89,18 +89,6 @@ else
   echo "スワップファイルは既に存在します（スキップ）"
 fi
 
-# Portainer 初期パスワードファイルの生成（未作成の場合のみ）
-PORTAINER_PW_FILE="$(dirname "$0")/../docker/portainer/admin_password.txt"
-if [ ! -f "$PORTAINER_PW_FILE" ]; then
-  echo ""
-  read -rsp "Portainer の初期管理者パスワードを入力してください: " portainer_pw
-  echo ""
-  mkdir -p "$(dirname "$PORTAINER_PW_FILE")"
-  echo "$portainer_pw" > "$PORTAINER_PW_FILE"
-  chmod 600 "$PORTAINER_PW_FILE"
-  echo "Portainer パスワードファイルを作成しました: $PORTAINER_PW_FILE"
-fi
-
 echo ""
 echo "完了。"
 echo "次の手順を実行してください："
