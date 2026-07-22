@@ -2,6 +2,8 @@ volumes:
   claude-code-bashhistory:
   claude-code-config:
   oripo-db-data:
+  portainer-data:
+  cloudbeaver-workspace:
 
 services:
   claude:
@@ -79,6 +81,29 @@ services:
       PGPASSWORD: aipo
       TZ: Asia/Tokyo
     entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Portainer: コンテナ管理 UI（http://localhost:9000）
+  portainer:
+    image: portainer/portainer-ce:2.21.5
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
+    restart: unless-stopped
+
+  # CloudBeaver: DB 管理 UI（http://localhost:8978）
+  # 接続先: host=db port=5432 user=aipo_postgres password=aipo db=aipo
+  cloudbeaver:
+    image: dbeaver/cloudbeaver:24.3.4
+    ports:
+      - "8978:8978"
+    volumes:
+      - cloudbeaver-workspace:/opt/cloudbeaver/workspace
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
