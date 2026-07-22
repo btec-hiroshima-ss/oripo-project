@@ -4,16 +4,18 @@ import { useState } from 'react'
 import { LogOut, Bell, Menu, Plus } from 'lucide-react'
 import { logout } from '@/app/login/actions'
 import type { Page, PageLayout, PageWidget, WidgetType } from '@/lib/pages.types'
-import { getIconColor } from '@/lib/user-list.utils'
 import { addPageAction, deletePageAction, updatePageAction } from '../actions'
 import AddPageModal from './AddPageModal'
+import InitialAvatar from './InitialAvatar'
 import PageSettingsModal from './PageSettingsModal'
 import PageTab from './PageTab'
 import MobileDrawer from './MobileDrawer'
+import UserEditModal from './UserEditModal'
 
 type Props = {
   loginName: string
   userId: number
+  fullName: string
   department: string | null
   pages: Page[]
   activePage: Page
@@ -31,6 +33,7 @@ type Props = {
 export default function AppHeader({
   loginName,
   userId,
+  fullName,
   department,
   pages,
   activePage,
@@ -45,6 +48,7 @@ export default function AppHeader({
   const [showAddModal, setShowAddModal] = useState(false)
   const [showPageSettings, setShowPageSettings] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [showUserEdit, setShowUserEdit] = useState(false)
 
   async function handleAddPage(pageName: string) {
     setShowAddModal(false)
@@ -81,9 +85,6 @@ export default function AppHeader({
     }
   }
 
-  // アバターのイニシャル: loginName の先頭1文字を大文字で表示
-  const initial = loginName.charAt(0).toUpperCase()
-  const avatarColor = getIconColor(userId)
 
   return (
     <>
@@ -158,13 +159,12 @@ export default function AppHeader({
             <Bell className="w-5 h-5" />
           </button>
 
-          {/* デスクトップ: アバター（イニシャル円）＋部署名 */}
+          {/* デスクトップ: アバター（イニシャル円）＋氏名＋部署名 */}
           <div className="hidden lg:flex items-center gap-1.5">
-            <div className={`w-7 h-7 rounded-full ${avatarColor} flex items-center justify-center text-xs font-bold shrink-0 text-white`}>
-              {initial}
-            </div>
+            <InitialAvatar userId={userId} name={fullName} onClick={() => setShowUserEdit(true)} />
+            <span className="text-sm text-white/90">{fullName}</span>
             {department && (
-              <span className="text-sm text-white/90">{department}</span>
+              <span className="text-xs text-white/60">{department}</span>
             )}
           </div>
 
@@ -179,8 +179,8 @@ export default function AppHeader({
           </form>
 
           {/* モバイル: イニシャルアバターのみ */}
-          <div className={`lg:hidden w-7 h-7 rounded-full ${avatarColor} flex items-center justify-center text-xs font-bold text-white`}>
-            {initial}
+          <div className="lg:hidden">
+            <InitialAvatar userId={userId} name={fullName} onClick={() => setShowUserEdit(true)} />
           </div>
         </div>
       </header>
@@ -208,6 +208,10 @@ export default function AppHeader({
           onClose={() => setShowPageSettings(false)}
           onConfirm={handlePageSettingsConfirm}
         />
+      )}
+
+      {showUserEdit && (
+        <UserEditModal onClose={() => setShowUserEdit(false)} />
       )}
     </>
   )

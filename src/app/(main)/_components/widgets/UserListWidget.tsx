@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react'
 import { Search } from 'lucide-react'
 import { getUserListAction, getUserDetailAction } from '../../actions'
-// user-list.utils のみインポート: user-list.ts 経由だと db→pg→fs がクライアントバンドルに混入する
-import { getIconColor, filterUsers } from '@/lib/user-list.utils'
+// filterUsers のみインポート: user-list.ts 経由だと db→pg→fs がクライアントバンドルに混入する
+import { filterUsers } from '@/lib/user-list.utils'
 import type { UserListUser, UserListDetail } from '@/lib/user-list.types'
+import InitialAvatar from '../InitialAvatar'
 import UserDetailModal from './UserDetailModal'
 
 export default function UserListWidget() {
@@ -80,10 +81,6 @@ type UserRowProps = {
 }
 
 function UserRow({ user, onClick }: UserRowProps) {
-  // 苗字の先頭1文字をアイコンに使う
-  const initial = user.fullName.charAt(0)
-  const colorClass = getIconColor(user.userId)
-
   return (
     <li
       className="flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 transition-colors cursor-pointer"
@@ -92,13 +89,7 @@ function UserRow({ user, onClick }: UserRowProps) {
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && onClick(user.userId)}
     >
-      {/* span を使用: li 内でインライン要素として扱う */}
-      <span
-        className={`${colorClass} w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold`}
-        aria-hidden="true"
-      >
-        {initial}
-      </span>
+      <InitialAvatar userId={user.userId} name={user.fullName} />
       <div className="min-w-0">
         <p className="text-sm font-medium text-gray-800 truncate">{user.fullName}</p>
         {user.department && (

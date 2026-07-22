@@ -13,12 +13,13 @@ const WidgetGrid = dynamic(() => import('./WidgetGrid'), { ssr: false })
 type Props = {
   loginName: string
   userId: number
+  fullName: string
   department: string | null
   initialPages: Page[]
   initialWidgetsByPage: Record<number, PageWidget[]>
 }
 
-export default function PageClient({ loginName, userId, department, initialPages, initialWidgetsByPage }: Props) {
+export default function PageClient({ loginName, userId, fullName, department, initialPages, initialWidgetsByPage }: Props) {
   const [pages, setPages] = useState(initialPages)
   const [activePage, setActivePage] = useState(initialPages[0])
   const [widgetsByPage, setWidgetsByPage] = useState(initialWidgetsByPage)
@@ -40,6 +41,7 @@ export default function PageClient({ loginName, userId, department, initialPages
       <AppHeader
         loginName={loginName}
         userId={userId}
+        fullName={fullName}
         department={department}
         pages={pages}
         activePage={activePage}
