@@ -34,6 +34,7 @@ services:
       retries: 5
 
   # Portainer: コンテナ管理 UI（リモートデスクトップ接続時に http://localhost:9000 でアクセス）
+  # 初期ログイン: admin / ${PORTAINER_ADMIN_PASSWORD}（.env.production で設定）
   portainer:
     image: portainer/portainer-ce:2.21.5
     ports:
@@ -41,9 +42,12 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer-data:/data
+      - ./docker/portainer/admin_password.txt:/run/secrets/admin_password:ro
+    command: --admin-password-file /run/secrets/admin_password
     restart: unless-stopped
 
   # CloudBeaver: DB 管理 UI（リモートデスクトップ接続時に http://localhost:8978 でアクセス）
+  # 初期ログイン: ${CB_ADMIN_NAME} / ${CB_ADMIN_PASSWORD}（.env.production で設定）
   # 接続先: host=db port=5432（.env.production の DB_USER / DB_PASSWORD / DB_NAME を使用）
   cloudbeaver:
     image: dbeaver/cloudbeaver:24.3.4
@@ -51,6 +55,9 @@ services:
       - "127.0.0.1:8978:8978"
     volumes:
       - cloudbeaver-workspace:/opt/cloudbeaver/workspace
+    environment:
+      CB_ADMIN_NAME: ${CB_ADMIN_NAME}
+      CB_ADMIN_PASSWORD: ${CB_ADMIN_PASSWORD}
     restart: unless-stopped
     depends_on:
       db:

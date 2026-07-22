@@ -86,6 +86,7 @@ services:
         condition: service_healthy
 
   # Portainer: コンテナ管理 UI（http://localhost:9000）
+  # 初期ログイン: admin / oripo
   portainer:
     image: portainer/portainer-ce:2.21.5
     ports:
@@ -93,9 +94,12 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer-data:/data
+      - ./docker/portainer/admin_password.txt:/run/secrets/admin_password:ro
+    command: --admin-password-file /run/secrets/admin_password
     restart: unless-stopped
 
   # CloudBeaver: DB 管理 UI（http://localhost:8978）
+  # 初期ログイン: admin / oripo
   # 接続先: host=db port=5432 user=aipo_postgres password=aipo db=aipo
   cloudbeaver:
     image: dbeaver/cloudbeaver:24.3.4
@@ -103,6 +107,9 @@ services:
       - "127.0.0.1:8978:8978"
     volumes:
       - cloudbeaver-workspace:/opt/cloudbeaver/workspace
+    environment:
+      CB_ADMIN_NAME: admin
+      CB_ADMIN_PASSWORD: oripo
     restart: unless-stopped
     depends_on:
       db:
