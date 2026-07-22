@@ -89,7 +89,7 @@ services:
   portainer:
     image: portainer/portainer-ce:2.21.5
     ports:
-      - "9000:9000"
+      - "127.0.0.1:9000:9000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer-data:/data
@@ -100,7 +100,7 @@ services:
   cloudbeaver:
     image: dbeaver/cloudbeaver:24.3.4
     ports:
-      - "8978:8978"
+      - "127.0.0.1:8978:8978"
     volumes:
       - cloudbeaver-workspace:/opt/cloudbeaver/workspace
     restart: unless-stopped
