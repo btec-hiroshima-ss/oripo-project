@@ -1,7 +1,7 @@
 volumes:
   oripo-db-data:
   portainer-data:
-  cloudbeaver-workspace:
+  pgadmin-data:
 
 services:
   app:
@@ -46,18 +46,18 @@ services:
     command: --admin-password-file /run/secrets/admin_password
     restart: unless-stopped
 
-  # CloudBeaver: DB 管理 UI（リモートデスクトップ接続時に http://localhost:8978 でアクセス）
-  # 初期ログイン: cbadmin / Oripo123（.env.production の CB_ADMIN_NAME / CB_ADMIN_PASSWORD で変更可）
+  # pgAdmin: DB 管理 UI（リモートデスクトップ接続時に http://localhost:5050 でアクセス）
+  # 初期ログイン: ${PGADMIN_DEFAULT_EMAIL} / ${PGADMIN_DEFAULT_PASSWORD}（.env.production で設定）
   # 接続先: host=db port=5432（.env.production の DB_USER / DB_PASSWORD / DB_NAME を使用）
-  cloudbeaver:
-    image: dbeaver/cloudbeaver:24.3.4
+  pgadmin:
+    image: dpage/pgadmin4:8.14
     ports:
-      - "127.0.0.1:8978:8978"
+      - "127.0.0.1:5050:80"
     volumes:
-      - cloudbeaver-workspace:/opt/cloudbeaver/workspace
+      - pgadmin-data:/var/lib/pgadmin
     environment:
-      CB_ADMIN_NAME: ${CB_ADMIN_NAME}
-      CB_ADMIN_PASSWORD: ${CB_ADMIN_PASSWORD}
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
     restart: unless-stopped
     depends_on:
       db:
