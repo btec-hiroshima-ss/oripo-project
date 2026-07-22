@@ -1,5 +1,7 @@
 volumes:
   oripo-db-data:
+  portainer-data:
+  cloudbeaver-workspace:
 
 services:
   app:
@@ -30,6 +32,29 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  # Portainer: コンテナ管理 UI（リモートデスクトップ接続時に http://localhost:9000 でアクセス）
+  portainer:
+    image: portainer/portainer-ce:2.21.5
+    ports:
+      - "127.0.0.1:9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
+    restart: unless-stopped
+
+  # CloudBeaver: DB 管理 UI（リモートデスクトップ接続時に http://localhost:8978 でアクセス）
+  # 接続先: host=db port=5432（.env.production の DB_USER / DB_PASSWORD / DB_NAME を使用）
+  cloudbeaver:
+    image: dbeaver/cloudbeaver:24.3.4
+    ports:
+      - "127.0.0.1:8978:8978"
+    volumes:
+      - cloudbeaver-workspace:/opt/cloudbeaver/workspace
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
 
   backup:
     image: postgres:16-alpine
