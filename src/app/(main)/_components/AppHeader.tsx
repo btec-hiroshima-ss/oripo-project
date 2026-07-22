@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { LogOut, Bell, Menu, Plus } from 'lucide-react'
 import { logout } from '@/app/login/actions'
 import type { Page, PageLayout, PageWidget, WidgetType } from '@/lib/pages.types'
+import { getIconColor } from '@/lib/user-list.utils'
 import { addPageAction, deletePageAction, updatePageAction } from '../actions'
 import AddPageModal from './AddPageModal'
 import PageSettingsModal from './PageSettingsModal'
@@ -12,6 +13,7 @@ import MobileDrawer from './MobileDrawer'
 
 type Props = {
   loginName: string
+  userId: number
   department: string | null
   pages: Page[]
   activePage: Page
@@ -28,6 +30,7 @@ type Props = {
 // PageSettingsModal でレイアウト変更＋ウィジェット追加を一体化（AIPO 準拠）。
 export default function AppHeader({
   loginName,
+  userId,
   department,
   pages,
   activePage,
@@ -80,6 +83,7 @@ export default function AppHeader({
 
   // アバターのイニシャル: loginName の先頭1文字を大文字で表示
   const initial = loginName.charAt(0).toUpperCase()
+  const avatarColor = getIconColor(userId)
 
   return (
     <>
@@ -156,7 +160,7 @@ export default function AppHeader({
 
           {/* デスクトップ: アバター（イニシャル円）＋部署名 */}
           <div className="hidden lg:flex items-center gap-1.5">
-            <div className="w-7 h-7 rounded-full bg-white/25 flex items-center justify-center text-xs font-bold shrink-0">
+            <div className={`w-7 h-7 rounded-full ${avatarColor} flex items-center justify-center text-xs font-bold shrink-0 text-white`}>
               {initial}
             </div>
             {department && (
@@ -167,7 +171,7 @@ export default function AppHeader({
           <form action={logout} className="hidden lg:block">
             <button
               type="submit"
-              className="flex items-center gap-1.5 border border-white/50 rounded px-2.5 py-1 text-sm hover:bg-white/10 transition-colors"
+              className="flex items-center gap-1.5 bg-black/70 hover:bg-black/90 rounded px-2.5 py-1 text-sm transition-colors"
             >
               <LogOut className="w-3.5 h-3.5" />
               ログアウト
@@ -175,7 +179,7 @@ export default function AppHeader({
           </form>
 
           {/* モバイル: イニシャルアバターのみ */}
-          <div className="lg:hidden w-7 h-7 rounded-full bg-white/25 flex items-center justify-center text-xs font-bold">
+          <div className={`lg:hidden w-7 h-7 rounded-full ${avatarColor} flex items-center justify-center text-xs font-bold text-white`}>
             {initial}
           </div>
         </div>

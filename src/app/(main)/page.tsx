@@ -21,6 +21,7 @@ export default async function MainPage() {
   return (
     <PageClient
       loginName={session.loginName ?? ''}
+      userId={session.userId!}
       department={department}
       initialPages={pages}
       initialWidgetsByPage={widgetsByPage}
