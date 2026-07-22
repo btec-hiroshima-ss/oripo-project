@@ -47,7 +47,7 @@ services:
     restart: unless-stopped
 
   # CloudBeaver: DB 管理 UI（リモートデスクトップ接続時に http://localhost:8978 でアクセス）
-  # 初期ログイン: cbadmin / oripo123（.env.production の CB_ADMIN_NAME / CB_ADMIN_PASSWORD で変更可）
+  # 初期ログイン: cbadmin / Oripo123（.env.production の CB_ADMIN_NAME / CB_ADMIN_PASSWORD で変更可）
   # 接続先: host=db port=5432（.env.production の DB_USER / DB_PASSWORD / DB_NAME を使用）
   cloudbeaver:
     image: dbeaver/cloudbeaver:24.3.4
