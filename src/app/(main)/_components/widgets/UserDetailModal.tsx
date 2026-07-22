@@ -2,8 +2,7 @@
 
 import { X, User } from 'lucide-react'
 import type { UserListDetail } from '@/lib/user-list.types'
-// user-list.utils のみインポート: Client Component から db を引き込まないため
-import { getIconColor } from '@/lib/user-list.utils'
+import InitialAvatar from '../InitialAvatar'
 
 type Props = {
   user: UserListDetail
@@ -11,9 +10,6 @@ type Props = {
 }
 
 export default function UserDetailModal({ user, onClose }: Props) {
-  const initial = user.fullName.charAt(0)
-  const colorClass = getIconColor(user.userId)
-
   return (
     // オーバーレイクリックで閉じる（AddPageModal と同パターン）
     <div
@@ -46,12 +42,7 @@ export default function UserDetailModal({ user, onClose }: Props) {
         <div className="px-5 py-4">
           {/* アバター + 氏名 */}
           <div className="flex items-center gap-3 mb-4">
-            <span
-              className={`${colorClass} w-12 h-12 rounded-full flex items-center justify-center shrink-0 text-white text-xl font-bold`}
-              aria-hidden="true"
-            >
-              {initial}
-            </span>
+            <InitialAvatar userId={user.userId} name={user.fullName} size="lg" />
             <div>
               <p className="text-base font-semibold text-gray-800">{user.fullName}</p>
               <p className="text-xs text-gray-500">{user.fullNameKana}</p>
