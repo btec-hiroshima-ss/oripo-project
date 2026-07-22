@@ -85,7 +85,7 @@ services:
         condition: service_healthy
 
   # pgAdmin: DB 管理 UI（http://localhost:5050）
-  # 初期ログイン: admin@oripo.com / Oripo12345678
+  # 初期ログイン: admin@oripo.com / oripo
   # 接続先: host=db port=5432 user=aipo_postgres password=aipo db=aipo
   pgadmin:
     image: dpage/pgadmin4:8.14
@@ -95,7 +95,7 @@ services:
       - pgadmin-data:/var/lib/pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@oripo.com
-      PGADMIN_DEFAULT_PASSWORD: Oripo12345678
+      PGADMIN_DEFAULT_PASSWORD: oripo
     restart: unless-stopped
     depends_on:
       db:

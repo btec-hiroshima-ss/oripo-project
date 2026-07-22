@@ -109,7 +109,7 @@ URL: `http://localhost:5050`
 | 項目 | 値 |
 |---|---|
 | Email | `admin@oripo.com` |
-| Password | `Oripo12345678` |
+| Password | `oripo` |
 
 #### DB接続の登録（初回のみ）
 
