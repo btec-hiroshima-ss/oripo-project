@@ -1,42 +1,46 @@
 'use client'
 
 import { useState } from 'react'
-import { LogOut, Bell, Menu, Plus, LayoutGrid } from 'lucide-react'
-import Link from 'next/link'
+import { LogOut, Bell, Menu, Plus } from 'lucide-react'
 import { logout } from '@/app/login/actions'
-import type { Page, PageLayout } from '@/lib/pages.types'
+import type { Page, PageLayout, PageWidget, WidgetType } from '@/lib/pages.types'
 import { addPageAction, deletePageAction, updatePageAction } from '../actions'
 import AddPageModal from './AddPageModal'
-import LayoutModal from './LayoutModal'
+import PageSettingsModal from './PageSettingsModal'
 import PageTab from './PageTab'
 import MobileDrawer from './MobileDrawer'
 
 type Props = {
   loginName: string
+  department: string | null
   pages: Page[]
   activePage: Page
+  activeWidgets: PageWidget[]
   settingsActive: boolean
   onSelectPage: (page: Page) => void
   onPagesChange: (pages: Page[]) => void
+  onWidgetsAdd: (types: WidgetType[]) => void
   onOpenSettings: () => void
   onCloseSettings: () => void
 }
 
-// ホーム画面のヘッダー全体を管理するコンポーネント。
-// ページ CRUD のハンドラーとモーダル表示制御を担う。
-// 各 UI 部品は PageTab / MobileDrawer に分離している。
-export default function HomeHeader({
+// アプリ全体のヘッダー。ページ CRUD とモーダル表示を管理する。
+// PageSettingsModal でレイアウト変更＋ウィジェット追加を一体化（AIPO 準拠）。
+export default function AppHeader({
   loginName,
+  department,
   pages,
   activePage,
+  activeWidgets,
   settingsActive,
   onSelectPage,
   onPagesChange,
+  onWidgetsAdd,
   onOpenSettings,
   onCloseSettings,
 }: Props) {
   const [showAddModal, setShowAddModal] = useState(false)
-  const [showLayoutModal, setShowLayoutModal] = useState(false)
+  const [showPageSettings, setShowPageSettings] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   async function handleAddPage(pageName: string) {
@@ -44,8 +48,8 @@ export default function HomeHeader({
     const newPage = await addPageAction(pageName)
     onPagesChange([...pages, newPage])
     onSelectPage(newPage)
-    // ページ作成直後にレイアウト選択モーダルを開く
-    setShowLayoutModal(true)
+    // ページ作成直後にページ設定モーダルを開く（レイアウト選択をうながす）
+    setShowPageSettings(true)
   }
 
   async function handleDeletePage(page: Page) {
@@ -63,11 +67,19 @@ export default function HomeHeader({
     onPagesChange(pages.map((p) => (p.pageId === pageId ? { ...p, pageName: name } : p)))
   }
 
-  async function handleLayoutConfirm(layout: PageLayout) {
-    setShowLayoutModal(false)
-    await updatePageAction(activePage.pageId, { layout })
-    onPagesChange(pages.map((p) => (p.pageId === activePage.pageId ? { ...p, layout } : p)))
+  async function handlePageSettingsConfirm(layout: PageLayout, addWidgetTypes: WidgetType[]) {
+    setShowPageSettings(false)
+    if (layout !== activePage.layout) {
+      await updatePageAction(activePage.pageId, { layout })
+      onPagesChange(pages.map((p) => (p.pageId === activePage.pageId ? { ...p, layout } : p)))
+    }
+    if (addWidgetTypes.length > 0) {
+      onWidgetsAdd(addWidgetTypes)
+    }
   }
+
+  // アバターのイニシャル: loginName の先頭1文字を大文字で表示
+  const initial = loginName.charAt(0).toUpperCase()
 
   return (
     <>
@@ -82,15 +94,12 @@ export default function HomeHeader({
         </button>
 
         {/* ロゴ */}
-        <Link href="/" className="flex items-center gap-1.5 shrink-0 mr-3">
-          <LayoutGrid className="w-5 h-5 text-white" />
-          <span className="font-bold text-lg tracking-wide">Oripo</span>
-        </Link>
+        <span className="font-bold text-lg tracking-wide shrink-0 mr-3">Oripo</span>
 
-        {/* デスクトップ: ページタブ一覧 + ナビ */}
+        {/* デスクトップ: ページタブ一覧 + 個人設定ボタン + タブ追加ボタン */}
         <nav className="hidden lg:flex items-center gap-0 flex-1 overflow-x-hidden">
           {settingsActive ? (
-            // 個人設定表示中はページタブをシンプルなリンクとして表示
+            // 個人設定表示中はページタブをシンプルなボタンとして表示
             pages.map((page) => (
               <button
                 key={page.pageId}
@@ -109,7 +118,7 @@ export default function HomeHeader({
                 showDelete={pages.length > 1}
                 onSelect={() => onSelectPage(page)}
                 onDelete={() => handleDeletePage(page)}
-                onLayoutOpen={() => setShowLayoutModal(true)}
+                onSettingsOpen={() => setShowPageSettings(true)}
                 onRename={(name) => handleRename(page.pageId, name)}
               />
             ))
@@ -139,12 +148,22 @@ export default function HomeHeader({
           )}
         </nav>
 
-        {/* 右端: お知らせ・ユーザー名・ログアウト */}
+        {/* 右端: お知らせ・ユーザーアバター＋部署名・ログアウト */}
         <div className="ml-auto flex items-center gap-3">
           <button aria-label="お知らせ">
             <Bell className="w-5 h-5" />
           </button>
-          <span className="hidden lg:block text-sm">{loginName}</span>
+
+          {/* デスクトップ: アバター（イニシャル円）＋部署名 */}
+          <div className="hidden lg:flex items-center gap-1.5">
+            <div className="w-7 h-7 rounded-full bg-white/25 flex items-center justify-center text-xs font-bold shrink-0">
+              {initial}
+            </div>
+            {department && (
+              <span className="text-sm text-white/90">{department}</span>
+            )}
+          </div>
+
           <form action={logout} className="hidden lg:block">
             <button
               type="submit"
@@ -154,9 +173,10 @@ export default function HomeHeader({
               ログアウト
             </button>
           </form>
-          {/* モバイル: イニシャルアバター */}
+
+          {/* モバイル: イニシャルアバターのみ */}
           <div className="lg:hidden w-7 h-7 rounded-full bg-white/25 flex items-center justify-center text-xs font-bold">
-            {loginName.charAt(0).toUpperCase()}
+            {initial}
           </div>
         </div>
       </header>
@@ -177,11 +197,12 @@ export default function HomeHeader({
         />
       )}
 
-      {showLayoutModal && (
-        <LayoutModal
+      {showPageSettings && (
+        <PageSettingsModal
           currentLayout={activePage.layout}
-          onClose={() => setShowLayoutModal(false)}
-          onConfirm={handleLayoutConfirm}
+          existingWidgets={activeWidgets}
+          onClose={() => setShowPageSettings(false)}
+          onConfirm={handlePageSettingsConfirm}
         />
       )}
     </>

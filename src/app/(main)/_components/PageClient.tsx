@@ -2,20 +2,22 @@
 
 import { useState } from 'react'
 import dynamic from 'next/dynamic'
-import type { Page, PageWidget } from '@/lib/pages.types'
-import HomeHeader from './HomeHeader'
+import type { Page, PageWidget, WidgetType } from '@/lib/pages.types'
+import AppHeader from './AppHeader'
 import SettingsView from './SettingsView'
+import { addWidgetsAction } from '../actions'
 
 // WidgetGrid は @dnd-kit と Server Actions の組み合わせにより SSR で undefined になるため ssr: false
 const WidgetGrid = dynamic(() => import('./WidgetGrid'), { ssr: false })
 
 type Props = {
   loginName: string
+  department: string | null
   initialPages: Page[]
   initialWidgetsByPage: Record<number, PageWidget[]>
 }
 
-export default function HomeClient({ loginName, initialPages, initialWidgetsByPage }: Props) {
+export default function PageClient({ loginName, department, initialPages, initialWidgetsByPage }: Props) {
   const [pages, setPages] = useState(initialPages)
   const [activePage, setActivePage] = useState(initialPages[0])
   const [widgetsByPage, setWidgetsByPage] = useState(initialWidgetsByPage)
@@ -26,12 +28,20 @@ export default function HomeClient({ loginName, initialPages, initialWidgetsByPa
 
   if (!activePage) return null
 
+  async function handleWidgetsAdd(types: WidgetType[]) {
+    const newWidgets = await addWidgetsAction(activePage.pageId, types)
+    const updated = [...widgets, ...newWidgets]
+    setWidgetsByPage((prev) => ({ ...prev, [activePage.pageId]: updated }))
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
-      <HomeHeader
+      <AppHeader
         loginName={loginName}
+        department={department}
         pages={pages}
         activePage={activePage}
+        activeWidgets={widgets}
         settingsActive={showSettings}
         onSelectPage={(page) => {
           setActivePage(page)
@@ -43,6 +53,7 @@ export default function HomeClient({ loginName, initialPages, initialWidgetsByPa
           const current = updated.find((p) => p.pageId === activePage.pageId)
           if (current) setActivePage(current)
         }}
+        onWidgetsAdd={handleWidgetsAdd}
         onOpenSettings={() => setShowSettings(true)}
         onCloseSettings={() => setShowSettings(false)}
       />
@@ -52,7 +63,6 @@ export default function HomeClient({ loginName, initialPages, initialWidgetsByPa
         <div className="flex-1 p-4">
           <WidgetGrid
             key={activePage.pageId}
-            pageId={activePage.pageId}
             layout={activePage.layout}
             widgets={widgets}
             onWidgetsChange={(updated) =>

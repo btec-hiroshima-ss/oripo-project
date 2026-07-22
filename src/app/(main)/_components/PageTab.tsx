@@ -10,13 +10,13 @@ type Props = {
   showDelete: boolean
   onSelect: () => void
   onDelete: () => void
-  onLayoutOpen: () => void
+  onSettingsOpen: () => void
   onRename: (name: string) => void
 }
 
 // 1枚のページタブ。ダブルクリックでインライン編集できる。
 // 編集 state はこのコンポーネント内で完結し、確定時に onRename を呼ぶ。
-export default function PageTab({ page, isActive, showDelete, onSelect, onDelete, onLayoutOpen, onRename }: Props) {
+export default function PageTab({ page, isActive, showDelete, onSelect, onDelete, onSettingsOpen, onRename }: Props) {
   const [isEditing, setIsEditing] = useState(false)
   const [editingName, setEditingName] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -60,12 +60,12 @@ export default function PageTab({ page, isActive, showDelete, onSelect, onDelete
         <span>{page.pageName}</span>
       )}
 
-      {/* アクティブタブのみ: ホバー時にレイアウト設定アイコンを表示 */}
+      {/* アクティブタブのみ: ホバー時にページ設定アイコンを表示 */}
       {isActive && (
         <button
-          onClick={(e) => { e.stopPropagation(); onLayoutOpen() }}
+          onClick={(e) => { e.stopPropagation(); onSettingsOpen() }}
           className="text-brand/40 hover:text-brand rounded p-1"
-          aria-label="レイアウト設定"
+          aria-label="ページ設定"
         >
           <Settings className="w-3.5 h-3.5" />
         </button>

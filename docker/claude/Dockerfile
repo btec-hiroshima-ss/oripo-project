@@ -37,6 +37,12 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
       && apt-get install -y gh \
       && rm -rf /var/lib/apt/lists/*
 
+# gh wrapper: コンテナ再起動なしで .env のトークン更新を即反映するため、
+# 呼び出しのたびに /workspace/.env から GITHUB_PERSONAL_ACCESS_TOKEN を読み直す
+RUN mv /usr/bin/gh /usr/bin/gh.real && \
+  printf '#!/bin/sh\n_T=$(grep -m1 GITHUB_PERSONAL_ACCESS_TOKEN /workspace/.env 2>/dev/null | cut -d= -f2 | tr -d "\\r"); [ -n "$_T" ] && export GH_TOKEN="$_T"; exec /usr/bin/gh.real "$@"\n' \
+  > /usr/bin/gh && chmod +x /usr/bin/gh
+
 # uv のグローバル配置（/usr/local/bin）+ PATH 変更を抑止 serenaMCP用
 RUN curl -LsSf https://astral.sh/uv/install.sh \
   | env UV_INSTALL_DIR="/usr/local/bin" UV_NO_MODIFY_PATH=1 sh

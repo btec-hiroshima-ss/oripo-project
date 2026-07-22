@@ -1,11 +1,15 @@
 import { getSession } from '@/lib/auth'
 import { getOrCreateDefaultPages, getPageWidgets } from '@/lib/pages'
-import HomeClient from './_components/HomeClient'
+import { getUserDepartment } from '@/lib/user-list'
+import PageClient from './_components/PageClient'
 
-export default async function HomePage() {
+export default async function MainPage() {
   const session = await getSession()
 
-  const pages = await getOrCreateDefaultPages(session.userId!)
+  const [pages, department] = await Promise.all([
+    getOrCreateDefaultPages(session.userId!),
+    getUserDepartment(session.userId!),
+  ])
 
   const widgetsByPage: Record<number, Awaited<ReturnType<typeof getPageWidgets>>> = {}
   await Promise.all(
@@ -15,8 +19,9 @@ export default async function HomePage() {
   )
 
   return (
-    <HomeClient
+    <PageClient
       loginName={session.loginName ?? ''}
+      department={department}
       initialPages={pages}
       initialWidgetsByPage={widgetsByPage}
     />
