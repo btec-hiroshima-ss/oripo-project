@@ -18,6 +18,8 @@ import { getUserList, getUserDetail } from '@/lib/user-list'
 import type { UserListUser, UserListDetail } from '@/lib/user-list.types'
 import { getActivityList } from '@/lib/activity'
 import type { ActivityEntry } from '@/lib/activity.types'
+import { getWeekSchedules, addSchedule, updateSchedule, deleteSchedule } from '@/lib/schedule'
+import type { ScheduleEntry, ScheduleInput } from '@/lib/schedule.types'
 
 export async function addPageAction(pageName: string) {
   const { userId } = await requireAuth()
@@ -94,4 +96,33 @@ export async function getActivityAction(
 ): Promise<{ entries: ActivityEntry[]; totalCount: number }> {
   const { loginName } = await requireAuth()
   return getActivityList(loginName, page)
+}
+
+// スケジュールウィジェット用。
+
+// weekStart: "YYYY-MM-DD"（JST 月曜日）。週の月曜〜翌週月曜 00:00 JST 範囲で取得する。
+export async function getWeekSchedulesAction(weekStart: string): Promise<ScheduleEntry[]> {
+  const { userId } = await requireAuth()
+  // weekStart を JST 00:00 として解釈し、7日間の範囲を計算する
+  const from = new Date(weekStart + 'T00:00:00+09:00')
+  const to = new Date(from.getTime() + 7 * 24 * 60 * 60 * 1000)
+  return getWeekSchedules(userId, from, to)
+}
+
+export async function addScheduleAction(input: ScheduleInput): Promise<ScheduleEntry> {
+  const { userId } = await requireAuth()
+  return addSchedule(userId, input)
+}
+
+export async function updateScheduleAction(
+  scheduleId: number,
+  input: ScheduleInput
+): Promise<ScheduleEntry> {
+  const { userId } = await requireAuth()
+  return updateSchedule(scheduleId, userId, input)
+}
+
+export async function deleteScheduleAction(scheduleId: number): Promise<void> {
+  const { userId } = await requireAuth()
+  return deleteSchedule(scheduleId, userId)
 }
