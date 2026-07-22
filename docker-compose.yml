@@ -99,7 +99,7 @@ services:
     restart: unless-stopped
 
   # CloudBeaver: DB 管理 UI（http://localhost:8978）
-  # 初期ログイン: admin / oripo
+  # 初期ログイン: cbadmin / oripo123
   # 接続先: host=db port=5432 user=aipo_postgres password=aipo db=aipo
   cloudbeaver:
     image: dbeaver/cloudbeaver:24.3.4
@@ -108,8 +108,8 @@ services:
     volumes:
       - cloudbeaver-workspace:/opt/cloudbeaver/workspace
     environment:
-      CB_ADMIN_NAME: admin
-      CB_ADMIN_PASSWORD: oripo
+      CB_ADMIN_NAME: cbadmin
+      CB_ADMIN_PASSWORD: oripo123
     restart: unless-stopped
     depends_on:
       db:
