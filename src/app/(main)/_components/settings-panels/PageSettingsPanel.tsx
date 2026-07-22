@@ -10,7 +10,7 @@ export default function PageSettingsPanel() {
         <LayoutGrid className="w-4 h-4 text-brand" />
         <span className="font-semibold text-gray-800">ページ設定</span>
       </div>
-      <div className="px-5 py-10 text-center text-gray-400 text-sm">準備中</div>
+      <div className="px-5 py-10 text-center text-gray-400 text-sm"></div>
     </div>
   )
 }
