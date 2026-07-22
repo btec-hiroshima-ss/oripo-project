@@ -2,7 +2,6 @@ volumes:
   claude-code-bashhistory:
   claude-code-config:
   oripo-db-data:
-  pgadmin-data:
 
 services:
   claude:
@@ -80,23 +79,6 @@ services:
       PGPASSWORD: aipo
       TZ: Asia/Tokyo
     entrypoint: ["/bin/sh", "/entrypoint.sh"]
-    depends_on:
-      db:
-        condition: service_healthy
-
-  # pgAdmin: DB 管理 UI（http://localhost:5050）
-  # 初期ログイン: admin@oripo.com / oripo
-  # 接続先: host=db port=5432 user=aipo_postgres password=aipo db=aipo
-  pgadmin:
-    image: dpage/pgadmin4:8.14
-    ports:
-      - "127.0.0.1:5050:80"
-    volumes:
-      - pgadmin-data:/var/lib/pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@oripo.com
-      PGADMIN_DEFAULT_PASSWORD: oripo
-    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy

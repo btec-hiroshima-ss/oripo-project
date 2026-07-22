@@ -125,38 +125,40 @@ sudo systemctl stop lightdm
 
 ---
 
-## 管理ツール（リモートデスクトップ接続後にブラウザでアクセス）
+## 管理ツール
 
-サーバーにリモートデスクトップ（RDP）で接続し、サーバー上のブラウザから以下の URL にアクセスする。
-外部からは直接アクセス不可（127.0.0.1 バインド）。
+サーバーにリモートデスクトップ（RDP）で接続して使用する。
 
-### pgAdmin（DB管理・バックアップ・リストア）
+### DBeaver（DB管理・バックアップ・リストア）
 
-URL: `http://localhost:5050`
-
-| 項目 | 値 |
-|---|---|
-| Email | `admin@oripo.com` |
-| Password | `oripo` |
+`setup-server.sh` で自動インストール済み。RDP 接続後にデスクトップから起動する。
 
 #### DB接続の登録（初回のみ）
 
-1. 左ペインの「Servers」を右クリック →「Register」→「Server」
-2. 「General」タブ: Name に任意の名前を入力
-3. 「Connection」タブに以下を入力して「Save」
+1. 「新しい接続」→「PostgreSQL」を選択
+2. 以下を入力して「完了」
 
 | 項目 | 値 |
 |---|---|
-| Host | `db` |
+| Host | `localhost` |
 | Port | `5432` |
-| Database | `aipo`（または `.env.production` の `DB_NAME`） |
+| Database | `.env.production` の `DB_NAME` |
 | Username | `.env.production` の `DB_USER` |
 | Password | `.env.production` の `DB_PASSWORD` |
 
-#### DBリストア
+#### DBリストア（新形式 `.dump`）
 
-1. 左ペインで対象データベースを右クリック →「Restore」
-2. バックアップファイル（`backups/` 配下の `.dump.gz`）を選択して実行
+1. 対象データベースを右クリック →「ツール」→「リストア」
+2. `backups/` 配下の `.dump` ファイルを選択して実行
+
+#### DBリストア（旧形式 `.dump.gz`）
+
+旧形式のバックアップは以下の CLI コマンドでリストアする：
+
+```bash
+docker compose -f docker-compose.prod.yml exec backup sh -c \
+  'gunzip -c /backups/<ファイル名>.dump.gz | psql -h db -U $DB_USER $DB_NAME'
+```
 
 ---
 
