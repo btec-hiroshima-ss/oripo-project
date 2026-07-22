@@ -113,6 +113,8 @@ gh api repos/arkjun/aipo/contents/jetspeed/src/main/java/org/apache/jetspeed/...
 
 > `develop` ブランチが存在しない場合は `git checkout -b develop main && git push -u origin develop` で作成すること。
 
+> **禁止: `main` および `develop` への直接 push は絶対に行わないこと。** コンフリクト解消・緊急対応を含むいかなる場合も、feature ブランチを切って PR を作成し、マージはユーザーが行う。
+
 ## コミットメッセージ規約
 
 - 日本語で記述
