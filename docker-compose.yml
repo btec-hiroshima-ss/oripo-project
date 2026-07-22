@@ -86,7 +86,7 @@ services:
         condition: service_healthy
 
   # Portainer: コンテナ管理 UI（http://localhost:9000）
-  # 初期ログイン: admin / oripo
+  # 初期ログイン: admin / Oripo123
   portainer:
     image: portainer/portainer-ce:2.21.5
     ports:
