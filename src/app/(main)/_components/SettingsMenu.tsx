@@ -1,13 +1,13 @@
 'use client'
 
-import { User, Users, LayoutGrid } from 'lucide-react'
+import { User, Users, PanelsTopLeft } from 'lucide-react'
 
 export type SettingsMenuKey = 'userInfo' | 'myGroup' | 'pageSettings'
 
 const MENU_ITEMS: { key: SettingsMenuKey; label: string; icon: typeof User }[] = [
   { key: 'userInfo', label: 'ユーザー情報', icon: User },
   { key: 'myGroup', label: 'Myグループ', icon: Users },
-  { key: 'pageSettings', label: 'ページ設定', icon: LayoutGrid },
+  { key: 'pageSettings', label: 'ページ設定', icon: PanelsTopLeft },
 ]
 
 type Props = {
@@ -39,7 +39,6 @@ export default function SettingsMenu({ selected, onSelect }: Props) {
         ))}
       </nav>
 
-      {/* モバイル: 横スクロールのピルボタン列（モックアップ未提供のため、ページタブと同様のUIに揃える） */}
       <nav className="lg:hidden flex gap-2 overflow-x-auto pb-1">
         {MENU_ITEMS.map(({ key, label, icon: Icon }) => (
           <button
