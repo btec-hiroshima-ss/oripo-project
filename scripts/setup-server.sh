@@ -1,8 +1,9 @@
 #!/bin/bash
 set -e
 
-# サーバー初期セットアップスクリプト（Ubuntu Server 18）
-# 事前に git clone でリポジトリを取得してから実行すること
+# サーバー基盤セットアップスクリプト（Ubuntu Server 18）
+# Docker・GUI・xrdp・ロケール・swap を設定する。初回のみ実行。
+# 管理ツール（lazydocker・DBeaver 等）は setup-tools.sh を実行すること。
 # 関連ドキュメント: docs/04_operation/SERVER.md
 
 echo "=== パッケージ更新 ==="
@@ -67,18 +68,6 @@ EOF
 sudo chmod +x /etc/xrdp/startwm.sh
 sudo systemctl restart xrdp
 
-echo "=== DBeaver インストール ==="
-wget -q -O /tmp/dbeaver.deb https://dbeaver.io/files/dbeaver-ce_latest_amd64.deb
-sudo dpkg -i /tmp/dbeaver.deb || sudo apt-get install -f -y
-rm /tmp/dbeaver.deb
-
-echo "=== lazydocker インストール ==="
-LAZYDOCKER_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazydocker/releases/latest" | grep -Po '"tag_name": "v\K[0-9.]+')
-curl -Lo /tmp/lazydocker.tar.gz "https://github.com/jesseduffield/lazydocker/releases/latest/download/lazydocker_${LAZYDOCKER_VERSION}_Linux_x86_64.tar.gz"
-tar xf /tmp/lazydocker.tar.gz -C /tmp lazydocker
-sudo mv /tmp/lazydocker /usr/local/bin/lazydocker
-rm /tmp/lazydocker.tar.gz
-
 echo "=== スワップ設定（2GB） ==="
 if [ ! -f /swapfile ]; then
   sudo fallocate -l 2G /swapfile
@@ -95,9 +84,9 @@ else
 fi
 
 echo ""
-echo "完了。"
-echo "次の手順を実行してください："
-echo "  1. scripts/setup-security.sh（本番）または scripts/setup-security-dev.sh（開発）を実行"
-echo "  2. sudo reboot"
-echo "  3. リモートデスクトップ（RDP）で <サーバーIP>:3389 に接続"
-echo "  4. cd $(dirname "$0") && ./deploy.sh"
+echo "完了。次の手順を実行してください："
+echo "  1. ./scripts/setup-tools.sh（管理ツールのインストール）"
+echo "  2. ./scripts/setup-security.sh（本番）または ./scripts/setup-security-dev.sh（開発）"
+echo "  3. sudo reboot"
+echo "  4. リモートデスクトップ（RDP）で <サーバーIP>:3389 に接続"
+echo "  5. ./deploy.sh"
