@@ -21,7 +21,7 @@ export default function SettingsView() {
     <div className="flex-1 p-4 flex flex-col lg:flex-row gap-4">
       <SettingsMenu selected={selected} onSelect={setSelected} />
 
-      <div className="flex-1 bg-white rounded-lg shadow-sm p-6">
+      <div className="flex-1 max-w-2xl bg-white rounded-lg shadow-sm p-6">
         <span className="font-semibold text-gray-800">{PANEL_LABELS[selected]}</span>
       </div>
     </div>
