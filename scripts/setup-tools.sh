@@ -7,6 +7,10 @@ set -e
 # 基盤セットアップは setup-server.sh を先に実行すること。
 # 関連ドキュメント: docs/04_operation/SERVER.md
 
+echo "=== PostgreSQL クライアントツールインストール ==="
+# DBeaver のリストア・バックアップ機能が pg_restore / pg_dump を使用するため必要
+sudo apt-get install -y postgresql-client
+
 echo "=== lazydocker インストール ==="
 LAZYDOCKER_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazydocker/releases/latest" | grep -Po '"tag_name": "v\K[0-9.]+')
 curl -Lo /tmp/lazydocker.tar.gz "https://github.com/jesseduffield/lazydocker/releases/latest/download/lazydocker_${LAZYDOCKER_VERSION}_Linux_x86_64.tar.gz"
