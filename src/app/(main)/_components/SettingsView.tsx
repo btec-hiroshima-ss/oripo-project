@@ -20,7 +20,7 @@ export default function SettingsView() {
   return (
     <div className="flex-1 p-4">
       {/* 左メニュー + コンテンツのまとまりをページ中央に配置する（モックアップ準拠） */}
-      <div className="max-w-4xl mx-auto flex flex-col lg:flex-row gap-4">
+      <div className="max-w-3xl mx-auto flex flex-col lg:flex-row gap-4">
         <SettingsMenu selected={selected} onSelect={setSelected} />
 
         <div className="flex-1 bg-white rounded-lg shadow-sm p-6">
