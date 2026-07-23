@@ -16,6 +16,11 @@ echo $GHCR_TOKEN | docker login ghcr.io -u $GHCR_USER --password-stdin
 git remote set-url origin https://${GHCR_USER}:${GHCR_TOKEN}@github.com/btec-hiroshima-ss/oripo-project.git
 git pull
 
+# ログディレクトリを事前作成（appuser が書き込めるよう 777 に設定）
+# bind mount は Docker がディレクトリを作る前にホスト側ディレクトリが存在していないと root 所有になり
+# コンテナ内の非 root ユーザー（appuser）が書き込めない。deploy.sh で先に作ることで回避する。
+mkdir -p logs && chmod 777 logs
+
 # 最新イメージをpullして再起動
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
