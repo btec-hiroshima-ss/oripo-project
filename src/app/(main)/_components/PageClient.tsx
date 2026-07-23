@@ -3,28 +3,30 @@
 import { useState } from 'react'
 import dynamic from 'next/dynamic'
 import type { Page, PageWidget, WidgetType } from '@/lib/pages.types'
+import type { UserProfile } from '@/lib/user.types'
 import AppHeader from './AppHeader'
 import SettingsView from './SettingsView'
+import UserEditModal from './UserEditModal'
 import { addWidgetsAction } from '../actions'
 
 // WidgetGrid は @dnd-kit と Server Actions の組み合わせにより SSR で undefined になるため ssr: false
 const WidgetGrid = dynamic(() => import('./WidgetGrid'), { ssr: false })
 
 type Props = {
-  loginName: string
-  userId: number
-  fullName: string
-  department: string | null
+  profile: UserProfile
   initialPages: Page[]
   initialWidgetsByPage: Record<number, PageWidget[]>
 }
 
-export default function PageClient({ loginName, userId, fullName, department, initialPages, initialWidgetsByPage }: Props) {
+export default function PageClient({ profile, initialPages, initialWidgetsByPage }: Props) {
   const [pages, setPages] = useState(initialPages)
   const [activePage, setActivePage] = useState(initialPages[0])
   const [widgetsByPage, setWidgetsByPage] = useState(initialWidgetsByPage)
   // 個人設定画面の表示切り替え（URL は / のまま、コンテンツエリアのみ切り替える）
   const [showSettings, setShowSettings] = useState(false)
+  // ユーザー情報編集モーダル。ヘッダーのアバターと個人設定パネルの両方から開くため
+  // どちらの子コンポーネントでもなくここで state を持つ
+  const [showUserEdit, setShowUserEdit] = useState(false)
 
   const widgets = widgetsByPage[activePage?.pageId] ?? []
 
@@ -36,13 +38,15 @@ export default function PageClient({ loginName, userId, fullName, department, in
     setWidgetsByPage((prev) => ({ ...prev, [activePage.pageId]: updated }))
   }
 
+  const fullName = `${profile.lastName} ${profile.firstName}`
+
   return (
     <div className="flex flex-col min-h-screen">
       <AppHeader
-        loginName={loginName}
-        userId={userId}
+        loginName={profile.loginName}
+        userId={profile.userId}
         fullName={fullName}
-        department={department}
+        department={profile.departments[0] ?? null}
         pages={pages}
         activePage={activePage}
         activeWidgets={widgets}
@@ -60,9 +64,10 @@ export default function PageClient({ loginName, userId, fullName, department, in
         onWidgetsAdd={handleWidgetsAdd}
         onOpenSettings={() => setShowSettings(true)}
         onCloseSettings={() => setShowSettings(false)}
+        onOpenUserEdit={() => setShowUserEdit(true)}
       />
       {showSettings ? (
-        <SettingsView />
+        <SettingsView profile={profile} onEditUser={() => setShowUserEdit(true)} />
       ) : (
         <div className="flex-1 p-4">
           <WidgetGrid
@@ -74,6 +79,10 @@ export default function PageClient({ loginName, userId, fullName, department, in
             }
           />
         </div>
+      )}
+
+      {showUserEdit && (
+        <UserEditModal profile={profile} onClose={() => setShowUserEdit(false)} />
       )}
     </div>
   )

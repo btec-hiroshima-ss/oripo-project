@@ -16,6 +16,9 @@ import {
 import type { PageWidget } from '@/lib/pages.types'
 import { getUserList, getUserDetail } from '@/lib/user-list'
 import type { UserListUser, UserListDetail } from '@/lib/user-list.types'
+import { updateUserProfile, validateProfileInput } from '@/lib/user'
+import type { UserProfileInput } from '@/lib/user.types'
+import { logger } from '@/lib/logger'
 import { getActivityList } from '@/lib/activity'
 import type { ActivityEntry } from '@/lib/activity.types'
 
@@ -85,6 +88,24 @@ export async function getUserListAction(): Promise<UserListUser[]> {
 export async function getUserDetailAction(userId: number): Promise<UserListDetail | null> {
   await requireAuth()
   return getUserDetail(userId)
+}
+
+// 個人設定の編集モーダル用。ログインユーザー自身のプロフィールを更新する。
+// 更新対象の userId はクライアントから受け取らずセッションから取得する（他人を書き換えられないようにするため）。
+export async function updateUserProfileAction(
+  input: UserProfileInput
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { userId } = await requireAuth()
+
+  const error = validateProfileInput(input)
+  if (error) return { ok: false, error }
+
+  await updateUserProfile(userId, input)
+  logger.info({ event: 'user.profile.update', userId }, 'プロフィール更新')
+
+  // ヘッダーの氏名・部署も同じ Server Component 由来のため、ページ全体を再検証する
+  revalidatePath('/')
+  return { ok: true }
 }
 
 // 更新情報ウィジェット用。ログイン済みユーザーなら誰でも閲覧可能。
