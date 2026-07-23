@@ -22,6 +22,8 @@ vi.mock('@/lib/logger', () => ({
 import { updateUserProfileAction } from './actions'
 import * as authLib from '@/lib/auth'
 import * as userLib from '@/lib/user'
+import { revalidatePath } from 'next/cache'
+import { logger } from '@/lib/logger'
 
 const input: UserProfileInput = {
   lastName: '田中',
@@ -70,5 +72,24 @@ describe('updateUserProfileAction', () => {
 
     expect(result).toEqual({ ok: false, error: 'パスワードが一致しません' })
     expect(userLib.updateUserProfile).not.toHaveBeenCalled()
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  // ヘッダーの氏名・部署も同じ Server Component 由来のため、再検証しないと表示が古いままになる
+  it('更新成功時にページを再検証する', async () => {
+    await updateUserProfileAction(input)
+
+    expect(revalidatePath).toHaveBeenCalledWith('/')
+  })
+
+  it('ログにパスワードを出力しない', async () => {
+    await updateUserProfileAction(input)
+
+    expect(logger.info).toHaveBeenCalledWith(
+      { event: 'user.profile.update', userId: 42 },
+      expect.any(String)
+    )
+    const logged = JSON.stringify(vi.mocked(logger.info).mock.calls)
+    expect(logged).not.toContain('pass1234')
   })
 })

@@ -17,11 +17,29 @@ const REQUIRED_FIELDS: { key: keyof UserProfileInput; label: string }[] = [
   { key: 'passwordConfirm', label: 'パスワード（確認用）' },
 ]
 
+// テキスト項目の最大長。turbine_user の各カラムの桁数に合わせている。
+// ここで弾かないと Postgres 側で "value too long" 例外になり保存に失敗する。
+export const NAME_MAX_LENGTH = 99 // last_name / first_name / *_kana は varchar(99)
+export const CELLULAR_PHONE_MAX_LENGTH = 15 // cellular_phone は varchar(15)
+
+const LENGTH_LIMITED_FIELDS: { key: keyof UserProfileInput; label: string; max: number }[] = [
+  { key: 'lastName', label: '姓', max: NAME_MAX_LENGTH },
+  { key: 'firstName', label: '名', max: NAME_MAX_LENGTH },
+  { key: 'lastNameKana', label: '姓（フリガナ）', max: NAME_MAX_LENGTH },
+  { key: 'firstNameKana', label: '名（フリガナ）', max: NAME_MAX_LENGTH },
+  { key: 'cellularPhone', label: '携帯電話番号', max: CELLULAR_PHONE_MAX_LENGTH },
+]
+
 // 編集モーダルの入力値を検証し、最初に見つかったエラーメッセージを返す（問題なければ null）。
-// Server Action とクライアント側の両方から呼べるよう、DB に依存しない純粋関数にしている。
+// DB に依存しない純粋関数にしているのは、Server Action から呼びつつ
+// Client Component 側に DB モジュールを引き込まないため（user-list.utils.ts と同じ方針）。
 export function validateProfileInput(input: UserProfileInput): string | null {
   for (const { key, label } of REQUIRED_FIELDS) {
     if (!input[key].trim()) return `${label}を入力してください`
+  }
+
+  for (const { key, label, max } of LENGTH_LIMITED_FIELDS) {
+    if (input[key].trim().length > max) return `${label}は${max}文字以内で入力してください`
   }
 
   if (input.password.length < PASSWORD_MIN_LENGTH) {

@@ -60,25 +60,29 @@ export async function getUserProfile(userId: number): Promise<UserProfile | null
 
   if (!userRow) return null
 
-  // 部署は複数所属があるため別クエリで取得する（JOIN すると行が増えるため）
-  const deptRows = await db
-    .selectFrom('turbine_user_group_role')
-    .innerJoin('turbine_group', 'turbine_group.group_id', 'turbine_user_group_role.group_id')
-    .innerJoin('eip_m_post', 'eip_m_post.group_name', 'turbine_group.group_name')
-    .select('eip_m_post.post_name')
-    .where('turbine_user_group_role.user_id', '=', userId)
-    .orderBy('eip_m_post.post_id', 'asc')
-    .execute()
+  const [deptRows, adminRow] = await Promise.all([
+    // 部署は複数所属があるため別クエリで取得する（JOIN すると行が増えるため）。
+    // 同一グループに複数ロールが紐付くと部署名が重複するため distinct する
+    db
+      .selectFrom('turbine_user_group_role')
+      .innerJoin('turbine_group', 'turbine_group.group_id', 'turbine_user_group_role.group_id')
+      .innerJoin('eip_m_post', 'eip_m_post.group_name', 'turbine_group.group_name')
+      .select(['eip_m_post.post_name', 'eip_m_post.post_id'])
+      .distinct()
+      .where('turbine_user_group_role.user_id', '=', userId)
+      .orderBy('eip_m_post.post_id', 'asc')
+      .execute(),
 
-  // 管理者判定: admin ロールが1件でも紐付いていれば管理者
-  const adminRow = await db
-    .selectFrom('turbine_user_group_role')
-    .innerJoin('turbine_role', 'turbine_role.role_id', 'turbine_user_group_role.role_id')
-    .select('turbine_role.role_id')
-    .where('turbine_user_group_role.user_id', '=', userId)
-    .where('turbine_role.role_name', '=', ADMIN_ROLE_NAME)
-    .limit(1)
-    .executeTakeFirst()
+    // 管理者判定: admin ロールが1件でも紐付いていれば管理者
+    db
+      .selectFrom('turbine_user_group_role')
+      .innerJoin('turbine_role', 'turbine_role.role_id', 'turbine_user_group_role.role_id')
+      .select('turbine_role.role_id')
+      .where('turbine_user_group_role.user_id', '=', userId)
+      .where('turbine_role.role_name', '=', ADMIN_ROLE_NAME)
+      .limit(1)
+      .executeTakeFirst(),
+  ])
 
   return {
     userId: userRow.user_id,

@@ -46,6 +46,33 @@ describe('validateProfileInput', () => {
     })
   })
 
+  // turbine_user のカラム桁数を超えると Postgres 側で "value too long" 例外になるため、
+  // ここで弾く必要がある
+  describe('文字数上限', () => {
+    it('姓が99文字を超えるとエラーになる', () => {
+      const input = makeInput({ lastName: 'あ'.repeat(100) })
+      expect(validateProfileInput(input)).toBe('姓は99文字以内で入力してください')
+    })
+
+    it('姓がちょうど99文字は許可される', () => {
+      expect(validateProfileInput(makeInput({ lastName: 'あ'.repeat(99) }))).toBeNull()
+    })
+
+    it('フリガナが99文字を超えるとエラーになる', () => {
+      const input = makeInput({ firstNameKana: 'ア'.repeat(100) })
+      expect(validateProfileInput(input)).toBe('名（フリガナ）は99文字以内で入力してください')
+    })
+
+    it('携帯電話番号が15文字を超えるとエラーになる', () => {
+      const input = makeInput({ cellularPhone: '0'.repeat(16) })
+      expect(validateProfileInput(input)).toBe('携帯電話番号は15文字以内で入力してください')
+    })
+
+    it('携帯電話番号がちょうど15文字は許可される', () => {
+      expect(validateProfileInput(makeInput({ cellularPhone: '0'.repeat(15) }))).toBeNull()
+    })
+  })
+
   describe('パスワード', () => {
     it('8文字未満はエラーになる', () => {
       const input = makeInput({ password: 'pass123', passwordConfirm: 'pass123' })

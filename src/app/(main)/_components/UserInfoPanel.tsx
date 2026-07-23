@@ -29,17 +29,18 @@ export default function UserInfoPanel({ profile, onEdit }: Props) {
 
   return (
     <div className="bg-white rounded-lg shadow-sm">
-      {/* パネル見出し: アイコン + タイトル + 編集ボタン */}
-      <div className="flex items-center justify-between gap-3 px-5 py-4">
+      {/* パネル見出し: アイコン + タイトル + 編集ボタン。
+          ボタンの文言が長くパネル幅に収まらないため、狭い画面では折り返して2段にする */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-4">
         <div className="flex items-center gap-2">
           <User className="w-4 h-4 text-brand" />
           <span className="font-semibold text-gray-800">ユーザー情報</span>
         </div>
         <button
           onClick={onEdit}
-          className="flex items-center gap-1.5 bg-brand hover:bg-brand-dark text-white rounded-lg px-3 py-2 text-xs font-medium transition-colors shrink-0"
+          className="flex items-center gap-1.5 bg-brand hover:bg-brand-dark text-white rounded-lg px-3 py-2 text-xs font-medium transition-colors"
         >
-          <Pencil className="w-3.5 h-3.5" />
+          <Pencil className="w-3.5 h-3.5 shrink-0" />
           ユーザー情報とパスワードを編集する
         </button>
       </div>

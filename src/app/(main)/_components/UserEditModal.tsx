@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import type { UserProfile, UserProfileInput } from '@/lib/user.types'
+import { NAME_MAX_LENGTH, CELLULAR_PHONE_MAX_LENGTH } from '@/lib/user.utils'
 import { updateUserProfileAction } from '../actions'
 
 type Props = {
@@ -40,15 +41,22 @@ export default function UserEditModal({ profile, onClose }: Props) {
     setSaving(true)
     setError(null)
 
-    const result = await updateUserProfileAction(form)
+    try {
+      const result = await updateUserProfileAction(form)
 
-    if (result.ok) {
-      onClose()
-      return
+      if (result.ok) {
+        onClose()
+        return
+      }
+      // 失敗時はモーダルを閉じず、エラーを表示して再入力できるようにする
+      setError(result.error)
+    } catch {
+      // セッション切れ（requireAuth の例外）・DB エラー・通信断など。
+      // catch しないと saving が true のままボタンが押せなくなる
+      setError('保存に失敗しました。時間をおいて再度お試しください。')
+    } finally {
+      setSaving(false)
     }
-    // 失敗時はモーダルを閉じず、エラーを表示して再入力できるようにする
-    setError(result.error)
-    setSaving(false)
   }
 
   return (
@@ -124,12 +132,14 @@ export default function UserEditModal({ profile, onClose }: Props) {
               <div className="flex gap-2">
                 <input
                   aria-label="姓"
+                  maxLength={NAME_MAX_LENGTH}
                   value={form.lastName}
                   onChange={(e) => update('lastName', e.target.value)}
                   className={INPUT_CLASS}
                 />
                 <input
                   aria-label="名"
+                  maxLength={NAME_MAX_LENGTH}
                   value={form.firstName}
                   onChange={(e) => update('firstName', e.target.value)}
                   className={INPUT_CLASS}
@@ -144,12 +154,14 @@ export default function UserEditModal({ profile, onClose }: Props) {
               <div className="flex gap-2">
                 <input
                   aria-label="姓（フリガナ）"
+                  maxLength={NAME_MAX_LENGTH}
                   value={form.lastNameKana}
                   onChange={(e) => update('lastNameKana', e.target.value)}
                   className={INPUT_CLASS}
                 />
                 <input
                   aria-label="名（フリガナ）"
+                  maxLength={NAME_MAX_LENGTH}
                   value={form.firstNameKana}
                   onChange={(e) => update('firstNameKana', e.target.value)}
                   className={INPUT_CLASS}
@@ -164,6 +176,7 @@ export default function UserEditModal({ profile, onClose }: Props) {
               <input
                 id="cellularPhone"
                 type="tel"
+                maxLength={CELLULAR_PHONE_MAX_LENGTH}
                 value={form.cellularPhone}
                 onChange={(e) => update('cellularPhone', e.target.value)}
                 className={INPUT_CLASS}
