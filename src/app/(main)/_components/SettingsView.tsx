@@ -18,10 +18,12 @@ export default function SettingsView() {
   const [selected, setSelected] = useState<SettingsMenuKey>('userInfo')
 
   return (
-    <div className="flex-1 p-4 lg:px-8">
+    <div className="flex-1 p-4">
       {/* 左メニュー + コンテンツのまとまりを中央に配置する。
-          幅は画面サイズに追従させ、超ワイドモニタで1行が長くなりすぎないよう上限のみ設ける */}
-      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-4">
+          モックアップでは画面幅 1592px に対しこのまとまりが 773px（約 1/2）だったため、
+          固定 px ではなく画面幅の 1/2 として比率で追従させる。
+          max-w-7xl は 4K 等の超ワイドモニタで広がりすぎないための上限。 */}
+      <div className="w-full lg:w-1/2 max-w-7xl mx-auto flex flex-col lg:flex-row gap-4">
         <SettingsMenu selected={selected} onSelect={setSelected} />
 
         <div className="flex-1 bg-white rounded-lg shadow-sm p-6">
