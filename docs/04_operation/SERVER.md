@@ -4,7 +4,8 @@
 
 | スクリプト | 用途 |
 |---|---|
-| `scripts/setup-server.sh` | Docker・GUI のインストール（初回のみ） |
+| `scripts/setup-server.sh` | Docker・GUI・xrdp・swap のインストール（初回のみ） |
+| `scripts/setup-tools.sh` | lazydocker・DBeaver 等の管理ツール（ツール変更時に再実行可） |
 | `scripts/setup-security.sh` | ファイアウォール・xrdp 設定（本番用） |
 | `scripts/setup-security-dev.sh` | ファイアウォール・xrdp 設定（ローカル検証用） |
 | `deploy.sh` | デプロイ（git pull → docker compose up） |
@@ -31,8 +32,11 @@ cd oripo-project
 ### 2. サーバーセットアップ
 
 ```bash
+# 基盤（Docker・GUI・xrdp・swap）— 初回のみ
 ./scripts/setup-server.sh
-sudo reboot
+
+# 管理ツール（lazydocker・DBeaver）— ツール追加・更新時も再実行可
+./scripts/setup-tools.sh
 ```
 
 ### 3. セキュリティセットアップ
@@ -131,7 +135,7 @@ sudo systemctl stop lightdm
 
 ### DBeaver（DB管理・バックアップ・リストア）
 
-`setup-server.sh` で自動インストール済み。RDP 接続後にデスクトップから起動する。
+`setup-tools.sh` で自動インストール済み。RDP 接続後にデスクトップから起動する。
 
 #### DB接続の登録（初回のみ）
 

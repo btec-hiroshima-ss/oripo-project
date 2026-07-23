@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { LogOut, X } from 'lucide-react'
 import { logout } from '@/app/login/actions'
 import type { Page } from '@/lib/pages.types'
@@ -10,13 +9,24 @@ type Props = {
   loginName: string
   pages: Page[]
   activePage: Page
+  settingsActive: boolean
   onSelectPage: (page: Page) => void
+  onOpenSettings: () => void
   onClose: () => void
 }
 
 // モバイル用スライドインドロワー。
 // open=false でも DOM に残しておくことでスライドアニメーションが効く（translate-x で制御）。
-export default function MobileDrawer({ open, loginName, pages, activePage, onSelectPage, onClose }: Props) {
+export default function MobileDrawer({
+  open,
+  loginName,
+  pages,
+  activePage,
+  settingsActive,
+  onSelectPage,
+  onOpenSettings,
+  onClose,
+}: Props) {
   return (
     <>
       {/* 背景オーバーレイ: タップで閉じる */}
@@ -64,13 +74,15 @@ export default function MobileDrawer({ open, loginName, pages, activePage, onSel
 
           <hr className="my-2 border-gray-100" />
 
-          <Link
-            href="/settings"
-            onClick={onClose}
-            className="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-lg"
+          {/* 個人設定は URL 遷移ではなく showSettings state の切り替え（layout.md 準拠） */}
+          <button
+            onClick={() => { onOpenSettings(); onClose() }}
+            className={`w-full text-left px-4 py-3 text-sm rounded-lg ${
+              settingsActive ? 'text-brand font-medium bg-orange-50' : 'text-gray-700 hover:bg-gray-50'
+            }`}
           >
             個人設定
-          </Link>
+          </button>
 
           <hr className="my-2 border-gray-100" />
 
