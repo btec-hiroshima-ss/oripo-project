@@ -67,6 +67,11 @@ EOF
 sudo chmod +x /etc/xrdp/startwm.sh
 sudo systemctl restart xrdp
 
+echo "=== DBeaver インストール ==="
+wget -q -O /tmp/dbeaver.deb https://dbeaver.io/files/dbeaver-ce_latest_amd64.deb
+sudo dpkg -i /tmp/dbeaver.deb || sudo apt-get install -f -y
+rm /tmp/dbeaver.deb
+
 echo "=== lazydocker インストール ==="
 LAZYDOCKER_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazydocker/releases/latest" | grep -Po '"tag_name": "v\K[0-9.]+')
 curl -Lo /tmp/lazydocker.tar.gz "https://github.com/jesseduffield/lazydocker/releases/latest/download/lazydocker_${LAZYDOCKER_VERSION}_Linux_x86_64.tar.gz"
