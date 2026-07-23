@@ -15,7 +15,8 @@ export type UserProfile = {
   isAdmin: boolean
 }
 
-// 編集モーダルから送信される入力値。パスワードは変更時のみ値が入る。
+// 編集モーダルから送信される入力値。
+// パスワードは AIPO 準拠で毎回必須（specs/user-info.md の仕様確認事項3を参照）。
 export type UserProfileInput = {
   lastName: string
   firstName: string

@@ -55,7 +55,20 @@ describe('hashPassword', () => {
   })
 })
 
-const userRow = {
+// getUserProfile が SELECT する列。null 許容カラムは明示的に型を付ける
+// （型注釈がないと非 null のリテラル型に推論され、null を渡すテストが型エラーになる）
+type UserRow = {
+  user_id: number
+  login_name: string
+  last_name: string
+  first_name: string
+  last_name_kana: string | null
+  first_name_kana: string | null
+  cellular_phone: string | null
+  position_name: string | null
+}
+
+const userRow: UserRow = {
   user_id: 42,
   login_name: 'm.tanaka',
   last_name: '田中',
@@ -69,7 +82,7 @@ const userRow = {
 // getUserProfile はユーザー行 → [部署一覧, 管理者判定] の順にクエリを発行する。
 // executeTakeFirst は「ユーザー行」「管理者判定」の2回呼ばれるため順番に値を返す。
 function setupProfileQueries(options: {
-  user?: typeof userRow | undefined
+  user?: UserRow | undefined
   departments?: { post_name: string; post_id: number }[]
   isAdmin?: boolean
 } = {}) {
