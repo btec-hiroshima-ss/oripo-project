@@ -18,11 +18,14 @@ export default function SettingsView() {
   const [selected, setSelected] = useState<SettingsMenuKey>('userInfo')
 
   return (
-    <div className="flex-1 p-4 flex flex-col lg:flex-row gap-4">
-      <SettingsMenu selected={selected} onSelect={setSelected} />
+    <div className="flex-1 p-4">
+      {/* 左メニュー + コンテンツのまとまりをページ中央に配置する（モックアップ準拠） */}
+      <div className="max-w-4xl mx-auto flex flex-col lg:flex-row gap-4">
+        <SettingsMenu selected={selected} onSelect={setSelected} />
 
-      <div className="flex-1 max-w-2xl bg-white rounded-lg shadow-sm p-6">
-        <span className="font-semibold text-gray-800">{PANEL_LABELS[selected]}</span>
+        <div className="flex-1 bg-white rounded-lg shadow-sm p-6">
+          <span className="font-semibold text-gray-800">{PANEL_LABELS[selected]}</span>
+        </div>
       </div>
     </div>
   )
