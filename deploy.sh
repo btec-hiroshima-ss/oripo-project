@@ -16,6 +16,9 @@ echo $GHCR_TOKEN | docker login ghcr.io -u $GHCR_USER --password-stdin
 git remote set-url origin https://${GHCR_USER}:${GHCR_TOKEN}@github.com/btec-hiroshima-ss/oripo-project.git
 git pull
 
+# ログディレクトリを事前作成（appuser が書き込めるよう 777 に設定）
+mkdir -p logs && chmod 777 logs
+
 # 最新イメージをpullして再起動
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
