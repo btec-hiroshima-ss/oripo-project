@@ -11,6 +11,7 @@ import {
 import type { ScheduleEntry, ScheduleInput } from '@/lib/schedule.types'
 import ScheduleFormModal from './ScheduleFormModal'
 import ScheduleDetailModal from './ScheduleDetailModal'
+import { Toast, ConfirmDialog, Loading } from '../ui'
 
 // 1 時間あたりのピクセル高さ（時刻グリッドの基準単位）
 const HOUR_PX = 60
@@ -403,46 +404,19 @@ export default function ScheduleWidget() {
       </div>
 
       {/* ローディング表示 */}
-      {isLoading && (
-        <div className="px-3 py-2 text-xs text-gray-400 text-center border-t border-gray-100">
-          読み込み中...
-        </div>
-      )}
+      {isLoading && <Loading />}
 
       {/* トースト（繰り返し未実装の案内など） */}
-      {toast && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-gray-800 text-white text-sm px-4 py-2 rounded-lg shadow-lg pointer-events-none">
-          {toast}
-        </div>
-      )}
+      <Toast message={toast} />
 
       {/* 削除確認ダイアログ */}
       {deleteConfirmId !== null && (
-        <div
-          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-          onClick={() => setDeleteConfirmId(null)}
-        >
-          <div
-            className="bg-white rounded-xl shadow-xl w-full max-w-xs p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="text-sm text-gray-800 mb-4">この予定を削除しますか？</p>
-            <div className="flex gap-2">
-              <button
-                className="flex-1 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
-                onClick={() => setDeleteConfirmId(null)}
-              >
-                キャンセル
-              </button>
-              <button
-                className="flex-1 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600"
-                onClick={() => handleDelete(deleteConfirmId)}
-              >
-                削除する
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          message="この予定を削除しますか？"
+          confirmLabel="削除する"
+          onConfirm={() => handleDelete(deleteConfirmId)}
+          onCancel={() => setDeleteConfirmId(null)}
+        />
       )}
 
       {/* 予定追加モーダル */}
