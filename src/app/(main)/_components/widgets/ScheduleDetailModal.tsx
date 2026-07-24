@@ -4,11 +4,9 @@ import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import type { ScheduleEntry, ScheduleDetail } from '@/lib/schedule.types'
 import { getScheduleDetailAction } from '../../actions'
+import { toJstDateJa, toJstTimeStr, formatJstDatetime } from '@/lib/jst'
 
 type DeleteScope = 'single' | 'all' | 'participants'
-
-// DB は JST 固定で格納しているが JS の Date は UTC のため +9h して表示する
-const JST_OFFSET_MS = 9 * 60 * 60 * 1000
 
 type Props = {
   schedule: ScheduleEntry
@@ -17,35 +15,6 @@ type Props = {
   /** 削除スコープを受け取る。"single"=この予定のみ、"all"=完全に削除、"participants"=参加ユーザー全員の予定を削除 */
   onDelete: (scope: DeleteScope) => void
   onCopy: () => void
-}
-
-// UTC Date → "YYYY年M月D日（曜日）"（JST）
-function formatJstDate(date: Date): string {
-  const jst = new Date(date.getTime() + JST_OFFSET_MS)
-  const y = jst.getUTCFullYear()
-  const m = jst.getUTCMonth() + 1
-  const d = jst.getUTCDate()
-  const dow = ['日', '月', '火', '水', '木', '金', '土'][jst.getUTCDay()]
-  return `${y}年${m}月${d}日（${dow}）`
-}
-
-// UTC Date → "HH:MM"（JST）
-function formatJstTime(date: Date): string {
-  const jst = new Date(date.getTime() + JST_OFFSET_MS)
-  return `${String(jst.getUTCHours()).padStart(2, '0')}:${String(jst.getUTCMinutes()).padStart(2, '0')}`
-}
-
-// JST 文字列 "YYYY-MM-DD" または "YYYY-MM-DD HH:MM:SS" → "YYYY年M月D日" / "YYYY年M月D日 H時MM分"
-// create_date は date 型（時刻なし）、update_date は timestamp 型（時刻あり）のため両方に対応する。
-// Server Action から Date を返すと JSON シリアライズで文字列になるため JST 文字列のまま受け取る。
-function formatJstDatetime(jstStr: string): string {
-  const parts = jstStr.split(' ')
-  const [y, m, d] = parts[0].split('-').map(Number)
-  if (parts.length === 1) {
-    return `${y}年${m}月${d}日`
-  }
-  const [h, mn] = parts[1].split(':').map(Number)
-  return `${y}年${m}月${d}日 ${h}時${String(mn).padStart(2, '0')}分`
 }
 
 const PUBLIC_FLAG_LABEL: Record<'O' | 'P' | 'C', string> = {
@@ -73,8 +42,8 @@ export default function ScheduleDetailModal({ schedule, onClose, onEdit, onDelet
   }, [schedule.scheduleId])
 
   const dateTimeText = schedule.isAllDay
-    ? formatJstDate(schedule.startDate)
-    : `${formatJstTime(schedule.startDate)}〜${formatJstTime(schedule.endDate)}`
+    ? toJstDateJa(schedule.startDate)
+    : `${toJstTimeStr(schedule.startDate)}〜${toJstTimeStr(schedule.endDate)}`
 
   return (
     <div

@@ -13,25 +13,18 @@ import type { ScheduleEntry, ScheduleInput } from '@/lib/schedule.types'
 import ScheduleFormModal from './ScheduleFormModal'
 import ScheduleDetailModal from './ScheduleDetailModal'
 import { Toast, Loading } from '../ui'
+import { toJstDateStr, toJstTimeStr, isTodayJst, toJstMinutesSinceMidnight } from '@/lib/jst'
 
 // 1 時間あたりのピクセル高さ（時刻グリッドの基準単位）
 const HOUR_PX = 60
 // スケジュールブロックの最小高さ（15 分未満の予定でも視認できるよう確保）
 const MIN_BLOCK_PX = 20
-// DB は JST 固定で格納しているが JS の Date は UTC のため +9h して表示する
-const JST_OFFSET_MS = 9 * 60 * 60 * 1000
 
 const DOW_JA = ['月', '火', '水', '木', '金', '土', '日']
 
 // ===========================================================
-// 日付ユーティリティ（JST ベース）
+// 日付ユーティリティ（ウィジェット固有）
 // ===========================================================
-
-/** UTC Date → "YYYY-MM-DD"（JST） */
-function toJstDateStr(date: Date): string {
-  const jst = new Date(date.getTime() + JST_OFFSET_MS)
-  return jst.toISOString().slice(0, 10)
-}
 
 /** "YYYY-MM-DD" に days を加算した "YYYY-MM-DD" を返す */
 function addDays(dateStr: string, days: number): string {
@@ -45,13 +38,12 @@ function addDays(dateStr: string, days: number): string {
 
 /** 指定 Date の週の月曜日を "YYYY-MM-DD"（JST）で返す */
 function getMonday(date: Date): string {
-  const jst = new Date(date.getTime() + JST_OFFSET_MS)
-  const dow = jst.getUTCDay() // 0=日, 1=月, ..., 6=土
+  const dateStr = toJstDateStr(date)
+  const [y, m, d] = dateStr.split('-').map(Number)
+  // 日付文字列から曜日を算出（UTC 基準で構わない: 日付のみで時刻なし）
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay() // 0=日, 1=月, ..., 6=土
   const daysBack = dow === 0 ? 6 : dow - 1
-  return addDays(
-    `${jst.getUTCFullYear()}-${String(jst.getUTCMonth() + 1).padStart(2, '0')}-${String(jst.getUTCDate()).padStart(2, '0')}`,
-    -daysBack
-  )
+  return addDays(dateStr, -daysBack)
 }
 
 /** weekStart から 7 日分の "YYYY-MM-DD" 配列を返す */
@@ -72,23 +64,6 @@ function dayTextColor(dowIndex: number): string {
   if (dowIndex === 5) return 'text-blue-600' // 土
   if (dowIndex === 6) return 'text-red-600'  // 日
   return 'text-gray-700'
-}
-
-// ===========================================================
-// スケジュール表示ユーティリティ
-// ===========================================================
-
-/** UTC Date → "HH:MM"（JST） */
-function formatTime(date: Date): string {
-  const jst = new Date(date.getTime() + JST_OFFSET_MS)
-  return `${String(jst.getUTCHours()).padStart(2, '0')}:${String(jst.getUTCMinutes()).padStart(2, '0')}`
-}
-
-/** "YYYY-MM-DD" が今日（JST）かどうか */
-function isToday(dateStr: string): boolean {
-  const nowJst = new Date(Date.now() + JST_OFFSET_MS)
-  const today = nowJst.toISOString().slice(0, 10)
-  return dateStr === today
 }
 
 type PositionedSchedule = ScheduleEntry & {
@@ -131,11 +106,9 @@ type ScheduleBlockProps = {
 }
 
 function ScheduleBlock({ schedule, onClick }: ScheduleBlockProps) {
-  const jst = new Date(schedule.startDate.getTime() + JST_OFFSET_MS)
-  const endJst = new Date(schedule.endDate.getTime() + JST_OFFSET_MS)
-  const startMin = jst.getUTCHours() * 60 + jst.getUTCMinutes()
+  const startMin = toJstMinutesSinceMidnight(schedule.startDate)
   // all-day（start=end 00:00）はこの関数では呼ばれないが念のため 24h 分に収める
-  const endMin = Math.min(endJst.getUTCHours() * 60 + endJst.getUTCMinutes(), 24 * 60)
+  const endMin = Math.min(toJstMinutesSinceMidnight(schedule.endDate), 24 * 60)
   const top = (startMin / 60) * HOUR_PX
   const height = Math.max(MIN_BLOCK_PX, ((endMin - startMin) / 60) * HOUR_PX)
 
@@ -161,12 +134,12 @@ function ScheduleBlock({ schedule, onClick }: ScheduleBlockProps) {
       }}
       onClick={onClick}
       title={schedule.name}
-      aria-label={`${schedule.name} ${formatTime(schedule.startDate)}`}
+      aria-label={`${schedule.name} ${toJstTimeStr(schedule.startDate)}`}
     >
       <span className="text-xs font-medium block truncate leading-tight">{schedule.name}</span>
       {height >= 30 && (
         <span className="text-xs opacity-90 block truncate leading-tight">
-          {formatTime(schedule.startDate)}
+          {toJstTimeStr(schedule.startDate)}
         </span>
       )}
     </button>
@@ -341,7 +314,7 @@ export default function ScheduleWidget() {
               const holiday = holidays[day] ?? null
               // 祝日は赤表示（土曜より優先）
               const colorClass = holiday ? 'text-red-600' : dayTextColor(i)
-              const today = isToday(day)
+              const today = isTodayJst(day)
               return (
                 <div
                   key={day}

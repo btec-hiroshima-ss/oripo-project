@@ -2,13 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import { X, RefreshCw } from 'lucide-react'
-import { format } from 'date-fns'
-import { toZonedTime } from 'date-fns-tz'
 import type { ScheduleEntry, ScheduleInput } from '@/lib/schedule.types'
-
-// IANA タイムゾーン名: date-fns-tz の toZonedTime/format に渡す文字列。
-// DB 値は JST（Asia/Tokyo）固定で格納されており、フォーム初期値生成に JST 変換が必要。
-const JST = 'Asia/Tokyo'
+import { toJstDateStr, toJstTimeStr } from '@/lib/jst'
 
 type Props = {
   /** 編集時に渡す。null なら新規追加モード。 */
@@ -16,16 +11,6 @@ type Props = {
   onClose: () => void
   onSave: (input: ScheduleInput) => Promise<void>
   onShowRepeatToast: () => void
-}
-
-// UTC Date → "YYYY-MM-DD"（JST）
-function toJstDateStr(date: Date): string {
-  return format(toZonedTime(date, JST), 'yyyy-MM-dd')
-}
-
-// UTC Date → "HH:mm"（JST）
-function toJstTimeStr(date: Date): string {
-  return format(toZonedTime(date, JST), 'HH:mm')
 }
 
 export default function ScheduleFormModal({ schedule, onClose, onSave, onShowRepeatToast }: Props) {
