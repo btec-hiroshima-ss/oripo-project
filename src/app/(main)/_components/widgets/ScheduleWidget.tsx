@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
-import { getHolidayName } from '@/lib/holidays'
 import {
   getWeekSchedulesAction,
   addScheduleAction,
   updateScheduleAction,
   deleteScheduleAction,
+  getHolidaysAction,
 } from '../../actions'
 import type { ScheduleEntry, ScheduleInput } from '@/lib/schedule.types'
 import ScheduleFormModal from './ScheduleFormModal'
@@ -185,6 +185,8 @@ export default function ScheduleWidget() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState<ScheduleEntry | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  // 祝日データ: 初回マウント時に外部APIから取得しキャッシュ済みのものを受け取る
+  const [holidays, setHolidays] = useState<Record<string, string>>({})
 
   // カレンダーコンテナ: 初期スクロール位置を 8:00 に合わせるため ref を保持
   const calendarRef = useRef<HTMLDivElement>(null)
@@ -209,6 +211,11 @@ export default function ScheduleWidget() {
       scrolledRef.current = true
     }
   }, [isLoading])
+
+  // 祝日データを外部APIから取得する（マウント時1回のみ）
+  useEffect(() => {
+    getHolidaysAction().then(setHolidays).catch(() => {})
+  }, [])
 
   function showToast(msg: string) {
     setToast(msg)
@@ -318,8 +325,10 @@ export default function ScheduleWidget() {
         </div>
       </div>
 
-      {/* カレンダー本体: overflow: auto で水平・垂直両方スクロール */}
-      <div ref={calendarRef} className="overflow-auto max-h-[520px] relative">
+      {/* カレンダー本体: overflow: auto で水平・垂直両方スクロール。
+          h-[calc(100vh-160px)]: ヘッダー44px + ウィジェット見出し40px + ナビバー44px + 余白32px ≒ 160px を引いた固定高さ。
+          複数ウィジェットが縦に並ぶ場合はページスクロールで対応する。 */}
+      <div ref={calendarRef} className="overflow-auto h-[calc(100vh-160px)] relative">
         {/* min-width: 時刻軸 40px + 7列 × 最小 64px = 488px（モバイル横スクロール） */}
         <div className="min-w-[490px]">
 
@@ -329,7 +338,7 @@ export default function ScheduleWidget() {
             <div className="w-10 shrink-0 sticky left-0 z-30 bg-white" />
             {weekDays.map((day, i) => {
               const [, , d] = day.split('-').map(Number)
-              const holiday = getHolidayName(day)
+              const holiday = holidays[day] ?? null
               // 祝日は赤表示（土曜より優先）
               const colorClass = holiday ? 'text-red-600' : dayTextColor(i)
               const today = isToday(day)

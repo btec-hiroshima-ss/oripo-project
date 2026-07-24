@@ -20,6 +20,7 @@ import { getActivityList } from '@/lib/activity'
 import type { ActivityEntry } from '@/lib/activity.types'
 import { getWeekSchedules, getScheduleDetail, addSchedule, updateSchedule, deleteSchedule } from '@/lib/schedule'
 import type { ScheduleEntry, ScheduleDetail, ScheduleInput } from '@/lib/schedule.types'
+import { fetchHolidays } from '@/lib/holidays'
 
 export async function addPageAction(pageName: string) {
   const { userId } = await requireAuth()
@@ -130,4 +131,11 @@ export async function updateScheduleAction(
 export async function deleteScheduleAction(scheduleId: number): Promise<void> {
   const { userId } = await requireAuth()
   return deleteSchedule(scheduleId, userId)
+}
+
+// 祝日データ取得。ログイン済みユーザーのみ利用可能。
+// holidays-jp API から取得し Next.js fetch キャッシュで24時間保持する。
+export async function getHolidaysAction(): Promise<Record<string, string>> {
+  await requireAuth()
+  return fetchHolidays()
 }

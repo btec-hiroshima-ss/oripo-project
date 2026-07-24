@@ -50,8 +50,9 @@ AIPO 準拠: `portlets/schedule`（週表示ウィジェット）に相当。
 - `◀` / `▶` ボタン: 前週・翌週に移動
 - ヘッダーに `YYYY年MM月DD日（曜日）` 形式で週の開始日を表示
 - 表示モードボタン（ブロック / 日 / 週 / 月 / 一覧）: Phase A は「週」のみ動作。他は非活性で表示のみ
-- **祝日表示**: 日付列ヘッダーの土日を色分け表示する（土=青、日/祝=赤）。祝日名を赤字でヘッダーに表示する（`src/lib/holidays.ts` の静的マップで 2025〜2026 年対応）。
-  - **要件定義書 2.4 準拠**（「祝日の自動反映」が明記されている）。Phase A は静的マップで暫定実装。外部 API 連携は将来フェーズで対応。
+- **祝日表示**: 日付列ヘッダーの土日を色分け表示する（土=青、日/祝=赤）。祝日名を赤字でヘッダーに表示する。
+  - **要件定義書 2.4 準拠**（「祝日の自動反映」が明記されている）。
+  - `holidays-jp.github.io/api/v1/date.json` から取得し、Next.js fetch キャッシュで 24 時間保持する（`src/lib/holidays.ts`）。
 
 ### 予定追加
 
@@ -136,6 +137,9 @@ updateScheduleAction(scheduleId: number, data: ScheduleInput): Promise<ScheduleE
 
 // 予定削除（eip_t_schedule + eip_t_schedule_map）
 deleteScheduleAction(scheduleId: number): Promise<void>
+
+// 祝日データ取得（holidays-jp API から取得、24時間キャッシュ）
+getHolidaysAction(): Promise<Record<string, string>>
 ```
 
 ### DB クエリ（`src/lib/schedule.ts`）
@@ -219,6 +223,14 @@ function parseJstString(str: string): Date {
 ### 型定義（`src/lib/schedule.types.ts`）
 
 ```ts
+export type ScheduleDetail = {
+  creatorName: string
+  creatorDateJst: string   // "YYYY-MM-DD HH:MM:SS"（JST）
+  updaterName: string
+  updaterDateJst: string   // "YYYY-MM-DD HH:MM:SS"（JST）
+  participantNames: string[] // 参加ユーザー名（owner 含む）
+}
+
 export type ScheduleEntry = {
   scheduleId: number
   name: string
@@ -257,6 +269,7 @@ export type ScheduleInput = {
 - [ ] 繰り返し予定（既存 DB データ）が正しい日付・時刻で表示される
 - [ ] `今日` ボタンで当週に戻れる
 - [ ] `◀` `▶` で前週・翌週に移動できる
+- [ ] 祝日を含む週では、祝日名が日付列ヘッダーに赤字で表示される
 
 ### 予定追加
 
