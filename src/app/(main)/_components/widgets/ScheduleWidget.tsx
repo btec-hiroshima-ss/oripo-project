@@ -18,6 +18,8 @@ import { Toast, Loading } from '../ui'
 const HOUR_PX = 60
 // スケジュールブロックの最小高さ（15 分未満の予定でも視認できるよう確保）
 const MIN_BLOCK_PX = 20
+// DB は JST 固定で格納しているが JS の Date は UTC のため +9h して表示する
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000
 
 const DOW_JA = ['月', '火', '水', '木', '金', '土', '日']
 
@@ -27,7 +29,7 @@ const DOW_JA = ['月', '火', '水', '木', '金', '土', '日']
 
 /** UTC Date → "YYYY-MM-DD"（JST） */
 function toJstDateStr(date: Date): string {
-  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000)
+  const jst = new Date(date.getTime() + JST_OFFSET_MS)
   return jst.toISOString().slice(0, 10)
 }
 
@@ -43,7 +45,7 @@ function addDays(dateStr: string, days: number): string {
 
 /** 指定 Date の週の月曜日を "YYYY-MM-DD"（JST）で返す */
 function getMonday(date: Date): string {
-  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000)
+  const jst = new Date(date.getTime() + JST_OFFSET_MS)
   const dow = jst.getUTCDay() // 0=日, 1=月, ..., 6=土
   const daysBack = dow === 0 ? 6 : dow - 1
   return addDays(
@@ -78,13 +80,13 @@ function dayTextColor(dowIndex: number): string {
 
 /** UTC Date → "HH:MM"（JST） */
 function formatTime(date: Date): string {
-  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000)
+  const jst = new Date(date.getTime() + JST_OFFSET_MS)
   return `${String(jst.getUTCHours()).padStart(2, '0')}:${String(jst.getUTCMinutes()).padStart(2, '0')}`
 }
 
 /** "YYYY-MM-DD" が今日（JST）かどうか */
 function isToday(dateStr: string): boolean {
-  const nowJst = new Date(Date.now() + 9 * 60 * 60 * 1000)
+  const nowJst = new Date(Date.now() + JST_OFFSET_MS)
   const today = nowJst.toISOString().slice(0, 10)
   return dateStr === today
 }
@@ -129,8 +131,8 @@ type ScheduleBlockProps = {
 }
 
 function ScheduleBlock({ schedule, onClick }: ScheduleBlockProps) {
-  const jst = new Date(schedule.startDate.getTime() + 9 * 60 * 60 * 1000)
-  const endJst = new Date(schedule.endDate.getTime() + 9 * 60 * 60 * 1000)
+  const jst = new Date(schedule.startDate.getTime() + JST_OFFSET_MS)
+  const endJst = new Date(schedule.endDate.getTime() + JST_OFFSET_MS)
   const startMin = jst.getUTCHours() * 60 + jst.getUTCMinutes()
   // all-day（start=end 00:00）はこの関数では呼ばれないが念のため 24h 分に収める
   const endMin = Math.min(endJst.getUTCHours() * 60 + endJst.getUTCMinutes(), 24 * 60)

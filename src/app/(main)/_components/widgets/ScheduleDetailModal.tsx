@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
-import type { ScheduleEntry } from '@/lib/schedule.types'
-import type { ScheduleDetail } from '@/lib/schedule.types'
+import type { ScheduleEntry, ScheduleDetail } from '@/lib/schedule.types'
 import { getScheduleDetailAction } from '../../actions'
 
 type DeleteScope = 'single' | 'all' | 'participants'
+
+// DB は JST 固定で格納しているが JS の Date は UTC のため +9h して表示する
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000
 
 type Props = {
   schedule: ScheduleEntry
@@ -19,7 +21,7 @@ type Props = {
 
 // UTC Date → "YYYY年M月D日（曜日）"（JST）
 function formatJstDate(date: Date): string {
-  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000)
+  const jst = new Date(date.getTime() + JST_OFFSET_MS)
   const y = jst.getUTCFullYear()
   const m = jst.getUTCMonth() + 1
   const d = jst.getUTCDate()
@@ -29,7 +31,7 @@ function formatJstDate(date: Date): string {
 
 // UTC Date → "HH:MM"（JST）
 function formatJstTime(date: Date): string {
-  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000)
+  const jst = new Date(date.getTime() + JST_OFFSET_MS)
   return `${String(jst.getUTCHours()).padStart(2, '0')}:${String(jst.getUTCMinutes()).padStart(2, '0')}`
 }
 

@@ -4,6 +4,9 @@ import { useState, useTransition } from 'react'
 import { X, RefreshCw } from 'lucide-react'
 import type { ScheduleEntry, ScheduleInput } from '@/lib/schedule.types'
 
+// DB は JST 固定で格納しているが JS の Date は UTC のため +9h して表示する
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000
+
 type Props = {
   /** 編集時に渡す。null なら新規追加モード。 */
   schedule?: ScheduleEntry
@@ -14,13 +17,13 @@ type Props = {
 
 // UTC Date → "YYYY-MM-DD"（JST）
 function toJstDateStr(date: Date): string {
-  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000)
+  const jst = new Date(date.getTime() + JST_OFFSET_MS)
   return jst.toISOString().slice(0, 10)
 }
 
 // UTC Date → "HH:MM"（JST）
 function toJstTimeStr(date: Date): string {
-  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000)
+  const jst = new Date(date.getTime() + JST_OFFSET_MS)
   const h = String(jst.getUTCHours()).padStart(2, '0')
   const m = String(jst.getUTCMinutes()).padStart(2, '0')
   return `${h}:${m}`

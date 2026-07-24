@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { parseJst, toJstStr, getWeekSchedules, addSchedule, updateSchedule, deleteSchedule } from './schedule'
+import { parseJst, toJstStr, getWeekSchedules, getScheduleDetail, addSchedule, updateSchedule, deleteSchedule } from './schedule'
 
 // Kysely の流暢 API を模倣するモック。pages.test.ts と同構造。
 const mockDb = vi.hoisted(() => {
@@ -166,6 +166,47 @@ describe('getWeekSchedules', () => {
 
     const result = await getWeekSchedules(42, new Date(), new Date())
     expect(result[0].isOwner).toBe(false)
+  })
+})
+
+// ===========================================================
+describe('getScheduleDetail', () => {
+  it('登録者・更新者名と日時（JST文字列）・参加ユーザー名一覧を返す', async () => {
+    // executeTakeFirstOrThrow: schedule + user JOIN 結果
+    mockDb.executeTakeFirstOrThrow.mockResolvedValueOnce({
+      creator_name: '金子遼太郎',
+      create_date_text: '2026-07-22',
+      updater_name: '金子遼太郎',
+      update_date_text: '2026-07-22 14:24:44',
+    })
+    // execute: 参加者一覧
+    mockDb.execute.mockResolvedValueOnce([
+      { name: '金子遼太郎' },
+      { name: '中村翔太' },
+    ])
+
+    const result = await getScheduleDetail(1701251)
+
+    expect(result.creatorName).toBe('金子遼太郎')
+    // create_date は date 型のため::text が日付のみを返す
+    expect(result.creatorDateJst).toBe('2026-07-22')
+    expect(result.updaterName).toBe('金子遼太郎')
+    // update_date は timestamp 型のため::text が日時を返す
+    expect(result.updaterDateJst).toBe('2026-07-22 14:24:44')
+    expect(result.participantNames).toEqual(['金子遼太郎', '中村翔太'])
+  })
+
+  it('参加ユーザーが0件の場合は空配列を返す', async () => {
+    mockDb.executeTakeFirstOrThrow.mockResolvedValueOnce({
+      creator_name: '金子遼太郎',
+      create_date_text: '2026-07-22',
+      updater_name: '金子遼太郎',
+      update_date_text: '2026-07-22 14:24:44',
+    })
+    mockDb.execute.mockResolvedValueOnce([])
+
+    const result = await getScheduleDetail(999)
+    expect(result.participantNames).toEqual([])
   })
 })
 
