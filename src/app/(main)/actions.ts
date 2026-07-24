@@ -18,8 +18,8 @@ import { getUserList, getUserDetail } from '@/lib/user-list'
 import type { UserListUser, UserListDetail } from '@/lib/user-list.types'
 import { getActivityList } from '@/lib/activity'
 import type { ActivityEntry } from '@/lib/activity.types'
-import { getWeekSchedules, addSchedule, updateSchedule, deleteSchedule } from '@/lib/schedule'
-import type { ScheduleEntry, ScheduleInput } from '@/lib/schedule.types'
+import { getWeekSchedules, getScheduleDetail, addSchedule, updateSchedule, deleteSchedule } from '@/lib/schedule'
+import type { ScheduleEntry, ScheduleDetail, ScheduleInput } from '@/lib/schedule.types'
 
 export async function addPageAction(pageName: string) {
   const { userId } = await requireAuth()
@@ -107,6 +107,11 @@ export async function getWeekSchedulesAction(weekStart: string): Promise<Schedul
   const from = new Date(weekStart + 'T00:00:00+09:00')
   const to = new Date(from.getTime() + 7 * 24 * 60 * 60 * 1000)
   return getWeekSchedules(userId, from, to)
+}
+
+export async function getScheduleDetailAction(scheduleId: number): Promise<ScheduleDetail> {
+  await requireAuth()
+  return getScheduleDetail(scheduleId)
 }
 
 export async function addScheduleAction(input: ScheduleInput): Promise<ScheduleEntry> {

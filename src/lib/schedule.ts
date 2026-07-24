@@ -1,7 +1,7 @@
 import { sql } from 'kysely'
 import { db } from './db'
 import { logger } from './logger'
-import type { ScheduleEntry, ScheduleInput } from './schedule.types'
+import type { ScheduleEntry, ScheduleDetail, ScheduleInput } from './schedule.types'
 
 // DB は Asia/Tokyo のタイムゾーンで "timestamp without time zone" カラムに JST を格納している。
 // Node.js の pg クライアントは timezone 情報なしの timestamp を UTC として扱うためズレが生じる。
@@ -78,6 +78,42 @@ export async function getWeekSchedules(
     isOwner: row.owner_id === userId,
     ownerId: row.owner_id ?? 0,
   }))
+}
+
+export async function getScheduleDetail(scheduleId: number): Promise<ScheduleDetail> {
+  // 登録者・更新者を turbine_user から取得
+  const row = await db
+    .selectFrom('eip_t_schedule as s')
+    .innerJoin('turbine_user as cu', 'cu.user_id', 's.create_user_id')
+    .innerJoin('turbine_user as uu', 'uu.user_id', 's.update_user_id')
+    .where('s.schedule_id', '=', scheduleId)
+    .select([
+      sql<string>`cu.first_name || cu.last_name`.as('creator_name'),
+      sql<string>`s.create_date::text`.as('create_date_text'),
+      sql<string>`uu.first_name || uu.last_name`.as('updater_name'),
+      sql<string>`s.update_date::text`.as('update_date_text'),
+    ])
+    .executeTakeFirstOrThrow()
+
+  // 参加者名一覧（type='U' の全員）
+  const participants = await db
+    .selectFrom('eip_t_schedule_map as sm')
+    .innerJoin('turbine_user as u', 'u.user_id', 'sm.user_id')
+    .where('sm.schedule_id', '=', scheduleId)
+    .where('sm.type', '=', 'U')
+    .where('sm.status', 'not in', ['D', 'C'])
+    .select([sql<string>`u.first_name || u.last_name`.as('name')])
+    .execute()
+
+  // Server Action 経由で Date を返すと JSON シリアライズで文字列になりクライアント側で
+  // getTime() が呼べなくなる。JST 文字列のまま返してコンポーネント側でパースする。
+  return {
+    creatorName: row.creator_name,
+    creatorDateJst: row.create_date_text,
+    updaterName: row.updater_name,
+    updaterDateJst: row.update_date_text,
+    participantNames: participants.map((p) => p.name),
+  }
 }
 
 export async function addSchedule(userId: number, input: ScheduleInput): Promise<ScheduleEntry> {

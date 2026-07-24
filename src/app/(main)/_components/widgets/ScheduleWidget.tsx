@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { getHolidayName } from '@/lib/holidays'
 import {
   getWeekSchedulesAction,
   addScheduleAction,
@@ -11,7 +12,7 @@ import {
 import type { ScheduleEntry, ScheduleInput } from '@/lib/schedule.types'
 import ScheduleFormModal from './ScheduleFormModal'
 import ScheduleDetailModal from './ScheduleDetailModal'
-import { Toast, ConfirmDialog, Loading } from '../ui'
+import { Toast, Loading } from '../ui'
 
 // 1 時間あたりのピクセル高さ（時刻グリッドの基準単位）
 const HOUR_PX = 60
@@ -182,7 +183,6 @@ export default function ScheduleWidget() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState<ScheduleEntry | null>(null)
   const [toast, setToast] = useState<string | null>(null)
-  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null)
 
   // カレンダーコンテナ: 初期スクロール位置を 8:00 に合わせるため ref を保持
   const calendarRef = useRef<HTMLDivElement>(null)
@@ -249,10 +249,15 @@ export default function ScheduleWidget() {
   }
 
   async function handleDelete(scheduleId: number) {
+    // TODO Phase C: スコープ（single/all/participants）に応じた繰り返し削除を実装する
     await deleteScheduleAction(scheduleId)
     setSchedules((prev) => prev.filter((s) => s.scheduleId !== scheduleId))
     setSelectedSchedule(null)
-    setDeleteConfirmId(null)
+  }
+
+  function handleCopy() {
+    showToast('コピーして登録する機能は Phase C で実装予定です')
+    setSelectedSchedule(null)
   }
 
   return (
@@ -322,17 +327,24 @@ export default function ScheduleWidget() {
             <div className="w-10 shrink-0 sticky left-0 z-30 bg-white" />
             {weekDays.map((day, i) => {
               const [, , d] = day.split('-').map(Number)
-              const colorClass = dayTextColor(i)
+              const holiday = getHolidayName(day)
+              // 祝日は赤表示（土曜より優先）
+              const colorClass = holiday ? 'text-red-600' : dayTextColor(i)
               const today = isToday(day)
               return (
                 <div
                   key={day}
-                  className={`flex-1 text-center py-1.5 border-l border-gray-100 ${today ? 'bg-orange-50' : ''}`}
+                  className={`flex-1 text-center py-1 border-l border-gray-100 ${today ? 'bg-orange-50' : ''}`}
                 >
-                  {/* モックアップ準拠: "25（月）" 形式で1行表示 */}
                   <div className={`text-sm font-semibold ${today ? 'text-brand' : colorClass}`}>
                     {d}（{DOW_JA[i]}）
                   </div>
+                  {/* 祝日名（省略表示） */}
+                  {holiday && (
+                    <div className="text-[9px] text-red-500 leading-tight truncate px-0.5">
+                      {holiday}
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -409,16 +421,6 @@ export default function ScheduleWidget() {
       {/* トースト（繰り返し未実装の案内など） */}
       <Toast message={toast} />
 
-      {/* 削除確認ダイアログ */}
-      {deleteConfirmId !== null && (
-        <ConfirmDialog
-          message="この予定を削除しますか？"
-          confirmLabel="削除する"
-          onConfirm={() => handleDelete(deleteConfirmId)}
-          onCancel={() => setDeleteConfirmId(null)}
-        />
-      )}
-
       {/* 予定追加モーダル */}
       {showAddForm && (
         <ScheduleFormModal
@@ -447,10 +449,8 @@ export default function ScheduleWidget() {
             setEditingSchedule(selectedSchedule)
             setSelectedSchedule(null)
           }}
-          onDelete={() => {
-            setDeleteConfirmId(selectedSchedule.scheduleId)
-            setSelectedSchedule(null)
-          }}
+          onDelete={(_scope) => handleDelete(selectedSchedule.scheduleId)}
+          onCopy={handleCopy}
         />
       )}
     </div>

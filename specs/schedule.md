@@ -22,8 +22,14 @@ AIPO 準拠: `portlets/schedule`（週表示ウィジェット）に相当。
 **デスクトップ:**
 ![ホーム画面](images/ホーム.png)
 
+**スケジュール詳細モーダル:**
+![スケジュール詳細](images/スケジュール詳細.png)
+
 **モバイル（スマホ Web 版）:**
 ![スマホ版スケジュール](../../docs/02_requirements/mockups/スマホWEB版.png)
+
+**AIPO 現行スクリーンショット（参考）:**
+- スケジュール詳細モーダル: `docs/01_current/screenshots/04b_schedule-detail-modal.png`
 
 ---
 

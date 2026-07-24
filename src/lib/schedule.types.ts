@@ -13,6 +13,21 @@ export type ScheduleEntry = {
   ownerId: number
 }
 
+/** 詳細モーダル用の追加情報（クリック時に別途取得）
+ * Server Action 経由で返すため日時は JST 文字列（YYYY-MM-DD HH:MM:SS）で保持する
+ * （Date オブジェクトは JSON シリアライズで文字列になるため）
+ */
+export type ScheduleDetail = {
+  creatorName: string
+  /** JST 日時文字列 "YYYY-MM-DD HH:MM:SS" */
+  creatorDateJst: string
+  updaterName: string
+  /** JST 日時文字列 "YYYY-MM-DD HH:MM:SS" */
+  updaterDateJst: string
+  /** 参加ユーザー名の配列（owner 含む） */
+  participantNames: string[]
+}
+
 export type ScheduleInput = {
   name: string
   note?: string
