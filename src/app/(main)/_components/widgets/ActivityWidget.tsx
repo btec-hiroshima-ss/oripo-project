@@ -9,6 +9,7 @@ import { getScheduleDisplayName, formatActivityDate } from '@/lib/activity.utils
 import { getIconColor } from '@/lib/user-list.utils'
 import type { ActivityEntry } from '@/lib/activity.types'
 import { ACTIVITY_PAGE_SIZE } from '@/lib/activity.utils'
+import { Loading } from '../ui'
 
 export default function ActivityWidget() {
   const [entries, setEntries] = useState<ActivityEntry[]>([])
@@ -67,7 +68,7 @@ export default function ActivityWidget() {
 
       <div className="max-h-[360px] overflow-y-auto">
         {isLoading ? (
-          <div className="p-4 text-sm text-gray-400">読み込み中...</div>
+          <div className="p-4"><Loading variant="inline" /></div>
         ) : entries.length === 0 ? (
           <div className="p-4 text-sm text-gray-400">更新情報はありません</div>
         ) : (
