@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { X, Search, ChevronDown, ChevronRight } from 'lucide-react'
+import { X } from 'lucide-react'
 import type { ScheduleUser, ScheduleGroup } from '@/lib/schedule.types'
 import { getScheduleUsersAction, getGroupListAction, getGroupMembersAction } from '../../actions'
 
@@ -15,18 +15,19 @@ type Props = {
   onClose: () => void
 }
 
-type GroupWithState = ScheduleGroup & {
-  isOpen: boolean
-  members: ScheduleUser[] | null  // null = 未取得
-}
-
 export default function UserPickerModal({ selectedIds, lockedIds = new Set(), onConfirm, onClose }: Props) {
   const [allUsers, setAllUsers] = useState<ScheduleUser[]>([])
-  const [groups, setGroups] = useState<GroupWithState[]>([])
+  const [groups, setGroups] = useState<ScheduleGroup[]>([])
+  // グループ別メンバーキャッシュ（groupId → メンバー一覧）
+  const [groupMembers, setGroupMembers] = useState<Map<number, ScheduleUser[]>>(new Map())
   // モーダル内での一時的な選択状態（「決定」で確定するまで親に反映しない）
   const [tempSelected, setTempSelected] = useState<Set<number>>(new Set(selectedIds))
+  // 左パネル（参加ユーザーリスト）でハイライト中のユーザー ID
+  const [leftHighlighted, setLeftHighlighted] = useState<Set<number>>(new Set())
+  // 右パネル（候補ユーザー）でハイライト中のユーザー ID
+  const [rightHighlighted, setRightHighlighted] = useState<Set<number>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeTab, setActiveTab] = useState<'search' | 'group'>('search')
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null)
   const [isLoadingUsers, setIsLoadingUsers] = useState(true)
   const [isLoadingGroups, setIsLoadingGroups] = useState(true)
 
@@ -35,50 +36,91 @@ export default function UserPickerModal({ selectedIds, lockedIds = new Set(), on
       .then(setAllUsers)
       .finally(() => setIsLoadingUsers(false))
     getGroupListAction()
-      .then((gs) => setGroups(gs.map((g) => ({ ...g, isOpen: false, members: null }))))
+      .then(setGroups)
       .finally(() => setIsLoadingGroups(false))
   }, [])
 
-  // 検索語で絞り込んだユーザーリスト
-  const filteredUsers = useMemo(() => {
-    if (!searchQuery.trim()) return allUsers
-    const q = searchQuery.trim().toLowerCase()
-    return allUsers.filter((u) => u.fullName.toLowerCase().includes(q))
-  }, [allUsers, searchQuery])
+  // グループ選択時: メンバー未取得なら取得してキャッシュする
+  // groupMembers を deps に含めることで、取得済みかどうかを最新の状態で判定する
+  useEffect(() => {
+    if (selectedGroupId === null || groupMembers.has(selectedGroupId)) return
+    getGroupMembersAction(selectedGroupId)
+      .then((members) => setGroupMembers((prev) => new Map(prev).set(selectedGroupId, members)))
+  }, [selectedGroupId, groupMembers])
 
-  function toggle(userId: number) {
+  // 右パネルに表示する候補ユーザー（選択済みを除き、グループ/検索で絞り込む）
+  const availableUsers = useMemo(() => {
+    let base: ScheduleUser[]
+    if (selectedGroupId !== null) {
+      base = groupMembers.get(selectedGroupId) ?? []
+    } else {
+      base = allUsers
+    }
+    base = base.filter((u) => !tempSelected.has(u.userId))
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase()
+      base = base.filter((u) => u.fullName.toLowerCase().includes(q))
+    }
+    return base
+  }, [allUsers, groupMembers, selectedGroupId, tempSelected, searchQuery])
+
+  // 左パネルに表示する選択済みユーザー（allUsers から名前付きで生成）
+  const selectedUsers = useMemo(() => {
+    const userMap = new Map(allUsers.map((u) => [u.userId, u]))
+    return Array.from(tempSelected)
+      .map((id) => userMap.get(id))
+      .filter((u): u is ScheduleUser => u !== undefined)
+  }, [allUsers, tempSelected])
+
+  // 右パネルのグループが未ロード中かどうか
+  const isLoadingRightPanel = selectedGroupId !== null && !groupMembers.has(selectedGroupId)
+
+  function toggleLeftHighlight(userId: number) {
     if (lockedIds.has(userId)) return
-    setTempSelected((prev) => {
+    setLeftHighlighted((prev) => {
       const next = new Set(prev)
-      if (next.has(userId)) {
-        next.delete(userId)
-      } else {
-        next.add(userId)
-      }
+      if (next.has(userId)) next.delete(userId)
+      else next.add(userId)
       return next
     })
   }
 
-  async function handleGroupToggle(groupId: number) {
-    const group = groups.find((g) => g.groupId === groupId)
-    if (!group) return
-
-    if (group.isOpen) {
-      // 閉じる
-      setGroups((prev) => prev.map((g) => g.groupId === groupId ? { ...g, isOpen: false } : g))
-      return
-    }
-
-    // 開く（未取得なら取得する）
-    if (group.members === null) {
-      const members = await getGroupMembersAction(groupId)
-      setGroups((prev) =>
-        prev.map((g) => g.groupId === groupId ? { ...g, isOpen: true, members } : g)
-      )
-    } else {
-      setGroups((prev) => prev.map((g) => g.groupId === groupId ? { ...g, isOpen: true } : g))
-    }
+  function toggleRightHighlight(userId: number) {
+    setRightHighlighted((prev) => {
+      const next = new Set(prev)
+      if (next.has(userId)) next.delete(userId)
+      else next.add(userId)
+      return next
+    })
   }
+
+  function handleAdd() {
+    setTempSelected((prev) => {
+      const next = new Set(prev)
+      rightHighlighted.forEach((id) => next.add(id))
+      return next
+    })
+    setRightHighlighted(new Set())
+  }
+
+  function handleRemove() {
+    setTempSelected((prev) => {
+      const next = new Set(prev)
+      leftHighlighted.forEach((id) => {
+        if (!lockedIds.has(id)) next.delete(id)
+      })
+      return next
+    })
+    setLeftHighlighted(new Set())
+  }
+
+  function handleGroupChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    setSelectedGroupId(e.target.value === '' ? null : Number(e.target.value))
+    // グループ切替時はハイライトをリセット
+    setRightHighlighted(new Set())
+  }
+
+  const allUsersMap = useMemo(() => new Map(allUsers.map((u) => [u.userId, u.fullName])), [allUsers])
 
   return (
     <div
@@ -86,7 +128,7 @@ export default function UserPickerModal({ selectedIds, lockedIds = new Set(), on
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-sm flex flex-col max-h-[85vh]"
+        className="bg-white rounded-xl shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ヘッダー */}
@@ -97,117 +139,124 @@ export default function UserPickerModal({ selectedIds, lockedIds = new Set(), on
           </button>
         </div>
 
-        {/* タブ */}
-        <div className="flex border-b border-gray-100 shrink-0">
-          <button
-            className={`flex-1 py-2 text-xs font-medium ${activeTab === 'search' ? 'text-brand border-b-2 border-brand' : 'text-gray-500'}`}
-            onClick={() => setActiveTab('search')}
-          >
-            氏名検索
-          </button>
-          <button
-            className={`flex-1 py-2 text-xs font-medium ${activeTab === 'group' ? 'text-brand border-b-2 border-brand' : 'text-gray-500'}`}
-            onClick={() => setActiveTab('group')}
-          >
-            グループ
-          </button>
+        {/* 氏名フリーワード検索 */}
+        <div className="px-4 py-2 border-b border-gray-100 shrink-0">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="氏名で検索..."
+            // 16px 以上: iOS Safari の自動ズームを防ぐ
+            className="w-full px-3 py-1.5 text-base sm:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand"
+          />
         </div>
 
-        {/* コンテンツ */}
-        <div className="flex-1 overflow-y-auto">
-          {activeTab === 'search' && (
-            <div>
-              {/* 検索ボックス */}
-              <div className="px-3 py-2 border-b border-gray-100 sticky top-0 bg-white">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="氏名で検索..."
-                    // 16px 以上: iOS Safari の自動ズームを防ぐ
-                    className="w-full pl-8 pr-3 py-1.5 text-base sm:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand"
-                  />
-                </div>
-              </div>
-              {isLoadingUsers ? (
-                <div className="text-center py-6 text-xs text-gray-400">読み込み中...</div>
-              ) : filteredUsers.length === 0 ? (
-                <div className="text-center py-6 text-xs text-gray-400">該当するユーザーがいません</div>
-              ) : (
-                <ul>
-                  {filteredUsers.map((u) => (
-                    <UserRow
-                      key={u.userId}
-                      user={u}
-                      checked={tempSelected.has(u.userId)}
-                      locked={lockedIds.has(u.userId)}
-                      onToggle={() => toggle(u.userId)}
-                    />
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
+        {/* デュアルリストボックス（AIPO MemberNormalSelectList 準拠） */}
+        <div className="flex flex-col sm:flex-row flex-1 min-h-0">
 
-          {activeTab === 'group' && (
-            <div>
-              {isLoadingGroups ? (
-                <div className="text-center py-6 text-xs text-gray-400">読み込み中...</div>
-              ) : groups.length === 0 ? (
-                <div className="text-center py-6 text-xs text-gray-400">グループがありません</div>
+          {/* 左パネル: 参加ユーザーリスト（選択済み） */}
+          <div className="flex flex-col flex-1 min-h-0 border-b sm:border-b-0 sm:border-r border-gray-200">
+            <div className="px-3 py-1.5 bg-gray-50 border-b border-gray-100 shrink-0">
+              <span className="text-xs font-medium text-gray-600">参加ユーザーリスト</span>
+            </div>
+            <ul className="flex-1 overflow-y-auto min-h-[100px] max-h-[140px] sm:max-h-none">
+              {selectedUsers.length === 0 ? (
+                <li className="text-center py-4 text-xs text-gray-400">未選択</li>
               ) : (
-                <ul>
-                  {groups.map((g) => (
-                    <li key={g.groupId}>
-                      {/* グループ行（展開トグル） */}
+                selectedUsers.map((u) => {
+                  const locked = lockedIds.has(u.userId)
+                  const highlighted = leftHighlighted.has(u.userId)
+                  return (
+                    <li key={u.userId}>
                       <button
                         type="button"
-                        className="w-full flex items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-50"
-                        onClick={() => handleGroupToggle(g.groupId)}
+                        onClick={() => toggleLeftHighlight(u.userId)}
+                        disabled={locked}
+                        className={[
+                          'w-full text-left px-3 py-2 text-xs border-b border-gray-50 flex items-center justify-between gap-1',
+                          highlighted ? 'bg-brand text-white' : 'text-gray-800 hover:bg-gray-50',
+                          locked ? 'cursor-default' : 'cursor-pointer',
+                        ].join(' ')}
                       >
-                        {g.isOpen
-                          ? <ChevronDown className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                          : <ChevronRight className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                        }
-                        <span className="truncate">{g.groupName}</span>
+                        <span className="truncate">{u.fullName}</span>
+                        {locked && <span className="text-xs shrink-0 opacity-70">（自分）</span>}
                       </button>
-                      {/* メンバー一覧（展開時） */}
-                      {g.isOpen && g.members !== null && (
-                        <ul className="bg-gray-50">
-                          {g.members.length === 0 ? (
-                            <li className="px-8 py-2 text-xs text-gray-400">メンバーなし</li>
-                          ) : (
-                            g.members.map((u) => (
-                              <UserRow
-                                key={u.userId}
-                                user={u}
-                                checked={tempSelected.has(u.userId)}
-                                locked={lockedIds.has(u.userId)}
-                                onToggle={() => toggle(u.userId)}
-                                indent
-                              />
-                            ))
-                          )}
-                        </ul>
-                      )}
-                      {g.isOpen && g.members === null && (
-                        <div className="px-8 py-2 text-xs text-gray-400">読み込み中...</div>
-                      )}
                     </li>
+                  )
+                })
+              )}
+            </ul>
+            <div className="px-3 py-2 border-t border-gray-100 shrink-0">
+              <button
+                type="button"
+                onClick={handleRemove}
+                disabled={leftHighlighted.size === 0}
+                className="w-full py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                削除
+              </button>
+            </div>
+          </div>
+
+          {/* 右パネル: 候補ユーザー（グループ絞り込み付き） */}
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="px-3 py-1.5 bg-gray-50 border-b border-gray-100 shrink-0">
+              {isLoadingGroups ? (
+                <span className="text-xs text-gray-400">読み込み中...</span>
+              ) : (
+                <select
+                  value={selectedGroupId ?? ''}
+                  onChange={handleGroupChange}
+                  className="w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand bg-white"
+                >
+                  <option value="">全グループ</option>
+                  {groups.map((g) => (
+                    <option key={g.groupId} value={g.groupId}>{g.groupName}</option>
                   ))}
-                </ul>
+                </select>
               )}
             </div>
-          )}
+            <ul className="flex-1 overflow-y-auto min-h-[100px] max-h-[140px] sm:max-h-none">
+              {isLoadingUsers || isLoadingRightPanel ? (
+                <li className="text-center py-4 text-xs text-gray-400">読み込み中...</li>
+              ) : availableUsers.length === 0 ? (
+                <li className="text-center py-4 text-xs text-gray-400">該当するユーザーがいません</li>
+              ) : (
+                availableUsers.map((u) => {
+                  const highlighted = rightHighlighted.has(u.userId)
+                  return (
+                    <li key={u.userId}>
+                      <button
+                        type="button"
+                        onClick={() => toggleRightHighlight(u.userId)}
+                        className={[
+                          'w-full text-left px-3 py-2 text-xs border-b border-gray-50 truncate',
+                          highlighted ? 'bg-brand text-white' : 'text-gray-800 hover:bg-gray-50',
+                        ].join(' ')}
+                      >
+                        {u.fullName}
+                      </button>
+                    </li>
+                  )
+                })
+              )}
+            </ul>
+            <div className="px-3 py-2 border-t border-gray-100 shrink-0">
+              <button
+                type="button"
+                onClick={handleAdd}
+                disabled={rightHighlighted.size === 0}
+                className="w-full py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                追加
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* 選択件数 + 決定ボタン */}
+        {/* フッター */}
         <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between gap-2 shrink-0">
-          <span className="text-xs text-gray-500">
-            {tempSelected.size} 人選択中
-          </span>
+          <span className="text-xs text-gray-500">{tempSelected.size} 人選択中</span>
           <div className="flex gap-2">
             <button
               type="button"
@@ -218,8 +267,7 @@ export default function UserPickerModal({ selectedIds, lockedIds = new Set(), on
             </button>
             <button
               type="button"
-              onClick={() => onConfirm(tempSelected, new Map(allUsers.map((u) => [u.userId, u.fullName])))}
-
+              onClick={() => onConfirm(tempSelected, allUsersMap)}
               className="px-3 py-1.5 text-xs font-medium text-white bg-brand rounded-lg hover:bg-brand-dark"
             >
               決定
@@ -228,33 +276,5 @@ export default function UserPickerModal({ selectedIds, lockedIds = new Set(), on
         </div>
       </div>
     </div>
-  )
-}
-
-type UserRowProps = {
-  user: ScheduleUser
-  checked: boolean
-  locked: boolean
-  onToggle: () => void
-  indent?: boolean
-}
-
-function UserRow({ user, checked, locked, onToggle, indent }: UserRowProps) {
-  return (
-    <li>
-      <label
-        className={`flex items-center gap-3 px-4 py-2 ${indent ? 'pl-8' : ''} cursor-pointer hover:bg-gray-50 border-b border-gray-50 ${locked ? 'opacity-60 cursor-not-allowed' : ''}`}
-      >
-        <input
-          type="checkbox"
-          checked={checked}
-          disabled={locked}
-          onChange={onToggle}
-          className="w-4 h-4 accent-brand shrink-0"
-        />
-        <span className="text-sm text-gray-800 truncate">{user.fullName}</span>
-        {locked && <span className="text-xs text-gray-400 ml-auto shrink-0">（自分）</span>}
-      </label>
-    </li>
   )
 }

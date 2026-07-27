@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
-import { X, RefreshCw, Users } from 'lucide-react'
+import { useState, useEffect, useMemo, useTransition } from 'react'
+import { X, RefreshCw } from 'lucide-react'
 import type { ScheduleEntry, ScheduleInput, ScheduleUser } from '@/lib/schedule.types'
 import { toJstDateStr, toJstTimeStr } from '@/lib/jst'
 import { getScheduleParticipantIdsAction, getScheduleUsersAction } from '../../actions'
@@ -10,12 +10,16 @@ import UserPickerModal from './UserPickerModal'
 type Props = {
   /** 編集時に渡す。null なら新規追加モード。 */
   schedule?: ScheduleEntry
+  /** ログインユーザー ID（参加者表示の先頭に常時表示する作成者として使用） */
+  loginUserId?: number
+  /** ログインユーザー氏名 */
+  loginUserName?: string
   onClose: () => void
   onSave: (input: ScheduleInput) => Promise<void>
   onShowRepeatToast: () => void
 }
 
-export default function ScheduleFormModal({ schedule, onClose, onSave, onShowRepeatToast }: Props) {
+export default function ScheduleFormModal({ schedule, loginUserId = 0, loginUserName = '', onClose, onSave, onShowRepeatToast }: Props) {
   const isEdit = schedule !== undefined
 
   // 既存予定の値または初期値でフォームを初期化する
@@ -43,7 +47,17 @@ export default function ScheduleFormModal({ schedule, onClose, onSave, onShowRep
   const [showUserPicker, setShowUserPicker] = useState(false)
 
   // 全ユーザーリストとの突合で参加者名を表示するためのマップ
-  const userNameMap = new Map(allUsers.map((u) => [u.userId, u.fullName]))
+  const userNameMap = useMemo(() => new Map(allUsers.map((u) => [u.userId, u.fullName])), [allUsers])
+
+  // 参加者表示テキスト（AIPO 準拠: 作成者名を先頭に、追加参加者名をカンマ区切りで続ける）
+  const participantDisplayText = useMemo(() => {
+    const otherNames = Array.from(participantIds)
+      .filter((id) => id !== loginUserId)
+      .map((id) => userNameMap.get(id) ?? '')
+      .filter(Boolean)
+    const names = loginUserName ? [loginUserName, ...otherNames] : otherNames
+    return names.join('、') || loginUserName
+  }, [loginUserId, loginUserName, participantIds, userNameMap])
 
   // 編集時: 既存参加者を初期ロードする
   useEffect(() => {
@@ -226,35 +240,20 @@ export default function ScheduleFormModal({ schedule, onClose, onSave, onShowRep
             繰り返しなし
           </button>
 
-          {/* 参加ユーザー選択 */}
+          {/* 参加ユーザー選択（AIPO 準拠: 参加者名を常時表示 + 選択ボタン） */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">参加ユーザー</label>
-            <button
-              type="button"
-              onClick={() => setShowUserPicker(true)}
-              className="flex items-center gap-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg px-3 py-2 hover:bg-gray-50 w-full"
-            >
-              <Users className="w-3.5 h-3.5" />
-              参加ユーザーを選択
-            </button>
-            {/* 選択済み参加者の表示（作成者以外） */}
-            {participantIds.size > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-1">
-                {Array.from(participantIds).map((uid) => (
-                  <span key={uid} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded-full">
-                    {userNameMap.get(uid) ?? `ユーザー${uid}`}
-                    <button
-                      type="button"
-                      onClick={() => setParticipantIds((prev) => { const n = new Set(prev); n.delete(uid); return n })}
-                      className="opacity-60 hover:opacity-100"
-                      aria-label={`${userNameMap.get(uid) ?? uid} を削除`}
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* 作成者名 + 参加者名をカンマ区切りで表示（未ロード時は作成者名のみ） */}
+              <span className="text-sm text-gray-800">{participantDisplayText}</span>
+              <button
+                type="button"
+                onClick={() => setShowUserPicker(true)}
+                className="text-xs text-brand border border-brand/50 rounded px-2 py-1 hover:bg-brand/5 shrink-0"
+              >
+                参加ユーザー選択
+              </button>
+            </div>
           </div>
 
           {/* 場所 */}

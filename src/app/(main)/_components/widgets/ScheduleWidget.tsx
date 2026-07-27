@@ -577,6 +577,8 @@ export default function ScheduleWidget() {
       {/* 予定追加モーダル */}
       {showAddForm && (
         <ScheduleFormModal
+          loginUserId={loginUserId ?? 0}
+          loginUserName={loginUserName}
           onClose={() => setShowAddForm(false)}
           onSave={handleAdd}
           onShowRepeatToast={() => showToast('繰り返し予定の設定は Phase C で実装予定です')}
@@ -587,6 +589,8 @@ export default function ScheduleWidget() {
       {editingSchedule && (
         <ScheduleFormModal
           schedule={editingSchedule}
+          loginUserId={loginUserId ?? 0}
+          loginUserName={loginUserName}
           onClose={() => setEditingSchedule(null)}
           onSave={handleUpdate}
           onShowRepeatToast={() => showToast('繰り返し予定の設定は Phase C で実装予定です')}
