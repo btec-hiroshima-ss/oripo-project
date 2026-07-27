@@ -33,8 +33,9 @@ function MobileWidgetView({ widgetType }: { widgetType: WidgetType }) {
     // PC版のページ構成（oripo_page_widgets）と独立しているため widgetId 不要。
     return <ScheduleWidget isMobileView />
   }
-  if (widgetType === 'Whatsnew') return <ActivityWidget />
-  if (widgetType === 'UserList') return <UserListWidget />
+  // isMobileView=true で max-h 固定値を解除し、親コンテナの高さいっぱいに伸ばす
+  if (widgetType === 'Whatsnew') return <ActivityWidget isMobileView />
+  if (widgetType === 'UserList') return <UserListWidget isMobileView />
   return null
 }
 
@@ -101,7 +102,8 @@ export default function PageClient({ loginName, userId, fullName, department, in
         <SettingsView />
       ) : isMobile ? (
         // モバイル: ドロワーで選択したウィジェットのみフル画面表示（モックアップ①③準拠）
-        <div className="flex-1">
+        // flex flex-col にすることで子ウィジェットの flex-1 が残り高さを正しく占有できる
+        <div className="flex-1 flex flex-col">
           <MobileWidgetView widgetType={activeMobileWidget} />
         </div>
       ) : (

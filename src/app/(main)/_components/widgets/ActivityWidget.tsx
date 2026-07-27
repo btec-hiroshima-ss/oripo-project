@@ -11,7 +11,8 @@ import type { ActivityEntry } from '@/lib/activity.types'
 import { ACTIVITY_PAGE_SIZE } from '@/lib/activity.utils'
 import { Loading } from '../ui'
 
-export default function ActivityWidget() {
+// isMobileView=true の場合、max-h の固定値を外して親コンテナの高さいっぱいに伸ばす
+export default function ActivityWidget({ isMobileView }: { isMobileView?: boolean }) {
   const [entries, setEntries] = useState<ActivityEntry[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [page, setPage] = useState(1)
@@ -40,7 +41,7 @@ export default function ActivityWidget() {
   const rangeEnd = Math.min(page * ACTIVITY_PAGE_SIZE, totalCount)
 
   return (
-    <div className="flex flex-col">
+    <div className={`flex flex-col${isMobileView ? ' flex-1' : ''}`}>
       {/* ページング: AIPO 準拠「1〜10 / 550 ◄ ►」 */}
       {totalCount > 0 && (
         <div className="flex items-center justify-end gap-1 px-3 py-1 text-xs text-gray-500 border-b border-gray-100">
@@ -66,7 +67,7 @@ export default function ActivityWidget() {
         </div>
       )}
 
-      <div className="max-h-[360px] overflow-y-auto">
+      <div className={isMobileView ? 'flex-1 overflow-y-auto' : 'max-h-[360px] overflow-y-auto'}>
         {isLoading ? (
           <div className="p-4"><Loading variant="inline" /></div>
         ) : entries.length === 0 ? (

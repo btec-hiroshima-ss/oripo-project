@@ -9,7 +9,8 @@ import type { UserListUser, UserListDetail } from '@/lib/user-list.types'
 import InitialAvatar from '../InitialAvatar'
 import UserDetailModal from './UserDetailModal'
 
-export default function UserListWidget() {
+// isMobileView=true の場合、max-h の固定値を外して親コンテナの高さいっぱいに伸ばす
+export default function UserListWidget({ isMobileView }: { isMobileView?: boolean }) {
   const [users, setUsers] = useState<UserListUser[]>([])
   const [keyword, setKeyword] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -32,7 +33,7 @@ export default function UserListWidget() {
 
   return (
     <>
-      <div className="flex flex-col max-h-[400px]">
+      <div className={`flex flex-col${isMobileView ? ' flex-1' : ' max-h-[400px]'}`}>
         {/* 検索ボックス */}
         <div className="px-3 py-2 border-b border-gray-100">
           <div className="relative">
