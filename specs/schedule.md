@@ -320,7 +320,7 @@ export type ScheduleInput = {
   - 追加ユーザー1〜29: 青・緑・紫・ティール・ピンク等のプリセットパレット
 - 選択中ユーザーを「自分 ＋ 追加ユーザー名」のチップ（削除ボタン付き）でヘッダー下部に一覧表示する
 - チップの削除ボタン（×）でそのユーザーをビューから削除できる（自分自身は削除不可）
-- タブ切り替え・ページリロード後も選択状態を保持する（sessionStorage で保持。ブラウザを閉じると自分のみに戻る。localStorage への永続保存はしない）
+- タブ切り替え・ページリロード後も選択状態を保持する（`oripo_page_widgets.settings` JSONB 列にウィジェットインスタンスごとに保存。AIPO の PSML `portlet_config` 相当）
 - **他ユーザー予定の公開区分フィルタ（AIPO 準拠）**:
   - `public_flag='O'`（公開）: 通常表示
   - `public_flag='P'`（非公開）: タイトルを「非公開」に置き換えて表示（枠・時刻は見える）
@@ -384,6 +384,12 @@ getScheduleUsersAction(): Promise<ScheduleUser[]>
 
 // 複数ユーザーの週スケジュール取得
 getWeekSchedulesMultiAction(userIds: number[], weekStart: string): Promise<MultiUserScheduleEntry[]>
+
+// ウィジェット設定取得（`oripo_page_widgets.settings` JSONB）
+getWidgetSettingsAction(widgetId: number): Promise<Record<string, unknown> | null>
+
+// ウィジェット設定保存（`oripo_page_widgets.settings` JSONB）
+saveWidgetSettingsAction(widgetId: number, settings: Record<string, unknown>): Promise<void>
 ```
 
 ### DB クエリ追加（`src/lib/schedule.ts`）
@@ -395,6 +401,25 @@ getWeekSchedulesMulti(userIds: number[], from: Date, to: Date): Promise<MultiUse
 ---
 
 ## データモデル（Phase B 追加・変更）
+
+### `oripo_page_widgets.settings` JSONB（新規カラム）
+
+ウィジェットインスタンスごとの設定を保存する。AIPO の PSML `portlet_config`（`p6a-uids` 等）相当。
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| `settings` | jsonb | ウィジェット設定 JSON（nullable） |
+
+スケジュールウィジェットの settings スキーマ（`ScheduleWidgetSettings`）:
+
+```ts
+type ScheduleWidgetSettings = {
+  viewUserIds: number[]                // 選択中ユーザー ID リスト
+  viewUserNames: Record<string, string> // ID → 氏名マップ（スケジュール0件週でも名前を表示するためキャッシュ）
+}
+```
+
+マイグレーション: `src/lib/migrations/2026-07-27_add_widget_settings.ts`
 
 ### 型定義追加（`src/lib/schedule.types.ts`）
 
@@ -450,7 +475,7 @@ export type ScheduleInput = {
 - [ ] 追加ユーザー削除後、そのユーザーの予定がカレンダーから消える
 - [ ] 他ユーザーの非公開（P）予定は「非公開」とブロック表示される（タイトル非表示）
 - [ ] 他ユーザーの完全非公開（C）予定はカレンダーに表示されない
-- [ ] タブを切り替えてマイページに戻っても選択ユーザーが保持される（sessionStorage 保持）
+- [ ] タブを切り替えてマイページに戻っても選択ユーザーが保持される（DB 保存のためリロード後も保持）
 
 ### 参加ユーザー選択（フォーム）
 

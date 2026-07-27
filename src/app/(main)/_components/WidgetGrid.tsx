@@ -31,8 +31,8 @@ const LAYOUT_GRID: Record<PageLayout, string> = {
   ThreeColumns:     'lg:[grid-template-columns:1fr_2fr_1fr]',
 }
 
-function WidgetContent({ widgetType }: { widgetType: WidgetType }) {
-  if (widgetType === 'Schedule') return <ScheduleWidget />
+function WidgetContent({ widgetId, widgetType }: { widgetId: number; widgetType: WidgetType }) {
+  if (widgetType === 'Schedule') return <ScheduleWidget widgetId={widgetId} />
   if (widgetType === 'Whatsnew') return <ActivityWidget />
   if (widgetType === 'UserList') return <UserListWidget />
   return null
@@ -207,7 +207,7 @@ export default function WidgetGrid({ layout, widgets: initialWidgets, onWidgetsC
                       onWidgetsChange(updated)
                     }}
                   >
-                    <WidgetContent widgetType={w.widgetType} />
+                    <WidgetContent widgetId={w.widgetId} widgetType={w.widgetType} />
                   </WidgetWrapper>
                 ))}
               </DroppableColumn>

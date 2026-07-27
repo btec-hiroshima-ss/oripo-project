@@ -9,6 +9,8 @@ import {
   updateScheduleAction,
   deleteScheduleAction,
   getHolidaysAction,
+  getWidgetSettingsAction,
+  saveWidgetSettingsAction,
 } from '../../actions'
 import type { ScheduleInput, MultiUserScheduleEntry } from '@/lib/schedule.types'
 import { MAX_USERS, HOUR_PX, MIN_BLOCK_PX, DOW_JA, USER_COLORS } from '@/lib/schedule.constants'
@@ -24,10 +26,6 @@ const PUBLIC_FLAG_COLORS: Record<'O' | 'P' | 'C', string> = {
   P: 'bg-gray-400 text-white',
   C: 'bg-gray-600 text-white',
 }
-
-// sessionStorage キー（タブ切り替え後にマルチビューの選択状態を復元するために使用）
-const SS_VIEW_USER_IDS = 'schedule_view_user_ids'
-const SS_KNOWN_USER_NAMES = 'schedule_known_user_names'
 
 // ===========================================================
 // 日付ユーティリティ（ウィジェット固有）
@@ -166,7 +164,14 @@ function ScheduleBlock({ schedule, onClick }: ScheduleBlockProps) {
 // ScheduleWidget メインコンポーネント
 // ===========================================================
 
-export default function ScheduleWidget() {
+type ScheduleWidgetSettings = {
+  viewUserIds: number[]
+  // 氏名は userIds から都度取得できるが、スケジュール0件の週でもチップ表示に使うためキャッシュする。
+  // 氏名変更は稀なので多少古くても問題ない（AIPO も同様に氏名をキャッシュしている）。
+  viewUserNames: Record<string, string>
+}
+
+export default function ScheduleWidget({ widgetId }: { widgetId: number }) {
   const [weekStart, setWeekStart] = useState<string>(() => getMonday(new Date()))
   const [schedules, setSchedules] = useState<MultiUserScheduleEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -181,9 +186,8 @@ export default function ScheduleWidget() {
   const [loginUserId, setLoginUserId] = useState<number | null>(null)
   // loginUserName: チップの自分ラベル用。スケジュール0件の週でも正しく名前を表示するために別途保持する。
   const [loginUserName, setLoginUserName] = useState<string>('')
-  // knownUserNames: ピッカー確定時に取得したユーザー ID → 氏名マップ。スケジュールがない週でも名前を表示するため保持する。
-  // sessionStorage からの復元は useEffect で行う（useState 初期値ファクトリは SSR でも実行されるが
-  // ハイドレーション時に再実行されないため sessionStorage が参照できない）。
+  // knownUserNames: ウィジェット設定から復元したユーザー ID → 氏名マップ。スケジュール0件の週でも名前を表示するために保持する。
+  // マウント時の useEffect で DB の settings から復元する（AIPO の PSML キャッシュ相当）。
   const [knownUserNames, setKnownUserNames] = useState<Map<number, string>>(new Map())
   // viewUserIds: 表示対象ユーザー ID 一覧（自分が常に先頭。setViewUserIds で明示的に更新する）
   const [viewUserIds, setViewUserIds] = useState<number[]>([])
@@ -217,53 +221,37 @@ export default function ScheduleWidget() {
       .finally(() => setIsLoading(false))
   }, [])
 
-  // マウント時（クライアントのみ）に sessionStorage からマルチビューの選択状態を復元する。
-  // useState の初期値ファクトリは SSR で実行されるため sessionStorage を参照できない。
-  // useEffect はクライアントマウント後にのみ実行されるため安全に復元できる。
+  // マウント時にログインユーザー情報と DB 保存済みの選択ユーザーを並行取得して初期化する。
+  // AIPO の PSML p6a-uids 相当: ウィジェットインスタンスごとに DB に永続化されている。
   useEffect(() => {
-    try {
-      const storedIds = sessionStorage.getItem(SS_VIEW_USER_IDS)
-      if (storedIds) {
-        const parsed = JSON.parse(storedIds) as number[]
-        if (parsed.length > 0) setViewUserIds(parsed)
-      }
-      const storedNames = sessionStorage.getItem(SS_KNOWN_USER_NAMES)
-      if (storedNames) {
-        setKnownUserNames(new Map(JSON.parse(storedNames) as [number, string][]))
-      }
-    } catch {}
-  }, [])
-
-  // viewUserIds が変わったら sessionStorage を更新する（タブ切り替え後の復元用）。
-  // length === 0 はマウント直後の一時状態（loginUserId 取得前）なので書き込みをスキップする。
-  // 自分自身は削除不可のため、通常操作では length が 0 になることはない。
-  useEffect(() => {
-    if (viewUserIds.length === 0) return
-    try {
-      sessionStorage.setItem(SS_VIEW_USER_IDS, JSON.stringify(viewUserIds))
-    } catch {}
-  }, [viewUserIds])
-
-  // knownUserNames が変わったら sessionStorage を更新する
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(SS_KNOWN_USER_NAMES, JSON.stringify([...knownUserNames]))
-    } catch {}
-  }, [knownUserNames])
-
-  // マウント時にログインユーザー ID と氏名を取得し、viewUserIds を初期化する。
-  // Client Component から直接 requireAuth() は呼べないため Server Action 経由で取得する。
-  useEffect(() => {
-    getLoginUserIdAction()
-      .then(({ userId, fullName }) => {
+    Promise.all([
+      getLoginUserIdAction(),
+      getWidgetSettingsAction(widgetId),
+    ])
+      .then(([{ userId, fullName }, settings]) => {
         setLoginUserId(userId)
         setLoginUserName(fullName)
-        // sessionStorage に復元済みの選択があればそれを尊重する。
-        // 空（初回アクセスまたはブラウザ閉じた後）の場合のみ自分のみで初期化する。
-        setViewUserIds((prev) => (prev.length === 0 ? [userId] : prev))
+
+        const s = settings as ScheduleWidgetSettings | null
+        const storedIds = s?.viewUserIds ?? []
+        const storedNames = s?.viewUserNames ?? {}
+
+        if (storedIds.length > 0) {
+          // DB に保存済みの選択ユーザーを復元する
+          setViewUserIds(storedIds)
+          const nameMap = new Map<number, string>(
+            Object.entries(storedNames).map(([id, name]) => [Number(id), name])
+          )
+          // ログインユーザーの最新氏名で上書き（保存時より名前が変わっている場合に対応）
+          nameMap.set(userId, fullName)
+          setKnownUserNames(nameMap)
+        } else {
+          // 初回アクセスまたは設定なし: 自分のみで初期化
+          setViewUserIds([userId])
+        }
       })
       .catch(() => {})
-  }, [])
+  }, [widgetId])
 
   // viewUserIds または weekStart が変わったときにスケジュールを再取得する
   useEffect(() => {
@@ -353,17 +341,22 @@ export default function ScheduleWidget() {
       return
     }
     // ピッカーから受け取った氏名マップを knownUserNames にマージして保持する
-    if (names) {
-      setKnownUserNames((prev) => new Map([...prev, ...names]))
-    }
+    const mergedNames = names ? new Map([...knownUserNames, ...names]) : knownUserNames
+    if (names) setKnownUserNames(mergedNames)
+
     // ログインユーザーを先頭に固定して並び替える
     const sorted = loginUserId !== null
       ? [loginUserId, ...Array.from(ids).filter((id) => id !== loginUserId)]
       : Array.from(ids)
+
     // ピッカーで選択解除されたユーザーの予定をローカルから即時削除する
     setSchedules((prev) => prev.filter((s) => ids.has(s.viewUserId)))
     setViewUserIds(sorted)
     setShowUserPicker(false)
+
+    // 選択ユーザーを DB に保存する（ウィジェットインスタンスごとに永続化）
+    const viewUserNames = Object.fromEntries(mergedNames)
+    saveWidgetSettingsAction(widgetId, { viewUserIds: sorted, viewUserNames }).catch(() => {})
   }
 
   return (
@@ -445,8 +438,12 @@ export default function ScheduleWidget() {
                   <button
                     type="button"
                     onClick={() => {
-                      setViewUserIds((prev) => prev.filter((id) => id !== uid))
+                      const newIds = viewUserIds.filter((id) => id !== uid)
+                      setViewUserIds(newIds)
                       setSchedules((prev) => prev.filter((s) => s.viewUserId !== uid))
+                      // チップ削除後の選択状態を DB に保存する
+                      const viewUserNames = Object.fromEntries(knownUserNames)
+                      saveWidgetSettingsAction(widgetId, { viewUserIds: newIds, viewUserNames }).catch(() => {})
                     }}
                     className="opacity-80 hover:opacity-100 ml-0.5"
                     aria-label={`${name}を削除`}

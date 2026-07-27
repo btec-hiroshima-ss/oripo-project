@@ -10,6 +10,8 @@ import {
   updateWidgetPosition,
   deleteWidget,
   reorderPages,
+  getWidgetSettings,
+  saveWidgetSettings,
   type PageLayout,
   type WidgetType,
 } from '@/lib/pages'
@@ -203,4 +205,20 @@ export async function getGroupMembersAction(groupId: number): Promise<ScheduleUs
 export async function getScheduleParticipantIdsAction(scheduleId: number): Promise<number[]> {
   await requireAuth()
   return getScheduleParticipantIds(scheduleId)
+}
+
+// ウィジェット設定の読み書き（AIPO の PSML portlet_config 相当）。
+// Schedule の選択ユーザー等、ウィジェットインスタンスごとの設定を永続化する。
+
+export async function getWidgetSettingsAction(widgetId: number): Promise<Record<string, unknown> | null> {
+  await requireAuth()
+  return getWidgetSettings(widgetId)
+}
+
+export async function saveWidgetSettingsAction(
+  widgetId: number,
+  settings: Record<string, unknown>
+): Promise<void> {
+  await requireAuth()
+  await saveWidgetSettings(widgetId, settings)
 }
