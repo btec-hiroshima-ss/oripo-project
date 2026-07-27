@@ -5,6 +5,9 @@
 
 import type { ColumnType } from "kysely";
 
+// Kysely のこのバージョンでは JsonValue が公開 API にないため独自定義する
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
+
 export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
   ? ColumnType<S, I | undefined, U>
   : ColumnType<T, T | undefined, T>;
@@ -914,6 +917,8 @@ export interface OripoPageWidgets {
   created_at: Generated<Timestamp>;
   page_id: number;
   row: Generated<number>;
+  // ウィジェットインスタンスごとの設定（例: Schedule の選択ユーザー ID リスト）
+  settings: JsonValue | null;
   updated_at: Generated<Timestamp>;
   widget_id: Generated<number>;
   widget_type: string;

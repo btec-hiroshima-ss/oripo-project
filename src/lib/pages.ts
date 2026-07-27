@@ -1,3 +1,4 @@
+import { sql } from 'kysely'
 import { db } from './db'
 import type { PageLayout, PageWidget, WidgetType, Page } from './pages.types'
 
@@ -71,7 +72,7 @@ export async function getOrCreateDefaultPages(userId: number): Promise<Page[]> {
 export async function getPageWidgets(pageId: number): Promise<PageWidget[]> {
   const rows = await db
     .selectFrom('oripo_page_widgets')
-    .select(['widget_id', 'page_id', 'widget_type', 'col', 'row'])
+    .select(['widget_id', 'page_id', 'widget_type', 'col', 'row', 'settings'])
     .where('page_id', '=', pageId)
     .orderBy('col', 'asc')
     .orderBy('row', 'asc')
@@ -83,7 +84,29 @@ export async function getPageWidgets(pageId: number): Promise<PageWidget[]> {
     widgetType: r.widget_type as WidgetType,
     col: r.col,
     row: r.row,
+    settings: r.settings as Record<string, unknown> | null,
   }))
+}
+
+export async function getWidgetSettings(widgetId: number): Promise<Record<string, unknown> | null> {
+  const row = await db
+    .selectFrom('oripo_page_widgets')
+    .select('settings')
+    .where('widget_id', '=', widgetId)
+    .executeTakeFirst()
+  return (row?.settings as Record<string, unknown> | null) ?? null
+}
+
+export async function saveWidgetSettings(
+  widgetId: number,
+  settings: Record<string, unknown>
+): Promise<void> {
+  await db
+    .updateTable('oripo_page_widgets')
+    // sql テンプレートで jsonb にキャストすることで Kysely 型システムをバイパスする
+    .set({ settings: sql`${JSON.stringify(settings)}::jsonb`, updated_at: new Date() })
+    .where('widget_id', '=', widgetId)
+    .execute()
 }
 
 export async function createPage(userId: number, pageName: string): Promise<Page> {

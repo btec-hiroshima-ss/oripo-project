@@ -10,10 +10,10 @@ AIPO 準拠: `portlets/schedule`（週表示ウィジェット）に相当。
 
 | フェーズ | Issue | 内容 | 状態 |
 |---|---|---|---|
-| **A（本 Issue）** | #81 | 週表示・自分のみ・予定 CRUD（繰り返しなし） | 実装中 |
-| B | 子 Issue | マルチユーザー表示・ユーザー選択 | 未着手 |
-| C | 子 Issue | 繰り返し予定の作成・編集 | 未着手 |
-| D | 子 Issue | 設備予約・日/月/一覧ビュー | 未着手 |
+| **A** | #81 | 週表示・自分のみ・予定 CRUD（繰り返しなし） | 完了 ✅ |
+| **B（本 Issue）** | #81 | マルチユーザー表示・参加ユーザー選択 | 実装中 |
+| C | #81 | 繰り返し予定の作成・編集 | 未着手 |
+| D | #81 | 設備予約・日/月/一覧ビュー | 未着手 |
 
 ---
 
@@ -304,3 +304,183 @@ export type ScheduleInput = {
 ### レスポンシブ
 
 - [ ] モバイル（375px）でカレンダーがスクロール可能で表示される
+
+---
+
+## 機能要件（Phase B）
+
+### マルチユーザー週表示
+
+- ウィジェットヘッダーに「ユーザーを追加」ボタンを配置する
+- ボタンをクリックするとユーザーピッカーモーダルが開く
+- 選択したユーザーを「自分のみ」モードに追加し、複数ユーザーの予定を同一カレンダーに重ねて表示する
+- 最大表示人数: 30人（AIPO 準拠）。30人を超えた場合はエラートーストを表示する
+- ユーザーごとにプリセットカラーで予定ブロックを色分けする
+  - 自分（ログインユーザー）: ブランドカラー（オレンジ）
+  - 追加ユーザー1〜29: 青・緑・紫・ティール・ピンク等のプリセットパレット
+- 選択中ユーザーを「自分 ＋ 追加ユーザー名」のチップ（削除ボタン付き）でヘッダー下部に一覧表示する
+- チップの削除ボタン（×）でそのユーザーをビューから削除できる（自分自身は削除不可）
+- タブ切り替え・ページリロード後も選択状態を保持する（`oripo_page_widgets.settings` JSONB 列にウィジェットインスタンスごとに保存。AIPO の PSML `portlet_config` 相当）
+- **他ユーザー予定の公開区分フィルタ（AIPO 準拠）**:
+  - `public_flag='O'`（公開）: 通常表示
+  - `public_flag='P'`（非公開）: タイトルを「非公開」に置き換えて表示（枠・時刻は見える）
+  - `public_flag='C'`（完全に隠す）: 取得・表示しない。他ユーザーには存在自体を見せない
+  - 自分自身の予定は公開区分に関わらず全て表示する（Phase A と同じ）
+
+### ユーザーピッカーモーダル
+
+AIPO の `MemberNormalSelectList` ウィジェットに準拠したデュアルリストボックス UI を採用する。
+
+- **左パネル（参加ユーザーリスト）**: 選択済みユーザーの一覧（`<select multiple>` スタイル）
+  - タイトルラベル「参加ユーザーリスト」
+  - 選択済みユーザーのリスト
+  - 「削除」ボタン（選択したユーザーを右パネルに戻す）
+- **右パネル（候補ユーザー）**: 追加可能ユーザーの一覧
+  - グループ絞り込みドロップダウン（全グループ・個別グループ選択可）
+  - 候補ユーザーのリスト
+  - 「追加」ボタン（選択した候補ユーザーを左パネルに移動）
+- 氏名フリーワード検索で候補ユーザーを絞り込める（検索ボックス）
+- マルチユーザービュー用途: 自分自身は左パネルから削除不可（ロック表示）
+- 「決定」ボタンで選択を確定してモーダルを閉じる
+- 「キャンセル」ボタンまたはオーバーレイクリックで変更破棄して閉じる
+
+### 参加ユーザー選択（フォーム）
+
+AIPO のスケジュール追加フォームに準拠したレイアウトを採用する。
+
+- 予定追加・編集フォームに「参加ユーザー」フィールドを追加する
+- フィールド内には選択済み参加者の氏名を常時表示する（AIPO 準拠: 作成者名＋追加参加者名）
+  - 追加済みの場合: 「作成者名、参加者A、参加者B ...」の形式でカンマ区切り表示
+  - 未選択時: 作成者名のみ表示（自分自身は常に参加者）
+- 「参加ユーザー選択」ボタンをクリックするとユーザーピッカーモーダルが開く
+  - マルチユーザービューと同じデュアルリストボックスモーダルを再利用する（`UserPickerModal`）
+  - フォーム用途では「自分自身は削除不可」の制約なし（作成者以外の参加者を管理する用途のため）
+- 選択した参加ユーザーは `eip_t_schedule_map` に登録する:
+  - 作成者: type='U', status='O'（オーナー）
+  - 参加者: type='U', status='T'（承認済み）
+- 編集時: 既存参加者を削除して再登録する（AIPO 準拠のシンプルな全更新）
+- 参加ユーザーのスケジュール詳細モーダルにも参加者名が一覧表示される（Phase A から変更なし）
+
+### レスポンシブ対応（Phase B）
+
+| ブレークポイント | 挙動 |
+|---|---|
+| デスクトップ（sm 以上） | ユーザーチップをヘッダー行に横並びで表示 |
+| モバイル（sm 未満） | ユーザーチップを折り返して表示 |
+
+---
+
+## API（Phase B 追加分）
+
+```ts
+// グループ一覧取得（システムグループ除外、alias_name あり）
+getGroupListAction(): Promise<ScheduleGroup[]>
+
+// グループメンバー取得（アクティブユーザーのみ）
+getGroupMembersAction(groupId: number): Promise<ScheduleUser[]>
+
+// 全ユーザー一覧取得（ユーザーピッカー検索用、アクティブユーザーのみ）
+getScheduleUsersAction(): Promise<ScheduleUser[]>
+
+// 複数ユーザーの週スケジュール取得
+getWeekSchedulesMultiAction(userIds: number[], weekStart: string): Promise<MultiUserScheduleEntry[]>
+
+// ウィジェット設定取得（`oripo_page_widgets.settings` JSONB）
+getWidgetSettingsAction(widgetId: number): Promise<Record<string, unknown> | null>
+
+// ウィジェット設定保存（`oripo_page_widgets.settings` JSONB）
+saveWidgetSettingsAction(widgetId: number, settings: Record<string, unknown>): Promise<void>
+```
+
+### DB クエリ追加（`src/lib/schedule.ts`）
+
+```ts
+getWeekSchedulesMulti(userIds: number[], from: Date, to: Date): Promise<MultiUserScheduleEntry[]>
+```
+
+---
+
+## データモデル（Phase B 追加・変更）
+
+### `oripo_page_widgets.settings` JSONB（新規カラム）
+
+ウィジェットインスタンスごとの設定を保存する。AIPO の PSML `portlet_config`（`p6a-uids` 等）相当。
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| `settings` | jsonb | ウィジェット設定 JSON（nullable） |
+
+スケジュールウィジェットの settings スキーマ（`ScheduleWidgetSettings`）:
+
+```ts
+type ScheduleWidgetSettings = {
+  viewUserIds: number[]                // 選択中ユーザー ID リスト
+  viewUserNames: Record<string, string> // ID → 氏名マップ（スケジュール0件週でも名前を表示するためキャッシュ）
+}
+```
+
+マイグレーション: `src/lib/migrations/2026-07-27_add_widget_settings.ts`
+
+### 型定義追加（`src/lib/schedule.types.ts`）
+
+```ts
+// ユーザーピッカー用ユーザー情報
+export type ScheduleUser = {
+  userId: number
+  fullName: string
+}
+
+// グループ一覧
+export type ScheduleGroup = {
+  groupId: number
+  groupName: string        // turbine_group.group_alias_name
+}
+
+// マルチユーザービュー用エントリ: 誰のカレンダーに表示されているかを追加
+export type MultiUserScheduleEntry = ScheduleEntry & {
+  viewUserId: number    // このエントリが表示されているユーザーの user_id
+  viewUserName: string  // 色凡例・ブロックラベル表示用
+}
+```
+
+### `ScheduleInput` 変更（`src/lib/schedule.types.ts`）
+
+```ts
+export type ScheduleInput = {
+  name: string
+  note?: string
+  place?: string
+  startDate: Date
+  endDate: Date
+  isAllDay: boolean
+  publicFlag: 'O' | 'P' | 'C'
+  participantIds?: number[]  // Phase B 追加: 参加ユーザー ID リスト（自分を含む）
+}
+```
+
+---
+
+## 受け入れ条件（Phase B）
+
+### マルチユーザービュー
+
+- [ ] ヘッダーに「ユーザーを追加」ボタンが表示される
+- [ ] ボタンクリックでユーザーピッカーモーダルが開く
+- [ ] グループを展開してメンバーを選択できる
+- [ ] 氏名フリーワード検索でユーザーを絞り込める
+- [ ] 選択確定後、カレンダーに追加ユーザーの予定が重ねて表示される
+- [ ] 追加ユーザーの予定ブロックは自分と異なる色で表示される
+- [ ] 選択ユーザーのチップがヘッダー下部に表示され、× で削除できる
+- [ ] 31人目を追加しようとするとエラートーストが表示される
+- [ ] 追加ユーザー削除後、そのユーザーの予定がカレンダーから消える
+- [ ] 他ユーザーの非公開（P）予定は「非公開」とブロック表示される（タイトル非表示）
+- [ ] 他ユーザーの完全非公開（C）予定はカレンダーに表示されない
+- [ ] タブを切り替えてマイページに戻っても選択ユーザーが保持される（DB 保存のためリロード後も保持）
+
+### 参加ユーザー選択（フォーム）
+
+- [ ] 予定追加フォームに「参加ユーザー選択」ボタンが表示される
+- [ ] ボタンクリックでユーザーピッカーモーダルが開く
+- [ ] 参加ユーザーを選択して「決定」すると、フォームに参加者名リストが表示される
+- [ ] 予定保存後、詳細モーダルの「参加ユーザー」欄に追加した参加者が表示される
+- [ ] 編集時、既存参加者が初期選択状態でピッカーに表示される

@@ -1,19 +1,25 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useEffect, useMemo, useTransition } from 'react'
 import { X, RefreshCw } from 'lucide-react'
-import type { ScheduleEntry, ScheduleInput } from '@/lib/schedule.types'
+import type { ScheduleEntry, ScheduleInput, ScheduleUser } from '@/lib/schedule.types'
 import { toJstDateStr, toJstTimeStr } from '@/lib/jst'
+import { getScheduleParticipantIdsAction, getScheduleUsersAction } from '../../actions'
+import UserPickerModal from './UserPickerModal'
 
 type Props = {
   /** 編集時に渡す。null なら新規追加モード。 */
   schedule?: ScheduleEntry
+  /** ログインユーザー ID（参加者表示の先頭に常時表示する作成者として使用） */
+  loginUserId?: number
+  /** ログインユーザー氏名 */
+  loginUserName?: string
   onClose: () => void
   onSave: (input: ScheduleInput) => Promise<void>
   onShowRepeatToast: () => void
 }
 
-export default function ScheduleFormModal({ schedule, onClose, onSave, onShowRepeatToast }: Props) {
+export default function ScheduleFormModal({ schedule, loginUserId = 0, loginUserName = '', onClose, onSave, onShowRepeatToast }: Props) {
   const isEdit = schedule !== undefined
 
   // 既存予定の値または初期値でフォームを初期化する
@@ -33,6 +39,36 @@ export default function ScheduleFormModal({ schedule, onClose, onSave, onShowRep
   const [publicFlag, setPublicFlag] = useState<'O' | 'P' | 'C'>(schedule?.publicFlag ?? 'O')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isPending, startTransition] = useTransition()
+
+  // 参加ユーザー選択（Phase B）
+  // participantIds: 選択中の参加者 ID セット（作成者自身も含む）
+  const [participantIds, setParticipantIds] = useState<Set<number>>(new Set())
+  const [allUsers, setAllUsers] = useState<ScheduleUser[]>([])
+  const [showUserPicker, setShowUserPicker] = useState(false)
+
+  // 全ユーザーリストとの突合で参加者名を表示するためのマップ
+  const userNameMap = useMemo(() => new Map(allUsers.map((u) => [u.userId, u.fullName])), [allUsers])
+
+  // 参加者表示テキスト（AIPO 準拠: 作成者名を先頭に、追加参加者名をカンマ区切りで続ける）
+  const participantDisplayText = useMemo(() => {
+    const otherNames = Array.from(participantIds)
+      .filter((id) => id !== loginUserId)
+      .map((id) => userNameMap.get(id) ?? '')
+      .filter(Boolean)
+    const names = loginUserName ? [loginUserName, ...otherNames] : otherNames
+    return names.join('、') || loginUserName
+  }, [loginUserId, loginUserName, participantIds, userNameMap])
+
+  // 編集時: 既存参加者を初期ロードする
+  useEffect(() => {
+    getScheduleUsersAction().then(setAllUsers).catch(() => {})
+    if (isEdit && schedule) {
+      getScheduleParticipantIdsAction(schedule.scheduleId)
+        .then((ids) => setParticipantIds(new Set(ids)))
+        .catch(() => {})
+    }
+  }, [isEdit, schedule?.scheduleId])
+  // NOTE: schedule.scheduleId を deps に含める（schedule オブジェクト自体は毎回新規参照になる可能性がある）
 
   function validate(): boolean {
     const errs: Record<string, string> = {}
@@ -71,6 +107,8 @@ export default function ScheduleFormModal({ schedule, onClose, onSave, onShowRep
       endDate,
       isAllDay,
       publicFlag,
+      // participantIds が空の場合は undefined（addSchedule 側で作成者のみ登録される）
+      participantIds: participantIds.size > 0 ? Array.from(participantIds) : undefined,
     }
 
     startTransition(async () => {
@@ -202,6 +240,22 @@ export default function ScheduleFormModal({ schedule, onClose, onSave, onShowRep
             繰り返しなし
           </button>
 
+          {/* 参加ユーザー選択（AIPO 準拠: 参加者名を常時表示 + 選択ボタン） */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">参加ユーザー</label>
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* 作成者名 + 参加者名をカンマ区切りで表示（未ロード時は作成者名のみ） */}
+              <span className="text-sm text-gray-800">{participantDisplayText}</span>
+              <button
+                type="button"
+                onClick={() => setShowUserPicker(true)}
+                className="text-xs text-brand border border-brand/50 rounded px-2 py-1 hover:bg-brand/5 shrink-0"
+              >
+                参加ユーザー選択
+              </button>
+            </div>
+          </div>
+
           {/* 場所 */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">場所</label>
@@ -263,6 +317,18 @@ export default function ScheduleFormModal({ schedule, onClose, onSave, onShowRep
           </button>
         </div>
       </div>
+
+      {/* 参加ユーザーピッカーモーダル（フォーム用: 自分自身も選択解除可能） */}
+      {showUserPicker && (
+        <UserPickerModal
+          selectedIds={participantIds}
+          onConfirm={(ids) => {
+            setParticipantIds(ids)
+            setShowUserPicker(false)
+          }}
+          onClose={() => setShowUserPicker(false)}
+        />
+      )}
     </div>
   )
 }

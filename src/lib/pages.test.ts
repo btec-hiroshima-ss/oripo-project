@@ -7,6 +7,8 @@ import {
   addWidget,
   deleteWidget,
   reorderPages,
+  getWidgetSettings,
+  saveWidgetSettings,
 } from './pages'
 
 // Kysely の流暢 API（メソッドチェーン）を模倣するモック。
@@ -24,6 +26,7 @@ const mockDb = vi.hoisted(() => {
     returning: vi.fn(),
     set: vi.fn(),
     execute: vi.fn(),
+    executeTakeFirst: vi.fn(),
     executeTakeFirstOrThrow: vi.fn(),
   }
   return m
@@ -40,6 +43,18 @@ beforeEach(() => {
     'select', 'where', 'orderBy', 'values', 'returning', 'set',
   ]) {
     mockDb[method].mockReturnValue(mockDb)
+  }
+})
+
+// sql テンプレートタグのモック（saveWidgetSettings で使用）
+vi.mock('kysely', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('kysely')>()
+  return {
+    ...orig,
+    sql: Object.assign(
+      (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
+      orig.sql
+    ),
   }
 })
 
@@ -194,6 +209,53 @@ describe('deleteWidget', () => {
 
     expect(mockDb.deleteFrom).toHaveBeenCalledWith('oripo_page_widgets')
     expect(mockDb.where).toHaveBeenCalledWith('widget_id', '=', 7)
+  })
+})
+
+// ============================================================
+describe('getWidgetSettings', () => {
+  it('settings が存在する場合、パースしたオブジェクトを返す', async () => {
+    const stored = { viewUserIds: [1, 2], viewUserNames: { '1': '田中', '2': '鈴木' } }
+    mockDb.executeTakeFirst.mockResolvedValueOnce({ settings: stored })
+
+    const result = await getWidgetSettings(10)
+
+    expect(result).toEqual(stored)
+    expect(mockDb.selectFrom).toHaveBeenCalledWith('oripo_page_widgets')
+    expect(mockDb.where).toHaveBeenCalledWith('widget_id', '=', 10)
+  })
+
+  it('settings が null の場合、null を返す', async () => {
+    mockDb.executeTakeFirst.mockResolvedValueOnce({ settings: null })
+
+    const result = await getWidgetSettings(10)
+
+    expect(result).toBeNull()
+  })
+
+  it('ウィジェットが存在しない場合、null を返す', async () => {
+    mockDb.executeTakeFirst.mockResolvedValueOnce(undefined)
+
+    const result = await getWidgetSettings(999)
+
+    expect(result).toBeNull()
+  })
+})
+
+// ============================================================
+describe('saveWidgetSettings', () => {
+  it('widget_id を条件として settings を更新する', async () => {
+    mockDb.execute.mockResolvedValueOnce([])
+    const settings = { viewUserIds: [1, 3], viewUserNames: { '1': '田中', '3': '佐藤' } }
+
+    await saveWidgetSettings(10, settings)
+
+    expect(mockDb.updateTable).toHaveBeenCalledWith('oripo_page_widgets')
+    expect(mockDb.where).toHaveBeenCalledWith('widget_id', '=', 10)
+    // set() が呼ばれることを確認（settings と updated_at が含まれる）
+    expect(mockDb.set).toHaveBeenCalled()
+    const setArg = mockDb.set.mock.calls[0][0]
+    expect(setArg.updated_at).toBeInstanceOf(Date)
   })
 })
 

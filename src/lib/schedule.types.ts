@@ -36,4 +36,35 @@ export type ScheduleInput = {
   endDate: Date
   isAllDay: boolean
   publicFlag: 'O' | 'P' | 'C'
+  /** Phase B: 参加ユーザー ID リスト。指定なしの場合は作成者のみを登録する */
+  participantIds?: number[]
+}
+
+// ===========================================================
+// Phase B: マルチユーザービュー・ユーザーピッカー用型
+// ===========================================================
+
+/** ユーザーピッカー表示用の最小ユーザー情報 */
+export type ScheduleUser = {
+  userId: number
+  fullName: string
+}
+
+/** グループ一覧（turbine_group のエイリアス名付き実グループ） */
+export type ScheduleGroup = {
+  groupId: number
+  /** turbine_group.group_alias_name */
+  groupName: string
+}
+
+/**
+ * マルチユーザービュー用エントリ。
+ * 誰のカレンダーに表示されているかを保持する。
+ * viewUserId が自分以外の場合、public_flag='P' は name="非公開"、'C' は取得されない。
+ */
+export type MultiUserScheduleEntry = ScheduleEntry & {
+  /** このエントリが属するユーザーの user_id（色分け・凡例表示に使用） */
+  viewUserId: number
+  /** 色凡例・予定ブロックのラベルに使用する表示名 */
+  viewUserName: string
 }
