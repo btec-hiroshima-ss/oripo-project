@@ -13,7 +13,6 @@ import MobileDrawer from './MobileDrawer'
 import UserEditModal from './UserEditModal'
 
 type Props = {
-  loginName: string
   userId: number
   fullName: string
   department: string | null
@@ -21,17 +20,18 @@ type Props = {
   activePage: Page
   activeWidgets: PageWidget[]
   settingsActive: boolean
+  activeMobileWidget: WidgetType
   onSelectPage: (page: Page) => void
   onPagesChange: (pages: Page[]) => void
   onWidgetsAdd: (types: WidgetType[]) => void
   onOpenSettings: () => void
   onCloseSettings: () => void
+  onSelectMobileWidget: (type: WidgetType) => void
 }
 
 // アプリ全体のヘッダー。ページ CRUD とモーダル表示を管理する。
 // PageSettingsModal でレイアウト変更＋ウィジェット追加を一体化（AIPO 準拠）。
 export default function AppHeader({
-  loginName,
   userId,
   fullName,
   department,
@@ -39,11 +39,13 @@ export default function AppHeader({
   activePage,
   activeWidgets,
   settingsActive,
+  activeMobileWidget,
   onSelectPage,
   onPagesChange,
   onWidgetsAdd,
   onOpenSettings,
   onCloseSettings,
+  onSelectMobileWidget,
 }: Props) {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showPageSettings, setShowPageSettings] = useState(false)
@@ -187,11 +189,11 @@ export default function AppHeader({
 
       <MobileDrawer
         open={drawerOpen}
-        loginName={loginName}
-        pages={pages}
-        activePage={activePage}
+        fullName={fullName}
+        department={department}
+        activeMobileWidget={activeMobileWidget}
         settingsActive={settingsActive}
-        onSelectPage={onSelectPage}
+        onSelectWidget={onSelectMobileWidget}
         onOpenSettings={onOpenSettings}
         onClose={() => setDrawerOpen(false)}
       />
