@@ -41,7 +41,7 @@ export default function ActivityWidget({ isMobileView }: { isMobileView?: boolea
   const rangeEnd = Math.min(page * ACTIVITY_PAGE_SIZE, totalCount)
 
   return (
-    <div className={`flex flex-col${isMobileView ? ' flex-1' : ''}`}>
+    <div className={`flex flex-col${isMobileView ? ' flex-1 min-h-0' : ''}`}>
       {/* ページング: AIPO 準拠「1〜10 / 550 ◄ ►」 */}
       {totalCount > 0 && (
         <div className="flex items-center justify-end gap-1 px-3 py-1 text-xs text-gray-500 border-b border-gray-100">
@@ -67,7 +67,7 @@ export default function ActivityWidget({ isMobileView }: { isMobileView?: boolea
         </div>
       )}
 
-      <div className={isMobileView ? 'flex-1 overflow-y-auto' : 'max-h-[360px] overflow-y-auto'}>
+      <div className={isMobileView ? 'flex-1 min-h-0 overflow-y-auto' : 'max-h-[360px] overflow-y-auto'}>
         {isLoading ? (
           <div className="p-4"><Loading variant="inline" /></div>
         ) : entries.length === 0 ? (

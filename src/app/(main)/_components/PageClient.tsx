@@ -70,7 +70,9 @@ export default function PageClient({ loginName, userId, fullName, department, in
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
+    // h-screen overflow-hidden: ビューポート高さに固定することで子の flex-1 + overflow-y-auto が
+    // 確実にスクロールコンテキストを生成する（min-h-screen だとページ全体がスクロールしてしまう）
+    <div className="flex flex-col h-screen overflow-hidden">
       <AppHeader
         userId={userId}
         fullName={fullName}
@@ -102,13 +104,15 @@ export default function PageClient({ loginName, userId, fullName, department, in
         <SettingsView />
       ) : isMobile ? (
         // モバイル: ドロワーで選択したウィジェットのみフル画面表示（モックアップ①③準拠）
-        // flex flex-col にすることで子ウィジェットの flex-1 が残り高さを正しく占有できる
-        <div className="flex-1 flex flex-col">
+        // min-h-0: flex アイテムのデフォルト min-height:auto を上書きし、
+        //   子の flex-1 + overflow-y-auto がスクロールコンテキストを正しく生成できるようにする
+        <div className="flex-1 flex flex-col min-h-0">
           <MobileWidgetView widgetType={activeMobileWidget} />
         </div>
       ) : (
         // デスクトップ: マルチカラムレイアウト＋ D&D
-        <div className="flex-1 p-4">
+        // overflow-y-auto: h-screen で親が固定高さのため、ウィジェット数が多い場合に内部スクロール
+        <div className="flex-1 p-4 overflow-y-auto">
           <WidgetGrid
             key={activePage.pageId}
             layout={activePage.layout}

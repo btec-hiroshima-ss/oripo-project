@@ -33,7 +33,7 @@ export default function UserListWidget({ isMobileView }: { isMobileView?: boolea
 
   return (
     <>
-      <div className={`flex flex-col${isMobileView ? ' flex-1' : ' max-h-[400px]'}`}>
+      <div className={`flex flex-col${isMobileView ? ' flex-1 min-h-0' : ' max-h-[400px]'}`}>
         {/* 検索ボックス */}
         <div className="px-3 py-2 border-b border-gray-100">
           <div className="relative">
@@ -52,7 +52,7 @@ export default function UserListWidget({ isMobileView }: { isMobileView?: boolea
         </div>
 
         {/* ユーザーリスト */}
-        <div className="overflow-y-auto flex-1">
+        <div className="overflow-y-auto flex-1 min-h-0">
           {isLoading ? (
             <p className="text-sm text-gray-400 text-center py-4">読み込み中...</p>
           ) : filtered.length === 0 ? (
