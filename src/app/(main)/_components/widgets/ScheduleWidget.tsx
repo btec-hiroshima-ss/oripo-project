@@ -1,19 +1,56 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Users, X } from 'lucide-react'
 import {
-  getWeekSchedulesAction,
+  getWeekSchedulesMultiAction,
+  getLoginUserIdAction,
   addScheduleAction,
   updateScheduleAction,
   deleteScheduleAction,
   getHolidaysAction,
 } from '../../actions'
-import type { ScheduleEntry, ScheduleInput } from '@/lib/schedule.types'
+import type { ScheduleInput, MultiUserScheduleEntry } from '@/lib/schedule.types'
 import ScheduleFormModal from './ScheduleFormModal'
 import ScheduleDetailModal from './ScheduleDetailModal'
+import UserPickerModal from './UserPickerModal'
 import { Toast, Loading } from '../ui'
 import { toJstDateStr, toJstTimeStr, isTodayJst, toJstMinutesSinceMidnight } from '@/lib/jst'
+
+// 単独ユーザービューでの公開区分色（Phase A 互換。自分のみ表示時に使用）
+const PUBLIC_FLAG_COLORS: Record<'O' | 'P' | 'C', string> = {
+  O: 'bg-brand text-white',
+  P: 'bg-gray-400 text-white',
+  C: 'bg-gray-600 text-white',
+}
+
+// マルチユーザービューで使用するプリセットカラー（自分はブランドカラー、追加ユーザーはここから順に割り当て）
+// 最大30人（AIPO 準拠）に対応できる色数を確保する
+const USER_COLORS = [
+  'bg-brand text-white',       // 0: 自分（オレンジ）
+  'bg-blue-500 text-white',    // 1
+  'bg-green-500 text-white',   // 2
+  'bg-purple-500 text-white',  // 3
+  'bg-teal-500 text-white',    // 4
+  'bg-pink-500 text-white',    // 5
+  'bg-amber-500 text-white',   // 6
+  'bg-indigo-500 text-white',  // 7
+  'bg-red-400 text-white',     // 8
+  'bg-cyan-500 text-white',    // 9
+  'bg-lime-500 text-white',    // 10
+  'bg-orange-400 text-white',  // 11
+  'bg-violet-500 text-white',  // 12
+  'bg-rose-400 text-white',    // 13
+  'bg-emerald-500 text-white', // 14
+  'bg-fuchsia-500 text-white', // 15
+  'bg-sky-500 text-white',     // 16
+  'bg-yellow-500 text-white',  // 17
+  'bg-slate-500 text-white',   // 18
+  'bg-blue-700 text-white',    // 19
+] as const
+
+// 最大表示人数（AIPO 準拠）
+const MAX_USERS = 30
 
 // 1 時間あたりのピクセル高さ（時刻グリッドの基準単位）
 const HOUR_PX = 60
@@ -66,19 +103,24 @@ function dayTextColor(dowIndex: number): string {
   return 'text-gray-700'
 }
 
-type PositionedSchedule = ScheduleEntry & {
+type PositionedSchedule = MultiUserScheduleEntry & {
   colIndex: number  // 重複グループ内の横位置（0 始まり）
   colCount: number  // 重複グループの列数
+  colorClass: string // ユーザーごとのプリセット色クラス
 }
 
 /**
- * 同一日カラムの予定に横並び位置を割り当てる。
- * 重複する予定をスロットに振り分け、colIndex / colCount で幅を分割する。
+ * 同一日カラムの予定に横並び位置と色クラスを割り当てる。
+ * isMultiUser=true の場合はユーザー別プリセット色、false の場合は公開区分色を使用する。
  */
-function positionSchedules(schedules: ScheduleEntry[]): PositionedSchedule[] {
+function positionSchedules(
+  schedules: MultiUserScheduleEntry[],
+  userColorMap: Map<number, string>,
+  isMultiUser: boolean
+): PositionedSchedule[] {
   const sorted = [...schedules].sort((a, b) => a.startDate.getTime() - b.startDate.getTime())
   const slotEndTimes: Date[] = []
-  const positioned: (ScheduleEntry & { colIndex: number })[] = []
+  const positioned: (MultiUserScheduleEntry & { colIndex: number })[] = []
 
   for (const s of sorted) {
     const slot = slotEndTimes.findIndex((end) => end <= s.startDate)
@@ -86,14 +128,21 @@ function positionSchedules(schedules: ScheduleEntry[]): PositionedSchedule[] {
     if (slot === -1) {
       slotEndTimes.push(s.endDate)
     } else {
-      // endDate が後ろにずれる場合はスロット終了時刻を更新
       if (s.endDate > slotEndTimes[slot]) slotEndTimes[slot] = s.endDate
     }
     positioned.push({ ...s, colIndex })
   }
 
   const colCount = slotEndTimes.length
-  return positioned.map((s) => ({ ...s, colCount }))
+  return positioned.map((s) => ({
+    ...s,
+    colCount,
+    // 単独ユーザー表示: 公開区分（P=グレー、C=ダークグレー）で視覚的に区別する
+    // マルチユーザー表示: ユーザーごとのプリセット色を使用する
+    colorClass: isMultiUser
+      ? (userColorMap.get(s.viewUserId) ?? USER_COLORS[0])
+      : (PUBLIC_FLAG_COLORS[s.publicFlag as 'O' | 'P' | 'C'] ?? USER_COLORS[0]),
+  }))
 }
 
 // ===========================================================
@@ -112,15 +161,12 @@ function ScheduleBlock({ schedule, onClick }: ScheduleBlockProps) {
   const top = (startMin / 60) * HOUR_PX
   const height = Math.max(MIN_BLOCK_PX, ((endMin - startMin) / 60) * HOUR_PX)
 
-  // 公開区分ごとのブロック色（AIPO 準拠のカテゴリ色）
-  const colorClass = {
-    O: 'bg-brand text-white',
-    P: 'bg-gray-400 text-white',
-    C: 'bg-gray-600 text-white',
-  }[schedule.publicFlag]
-
   const widthPct = 100 / schedule.colCount
   const leftPct = (schedule.colIndex / schedule.colCount) * 100
+
+  // マルチユーザービューではユーザーごとのプリセット色を使用する。
+  // 単独ユーザービューでは公開区分（P/C）をグレー系で表現する。
+  const colorClass = schedule.colorClass
 
   return (
     <button
@@ -152,30 +198,71 @@ function ScheduleBlock({ schedule, onClick }: ScheduleBlockProps) {
 
 export default function ScheduleWidget() {
   const [weekStart, setWeekStart] = useState<string>(() => getMonday(new Date()))
-  const [schedules, setSchedules] = useState<ScheduleEntry[]>([])
+  const [schedules, setSchedules] = useState<MultiUserScheduleEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [selectedSchedule, setSelectedSchedule] = useState<ScheduleEntry | null>(null)
+  const [selectedSchedule, setSelectedSchedule] = useState<MultiUserScheduleEntry | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
-  const [editingSchedule, setEditingSchedule] = useState<ScheduleEntry | null>(null)
+  const [editingSchedule, setEditingSchedule] = useState<MultiUserScheduleEntry | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   // 祝日データ: 初回マウント時に外部APIから取得しキャッシュ済みのものを受け取る
   const [holidays, setHolidays] = useState<Record<string, string>>({})
+
+  // loginUserId: マウント時に getLoginUserIdAction で取得。null の間はスケジュール取得をスキップ。
+  const [loginUserId, setLoginUserId] = useState<number | null>(null)
+  // loginUserName: チップの自分ラベル用。スケジュール0件の週でも正しく名前を表示するために別途保持する。
+  const [loginUserName, setLoginUserName] = useState<string>('')
+  // knownUserNames: ピッカー確定時に取得したユーザー ID → 氏名マップ。スケジュールがない週でも名前を表示するため保持する。
+  const [knownUserNames, setKnownUserNames] = useState<Map<number, string>>(new Map())
+  // viewUserIds: 表示対象ユーザー ID 一覧（自分が常に先頭。setViewUserIds で明示的に更新する）
+  const [viewUserIds, setViewUserIds] = useState<number[]>([])
+  const [showUserPicker, setShowUserPicker] = useState(false)
 
   // カレンダーコンテナ: 初期スクロール位置を 8:00 に合わせるため ref を保持
   const calendarRef = useRef<HTMLDivElement>(null)
   const scrolledRef = useRef(false)
 
-  const fetchSchedules = useCallback((ws: string) => {
+  // viewUserIds の順番に対応するプリセット色マップ
+  const userColorMap = new Map<number, string>(
+    viewUserIds.map((uid, i) => [uid, USER_COLORS[i % USER_COLORS.length]])
+  )
+  // schedules からの userId → 表示氏名マップ。
+  // ピッカーで取得した knownUserNames で初期化し、スケジュール有無に関わらず名前を表示する。
+  // 自分の名前は loginUserName で上書き（スケジュール0件の週でも正しく表示）。
+  const userNames = new Map<number, string>([
+    ...knownUserNames,
+    ...schedules.map((s) => [s.viewUserId, s.viewUserName] as [number, string]),
+    ...(loginUserId !== null ? [[loginUserId, loginUserName] as [number, string]] : []),
+  ])
+
+  const isMultiUser = viewUserIds.length > 1
+
+  const fetchSchedules = useCallback((ws: string, userIds: number[]) => {
+    if (userIds.length === 0) return
     setIsLoading(true)
-    getWeekSchedulesAction(ws)
+    getWeekSchedulesMultiAction(userIds, ws)
       .then(setSchedules)
       .catch(() => {})
       .finally(() => setIsLoading(false))
   }, [])
 
+  // マウント時にログインユーザー ID と氏名を取得し、viewUserIds を初期化する。
+  // Client Component から直接 requireAuth() は呼べないため Server Action 経由で取得する。
   useEffect(() => {
-    fetchSchedules(weekStart)
-  }, [weekStart, fetchSchedules])
+    getLoginUserIdAction()
+      .then(({ userId, fullName }) => {
+        setLoginUserId(userId)
+        setLoginUserName(fullName)
+        setViewUserIds([userId])
+      })
+      .catch(() => {})
+  }, [])
+
+  // viewUserIds または weekStart が変わったときにスケジュールを再取得する
+  useEffect(() => {
+    fetchSchedules(weekStart, viewUserIds)
+  }, [weekStart, viewUserIds, fetchSchedules])
+  // NOTE: viewUserIds はプリミティブ配列だが参照比較になる。
+  // setViewUserIds で新配列を渡すのはユーザー追加/削除/週変更などの意図的な操作のみなので問題ない。
 
   // 初回レンダリング後に 8:00 付近にスクロールする
   useEffect(() => {
@@ -198,8 +285,8 @@ export default function ScheduleWidget() {
   const weekDays = getWeekDays(weekStart)
 
   // 終日予定と時刻付き予定を分離して各日カラムに振り分ける
-  const allDayByDay: Record<string, ScheduleEntry[]> = {}
-  const timedByDay: Record<string, ScheduleEntry[]> = {}
+  const allDayByDay: Record<string, MultiUserScheduleEntry[]> = {}
+  const timedByDay: Record<string, MultiUserScheduleEntry[]> = {}
   const hasAllDay = schedules.some((s) => s.isAllDay)
 
   for (const s of schedules) {
@@ -211,22 +298,32 @@ export default function ScheduleWidget() {
     }
   }
 
-  // 各日カラムの予定に重複レイアウト情報を付与する
+  // 各日カラムの予定に重複レイアウト情報と色クラスを付与する
   const positionedByDay: Record<string, PositionedSchedule[]> = {}
   for (const day of weekDays) {
-    positionedByDay[day] = positionSchedules(timedByDay[day] ?? [])
+    positionedByDay[day] = positionSchedules(timedByDay[day] ?? [], userColorMap, isMultiUser)
   }
 
   async function handleAdd(input: ScheduleInput) {
     const added = await addScheduleAction(input)
-    setSchedules((prev) => [...prev, added])
+    const entry: MultiUserScheduleEntry = {
+      ...added,
+      viewUserId: loginUserId ?? 0,
+      viewUserName: loginUserName,
+    }
+    setSchedules((prev) => [...prev, entry])
     setShowAddForm(false)
   }
 
   async function handleUpdate(input: ScheduleInput) {
     if (!editingSchedule) return
     const updated = await updateScheduleAction(editingSchedule.scheduleId, input)
-    setSchedules((prev) => prev.map((s) => (s.scheduleId === updated.scheduleId ? updated : s)))
+    const entry: MultiUserScheduleEntry = {
+      ...updated,
+      viewUserId: editingSchedule.viewUserId,
+      viewUserName: editingSchedule.viewUserName,
+    }
+    setSchedules((prev) => prev.map((s) => (s.scheduleId === entry.scheduleId ? entry : s)))
     setEditingSchedule(null)
   }
 
@@ -240,6 +337,25 @@ export default function ScheduleWidget() {
   function handleCopy() {
     showToast('コピーして登録する機能は Phase C で実装予定です')
     setSelectedSchedule(null)
+  }
+
+  function handleUserPickerConfirm(ids: Set<number>, names?: Map<number, string>) {
+    if (ids.size > MAX_USERS) {
+      showToast(`最大${MAX_USERS}人まで選択できます`)
+      return
+    }
+    // ピッカーから受け取った氏名マップを knownUserNames にマージして保持する
+    if (names) {
+      setKnownUserNames((prev) => new Map([...prev, ...names]))
+    }
+    // ログインユーザーを先頭に固定して並び替える
+    const sorted = loginUserId !== null
+      ? [loginUserId, ...Array.from(ids).filter((id) => id !== loginUserId)]
+      : Array.from(ids)
+    // ピッカーで選択解除されたユーザーの予定をローカルから即時削除する
+    setSchedules((prev) => prev.filter((s) => ids.has(s.viewUserId)))
+    setViewUserIds(sorted)
+    setShowUserPicker(false)
   }
 
   return (
@@ -273,7 +389,7 @@ export default function ScheduleWidget() {
           </span>
         </div>
 
-        {/* 表示モード + 追加ボタン */}
+        {/* 表示モード + ユーザー追加 + 予定追加ボタン */}
         <div className="flex items-center gap-1">
           {/* ブロック・週ビューのみ有効（Phase D で日/月/一覧を実装予定） */}
           {(['ブロック', '日', '週', '月', '一覧'] as const).map((label) => (
@@ -289,14 +405,52 @@ export default function ScheduleWidget() {
             </span>
           ))}
           <button
+            onClick={() => setShowUserPicker(true)}
+            className="flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600 ml-1"
+            title="ユーザーを追加"
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">ユーザーを追加</span>
+          </button>
+          <button
             onClick={() => setShowAddForm(true)}
-            className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-white bg-brand rounded hover:bg-brand-dark ml-1"
+            className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-white bg-brand rounded hover:bg-brand-dark"
           >
             <Plus className="w-3.5 h-3.5" />
             予定追加
           </button>
         </div>
       </div>
+
+      {/* 選択ユーザーチップ（追加ユーザーがいる場合のみ表示） */}
+      {isMultiUser && (
+        <div className="flex flex-wrap gap-1 px-3 py-1.5 border-b border-gray-100 bg-gray-50">
+          {viewUserIds.map((uid, i) => {
+            const color = USER_COLORS[i % USER_COLORS.length]
+            const name = userNames.get(uid) ?? `ユーザー${uid}`
+            const isLogin = uid === loginUserId
+            return (
+              <span key={uid} className={`flex items-center gap-1 px-2 py-0.5 text-xs rounded-full font-medium ${color}`}>
+                {name}
+                {/* 自分自身のチップは削除ボタンを表示しない（常に表示） */}
+                {!isLogin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewUserIds((prev) => prev.filter((id) => id !== uid))
+                      setSchedules((prev) => prev.filter((s) => s.viewUserId !== uid))
+                    }}
+                    className="opacity-80 hover:opacity-100 ml-0.5"
+                    aria-label={`${name}を削除`}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </span>
+            )
+          })}
+        </div>
+      )}
 
       {/* カレンダー本体: overflow: auto で水平・垂直両方スクロール。
           h-[calc(100vh-160px)]: ヘッダー44px + ウィジェット見出し40px + ナビバー44px + 余白32px ≒ 160px を引いた固定高さ。
@@ -342,17 +496,22 @@ export default function ScheduleWidget() {
               </div>
               {weekDays.map((day, i) => (
                 <div key={i} className="flex-1 border-l border-gray-100 p-0.5 space-y-0.5">
-                  {(allDayByDay[day] ?? []).map((s) => (
-                    <button
-                      key={s.scheduleId}
-                      type="button"
-                      className="w-full text-left text-xs truncate rounded px-1 py-0.5 text-white bg-brand hover:opacity-90"
-                      onClick={() => setSelectedSchedule(s)}
-                      title={s.name}
-                    >
-                      {s.name}
-                    </button>
-                  ))}
+                  {(allDayByDay[day] ?? []).map((s) => {
+                    const color = isMultiUser
+                      ? (userColorMap.get(s.viewUserId) ?? USER_COLORS[0])
+                      : PUBLIC_FLAG_COLORS[s.publicFlag as 'O' | 'P' | 'C']
+                    return (
+                      <button
+                        key={`${s.scheduleId}-${s.viewUserId}`}
+                        type="button"
+                        className={`w-full text-left text-xs truncate rounded px-1 py-0.5 hover:opacity-90 ${color}`}
+                        onClick={() => setSelectedSchedule(s)}
+                        title={s.name}
+                      >
+                        {s.name}
+                      </button>
+                    )
+                  })}
                 </div>
               ))}
             </div>
@@ -387,7 +546,7 @@ export default function ScheduleWidget() {
                 {/* スケジュールブロック */}
                 {(positionedByDay[day] ?? []).map((ps) => (
                   <ScheduleBlock
-                    key={ps.scheduleId}
+                    key={`${ps.scheduleId}-${ps.viewUserId}`}
                     schedule={ps}
                     onClick={() => setSelectedSchedule(ps)}
                   />
@@ -404,6 +563,16 @@ export default function ScheduleWidget() {
 
       {/* トースト（繰り返し未実装の案内など） */}
       <Toast message={toast} />
+
+      {/* ユーザーピッカーモーダル（loginUserId が確定してから表示） */}
+      {showUserPicker && loginUserId !== null && (
+        <UserPickerModal
+          selectedIds={new Set(viewUserIds)}
+          lockedIds={new Set([loginUserId])}
+          onConfirm={handleUserPickerConfirm}
+          onClose={() => setShowUserPicker(false)}
+        />
+      )}
 
       {/* 予定追加モーダル */}
       {showAddForm && (

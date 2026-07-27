@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { parseJst, toJstStr, getWeekSchedules, getScheduleDetail, addSchedule, updateSchedule, deleteSchedule } from './schedule'
+import {
+  parseJst, toJstStr,
+  getWeekSchedules, getScheduleDetail, addSchedule, updateSchedule, deleteSchedule,
+  getWeekSchedulesMulti, getScheduleUsers, getGroupList, getGroupMembers, getScheduleParticipantIds,
+} from './schedule'
 
 // Kysely の流暢 API を模倣するモック。pages.test.ts と同構造。
 const mockDb = vi.hoisted(() => {
@@ -13,6 +17,7 @@ const mockDb = vi.hoisted(() => {
     where: vi.fn(),
     set: vi.fn(),
     values: vi.fn(),
+    orderBy: vi.fn(),
     execute: vi.fn(),
     executeTakeFirstOrThrow: vi.fn(),
   }
@@ -28,7 +33,7 @@ vi.mock('./logger', () => ({
 
 beforeEach(() => {
   vi.resetAllMocks()
-  for (const method of ['selectFrom', 'insertInto', 'updateTable', 'deleteFrom', 'innerJoin', 'select', 'where', 'set', 'values']) {
+  for (const method of ['selectFrom', 'insertInto', 'updateTable', 'deleteFrom', 'innerJoin', 'select', 'where', 'set', 'values', 'orderBy']) {
     mockDb[method].mockReturnValue(mockDb)
   }
 })
@@ -283,12 +288,49 @@ describe('addSchedule', () => {
     expect(mapValuesCall.status).toBe('O')
     expect(mapValuesCall.user_id).toBe(42)
   })
+
+  it('participantIds 指定時: 作成者=status="O"、追加参加者=status="T" で登録される', async () => {
+    // 作成者(42) + 参加者(99) の 2 人分:
+    // nextSeqId x3 (schedule + schedule_map x2), INSERT execute x3 (schedule + schedule_map x2)
+    mockDb.executeTakeFirstOrThrow
+      .mockResolvedValueOnce({ seq_id: 103 })  // pk_eip_t_schedule
+      .mockResolvedValueOnce({ seq_id: 203 })  // pk_eip_t_schedule_map (owner)
+      .mockResolvedValueOnce({ seq_id: 204 })  // pk_eip_t_schedule_map (participant)
+    mockDb.execute
+      .mockResolvedValueOnce([])  // INSERT eip_t_schedule
+      .mockResolvedValueOnce([])  // INSERT schedule_map (owner)
+      .mockResolvedValueOnce([])  // INSERT schedule_map (participant)
+
+    await addSchedule(42, {
+      name: '参加者あり',
+      startDate: new Date('2026-07-22T01:00:00Z'),
+      endDate: new Date('2026-07-22T02:00:00Z'),
+      isAllDay: false,
+      publicFlag: 'O',
+      participantIds: [99],
+    })
+
+    // owner レコード（2回目の insertInto 呼び出し）は status='O'
+    const ownerMapValues = mockDb.values.mock.calls[1][0]
+    expect(ownerMapValues.user_id).toBe(42)
+    expect(ownerMapValues.status).toBe('O')
+
+    // 参加者レコード（3回目の insertInto 呼び出し）は status='T'
+    const participantMapValues = mockDb.values.mock.calls[2][0]
+    expect(participantMapValues.user_id).toBe(99)
+    expect(participantMapValues.status).toBe('T')
+  })
 })
 
 // ===========================================================
 describe('updateSchedule', () => {
   it('owner_id = userId の条件で UPDATE する', async () => {
-    mockDb.execute.mockResolvedValueOnce([])
+    // updateSchedule は UPDATE → DELETE schedule_map → nextSeqId → INSERT schedule_map の順に呼ぶ
+    mockDb.executeTakeFirstOrThrow.mockResolvedValueOnce({ seq_id: 200 })  // nextSeqId (owner)
+    mockDb.execute
+      .mockResolvedValueOnce([])  // UPDATE eip_t_schedule
+      .mockResolvedValueOnce([])  // DELETE eip_t_schedule_map
+      .mockResolvedValueOnce([])  // INSERT eip_t_schedule_map (owner)
 
     await updateSchedule(1, 42, {
       name: '更新後タイトル',
@@ -305,7 +347,11 @@ describe('updateSchedule', () => {
   })
 
   it('SET に name, start_date, end_date, public_flag が含まれる', async () => {
-    mockDb.execute.mockResolvedValueOnce([])
+    mockDb.executeTakeFirstOrThrow.mockResolvedValueOnce({ seq_id: 200 })
+    mockDb.execute
+      .mockResolvedValueOnce([])  // UPDATE
+      .mockResolvedValueOnce([])  // DELETE schedule_map
+      .mockResolvedValueOnce([])  // INSERT schedule_map (owner)
 
     await updateSchedule(1, 42, {
       name: '変更タイトル',
@@ -321,6 +367,36 @@ describe('updateSchedule', () => {
     expect(setArg.place).toBe('新会議室')
     expect(setArg.public_flag).toBe('P')
     expect(setArg.start_date).toBe('2026-07-22 10:00:00') // 01:00 UTC = 10:00 JST
+  })
+
+  it('participantIds 指定時: 全削除→再登録。owner=status="O"、追加参加者=status="T"', async () => {
+    // UPDATE → DELETE → nextSeqId x2 (owner + participant) → INSERT x2
+    mockDb.executeTakeFirstOrThrow
+      .mockResolvedValueOnce({ seq_id: 200 })  // nextSeqId for owner
+      .mockResolvedValueOnce({ seq_id: 201 })  // nextSeqId for participant
+    mockDb.execute
+      .mockResolvedValueOnce([])  // UPDATE
+      .mockResolvedValueOnce([])  // DELETE schedule_map
+      .mockResolvedValueOnce([])  // INSERT schedule_map (owner)
+      .mockResolvedValueOnce([])  // INSERT schedule_map (participant)
+
+    await updateSchedule(1, 42, {
+      name: '更新',
+      startDate: new Date('2026-07-22T01:00:00Z'),
+      endDate: new Date('2026-07-22T02:00:00Z'),
+      isAllDay: false,
+      publicFlag: 'O',
+      participantIds: [99],
+    })
+
+    // schedule_map を削除してから再登録することを確認
+    expect(mockDb.deleteFrom).toHaveBeenCalledWith('eip_t_schedule_map')
+    const ownerMap = mockDb.values.mock.calls[0][0]
+    expect(ownerMap.user_id).toBe(42)
+    expect(ownerMap.status).toBe('O')
+    const participantMap = mockDb.values.mock.calls[1][0]
+    expect(participantMap.user_id).toBe(99)
+    expect(participantMap.status).toBe('T')
   })
 })
 
@@ -353,5 +429,201 @@ describe('deleteSchedule', () => {
     // deleteFrom('eip_t_schedule_map') 直後の where は schedule_id だけ
     const firstDeleteFromCall = mockDb.deleteFrom.mock.calls[0][0]
     expect(firstDeleteFromCall).toBe('eip_t_schedule_map')
+  })
+})
+
+// ===========================================================
+// Phase B テスト
+// ===========================================================
+
+describe('getWeekSchedulesMulti', () => {
+  it('ユーザー ID リストが空の場合は DB を叩かずに空配列を返す', async () => {
+    const result = await getWeekSchedulesMulti(42, [], new Date(), new Date())
+    expect(result).toEqual([])
+    expect(mockDb.selectFrom).not.toHaveBeenCalled()
+  })
+
+  it('loginUserId と同じユーザーの public_flag="P" 予定はマスキングしない', async () => {
+    mockDb.execute.mockResolvedValueOnce([
+      {
+        schedule_id: 1,
+        name: '自分の非公開予定',
+        note: '非公開メモ',
+        place: '非公開の場所',
+        start_date_text: '2026-07-22 10:00:00',
+        end_date_text: '2026-07-22 11:00:00',
+        public_flag: 'P',
+        repeat_pattern: 'N',
+        parent_id: 0,
+        owner_id: 42,
+        view_user_id: 42,
+        view_user_name: '田中 太郎',
+      },
+    ])
+
+    const from = new Date('2026-07-21T15:00:00Z')
+    const to = new Date('2026-07-28T15:00:00Z')
+    const result = await getWeekSchedulesMulti(42, [42], from, to)
+
+    expect(result).toHaveLength(1)
+    // 自分の予定は public_flag='P' でもマスキングしない（AIPO 準拠）
+    expect(result[0].name).toBe('自分の非公開予定')
+    expect(result[0].note).toBe('非公開メモ')
+    expect(result[0].place).toBe('非公開の場所')
+    expect(result[0].viewUserId).toBe(42)
+    expect(result[0].isOwner).toBe(true)
+  })
+
+  it('他ユーザーの public_flag="P" 予定はタイトル・メモ・場所を "非公開" にマスキングする', async () => {
+    mockDb.execute.mockResolvedValueOnce([
+      {
+        schedule_id: 2,
+        name: '秘密の予定',
+        note: '秘密のメモ',
+        place: '秘密の場所',
+        start_date_text: '2026-07-22 14:00:00',
+        end_date_text: '2026-07-22 15:00:00',
+        public_flag: 'P',
+        repeat_pattern: 'N',
+        parent_id: 0,
+        owner_id: 99,
+        view_user_id: 99,
+        view_user_name: '山田 花子',
+      },
+    ])
+
+    const from = new Date('2026-07-21T15:00:00Z')
+    const to = new Date('2026-07-28T15:00:00Z')
+    const result = await getWeekSchedulesMulti(42, [42, 99], from, to)
+
+    expect(result[0].name).toBe('非公開')
+    expect(result[0].note).toBeNull()
+    expect(result[0].place).toBeNull()
+    expect(result[0].viewUserId).toBe(99)
+    expect(result[0].viewUserName).toBe('山田 花子')
+  })
+
+  it('フィールドを MultiUserScheduleEntry 型に正しくマッピングする', async () => {
+    mockDb.execute.mockResolvedValueOnce([
+      {
+        schedule_id: 3,
+        name: 'チーム定例',
+        note: 'アジェンダ',
+        place: '大会議室',
+        start_date_text: '2026-07-22 09:00:00',
+        end_date_text: '2026-07-22 10:00:00',
+        public_flag: 'O',
+        repeat_pattern: 'N',
+        parent_id: 0,
+        owner_id: 42,
+        view_user_id: 42,
+        view_user_name: '田中 太郎',
+      },
+    ])
+
+    const from = new Date('2026-07-21T15:00:00Z')
+    const to = new Date('2026-07-28T15:00:00Z')
+    const result = await getWeekSchedulesMulti(42, [42], from, to)
+
+    expect(result[0].scheduleId).toBe(3)
+    expect(result[0].viewUserName).toBe('田中 太郎')
+    expect(result[0].isAllDay).toBe(false)
+    expect(result[0].startDate.toISOString()).toBe('2026-07-22T00:00:00.000Z')  // 09:00 JST = 00:00 UTC
+  })
+})
+
+// ===========================================================
+describe('getScheduleUsers', () => {
+  it('ユーザー一覧を ScheduleUser 型に変換して返す', async () => {
+    mockDb.execute.mockResolvedValueOnce([
+      { user_id: 10, full_name: '田中 太郎', full_name_kana: 'タナカ タロウ' },
+      { user_id: 20, full_name: '山田 花子', full_name_kana: 'ヤマダ ハナコ' },
+    ])
+
+    const result = await getScheduleUsers()
+
+    expect(result).toHaveLength(2)
+    expect(result[0]).toEqual({ userId: 10, fullName: '田中 太郎' })
+    expect(result[1]).toEqual({ userId: 20, fullName: '山田 花子' })
+  })
+
+  it('disabled="T" 除外とシステムアカウント（user_id=1,3）除外の条件を設定する', async () => {
+    mockDb.execute.mockResolvedValueOnce([])
+
+    await getScheduleUsers()
+
+    expect(mockDb.where).toHaveBeenCalledWith('disabled', '!=', 'T')
+    expect(mockDb.where).toHaveBeenCalledWith('user_id', 'not in', [1, 3])
+  })
+})
+
+// ===========================================================
+describe('getGroupList', () => {
+  it('グループ一覧を ScheduleGroup 型に変換して返す', async () => {
+    mockDb.execute.mockResolvedValueOnce([
+      { group_id: 10, group_alias_name: '営業部' },
+      { group_id: 20, group_alias_name: '開発部' },
+    ])
+
+    const result = await getGroupList()
+
+    expect(result).toHaveLength(2)
+    expect(result[0]).toEqual({ groupId: 10, groupName: '営業部' })
+    expect(result[1]).toEqual({ groupId: 20, groupName: '開発部' })
+  })
+
+  it('システムグループ（group_id=1,2,3）を除外する条件を設定する', async () => {
+    mockDb.execute.mockResolvedValueOnce([])
+
+    await getGroupList()
+
+    expect(mockDb.where).toHaveBeenCalledWith('group_id', 'not in', [1, 2, 3])
+  })
+})
+
+// ===========================================================
+describe('getGroupMembers', () => {
+  it('グループメンバーを ScheduleUser 型に変換して返す', async () => {
+    mockDb.execute.mockResolvedValueOnce([
+      { user_id: 10, full_name: '田中 太郎', full_name_kana: 'タナカ タロウ' },
+    ])
+
+    const result = await getGroupMembers(5)
+
+    expect(result).toHaveLength(1)
+    expect(result[0]).toEqual({ userId: 10, fullName: '田中 太郎' })
+    // groupId の絞り込み条件が設定されているか
+    expect(mockDb.where).toHaveBeenCalledWith('ugr.group_id', '=', 5)
+  })
+
+  it('メンバーがいない場合は空配列を返す', async () => {
+    mockDb.execute.mockResolvedValueOnce([])
+
+    const result = await getGroupMembers(99)
+
+    expect(result).toEqual([])
+  })
+})
+
+// ===========================================================
+describe('getScheduleParticipantIds', () => {
+  it('スケジュールの参加者 ID リストを返す', async () => {
+    mockDb.execute.mockResolvedValueOnce([
+      { user_id: 42 },
+      { user_id: 99 },
+    ])
+
+    const result = await getScheduleParticipantIds(1)
+
+    expect(result).toEqual([42, 99])
+    expect(mockDb.where).toHaveBeenCalledWith('schedule_id', '=', 1)
+  })
+
+  it('参加者がいない場合は空配列を返す', async () => {
+    mockDb.execute.mockResolvedValueOnce([])
+
+    const result = await getScheduleParticipantIds(1)
+
+    expect(result).toEqual([])
   })
 })

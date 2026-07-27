@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { X, RefreshCw } from 'lucide-react'
-import type { ScheduleEntry, ScheduleInput } from '@/lib/schedule.types'
+import { useState, useEffect, useTransition } from 'react'
+import { X, RefreshCw, Users } from 'lucide-react'
+import type { ScheduleEntry, ScheduleInput, ScheduleUser } from '@/lib/schedule.types'
 import { toJstDateStr, toJstTimeStr } from '@/lib/jst'
+import { getScheduleParticipantIdsAction, getScheduleUsersAction } from '../../actions'
+import UserPickerModal from './UserPickerModal'
 
 type Props = {
   /** 編集時に渡す。null なら新規追加モード。 */
@@ -33,6 +35,26 @@ export default function ScheduleFormModal({ schedule, onClose, onSave, onShowRep
   const [publicFlag, setPublicFlag] = useState<'O' | 'P' | 'C'>(schedule?.publicFlag ?? 'O')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isPending, startTransition] = useTransition()
+
+  // 参加ユーザー選択（Phase B）
+  // participantIds: 選択中の参加者 ID セット（作成者自身も含む）
+  const [participantIds, setParticipantIds] = useState<Set<number>>(new Set())
+  const [allUsers, setAllUsers] = useState<ScheduleUser[]>([])
+  const [showUserPicker, setShowUserPicker] = useState(false)
+
+  // 全ユーザーリストとの突合で参加者名を表示するためのマップ
+  const userNameMap = new Map(allUsers.map((u) => [u.userId, u.fullName]))
+
+  // 編集時: 既存参加者を初期ロードする
+  useEffect(() => {
+    getScheduleUsersAction().then(setAllUsers).catch(() => {})
+    if (isEdit && schedule) {
+      getScheduleParticipantIdsAction(schedule.scheduleId)
+        .then((ids) => setParticipantIds(new Set(ids)))
+        .catch(() => {})
+    }
+  }, [isEdit, schedule?.scheduleId])
+  // NOTE: schedule.scheduleId を deps に含める（schedule オブジェクト自体は毎回新規参照になる可能性がある）
 
   function validate(): boolean {
     const errs: Record<string, string> = {}
@@ -71,6 +93,8 @@ export default function ScheduleFormModal({ schedule, onClose, onSave, onShowRep
       endDate,
       isAllDay,
       publicFlag,
+      // participantIds が空の場合は undefined（addSchedule 側で作成者のみ登録される）
+      participantIds: participantIds.size > 0 ? Array.from(participantIds) : undefined,
     }
 
     startTransition(async () => {
@@ -202,6 +226,37 @@ export default function ScheduleFormModal({ schedule, onClose, onSave, onShowRep
             繰り返しなし
           </button>
 
+          {/* 参加ユーザー選択 */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">参加ユーザー</label>
+            <button
+              type="button"
+              onClick={() => setShowUserPicker(true)}
+              className="flex items-center gap-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg px-3 py-2 hover:bg-gray-50 w-full"
+            >
+              <Users className="w-3.5 h-3.5" />
+              参加ユーザーを選択
+            </button>
+            {/* 選択済み参加者の表示（作成者以外） */}
+            {participantIds.size > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {Array.from(participantIds).map((uid) => (
+                  <span key={uid} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded-full">
+                    {userNameMap.get(uid) ?? `ユーザー${uid}`}
+                    <button
+                      type="button"
+                      onClick={() => setParticipantIds((prev) => { const n = new Set(prev); n.delete(uid); return n })}
+                      className="opacity-60 hover:opacity-100"
+                      aria-label={`${userNameMap.get(uid) ?? uid} を削除`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* 場所 */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">場所</label>
@@ -263,6 +318,18 @@ export default function ScheduleFormModal({ schedule, onClose, onSave, onShowRep
           </button>
         </div>
       </div>
+
+      {/* 参加ユーザーピッカーモーダル（フォーム用: 自分自身も選択解除可能） */}
+      {showUserPicker && (
+        <UserPickerModal
+          selectedIds={participantIds}
+          onConfirm={(ids) => {
+            setParticipantIds(ids)
+            setShowUserPicker(false)
+          }}
+          onClose={() => setShowUserPicker(false)}
+        />
+      )}
     </div>
   )
 }

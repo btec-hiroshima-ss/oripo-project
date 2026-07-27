@@ -18,8 +18,27 @@ import { getUserList, getUserDetail } from '@/lib/user-list'
 import type { UserListUser, UserListDetail } from '@/lib/user-list.types'
 import { getActivityList } from '@/lib/activity'
 import type { ActivityEntry } from '@/lib/activity.types'
-import { getWeekSchedules, getScheduleDetail, addSchedule, updateSchedule, deleteSchedule } from '@/lib/schedule'
-import type { ScheduleEntry, ScheduleDetail, ScheduleInput } from '@/lib/schedule.types'
+import {
+  getWeekSchedules,
+  getScheduleDetail,
+  addSchedule,
+  updateSchedule,
+  deleteSchedule,
+  getWeekSchedulesMulti,
+  getScheduleUsers,
+  getGroupList,
+  getGroupMembers,
+  getScheduleParticipantIds,
+  getLoginUserName,
+} from '@/lib/schedule'
+import type {
+  ScheduleEntry,
+  ScheduleDetail,
+  ScheduleInput,
+  ScheduleUser,
+  ScheduleGroup,
+  MultiUserScheduleEntry,
+} from '@/lib/schedule.types'
 import { fetchHolidays } from '@/lib/holidays'
 
 export async function addPageAction(pageName: string) {
@@ -138,4 +157,50 @@ export async function deleteScheduleAction(scheduleId: number): Promise<void> {
 export async function getHolidaysAction(): Promise<Record<string, string>> {
   await requireAuth()
   return fetchHolidays()
+}
+
+// Phase B: マルチユーザービュー・ユーザーピッカー用アクション
+
+// ログインユーザーの userId と氏名を返す（Client Component からマルチユーザービューの初期化に使用）
+// fullName はチップ表示に使う。スケジュールが0件の週でも正しく表示するために氏名を別途取得する。
+export async function getLoginUserIdAction(): Promise<{ userId: number; fullName: string }> {
+  const { userId } = await requireAuth()
+  const fullName = await getLoginUserName(userId)
+  return { userId, fullName }
+}
+
+// 複数ユーザーの週スケジュールを一括取得する（ユーザー選択ビュー用）。
+// 他ユーザーの public_flag='C' は除外し、'P' は "非公開" にマスキングする。
+export async function getWeekSchedulesMultiAction(
+  userIds: number[],
+  weekStart: string
+): Promise<MultiUserScheduleEntry[]> {
+  const { userId } = await requireAuth()
+  const from = new Date(weekStart + 'T00:00:00+09:00')
+  const to = new Date(from.getTime() + 7 * 24 * 60 * 60 * 1000)
+  return getWeekSchedulesMulti(userId, userIds, from, to)
+}
+
+// ユーザーピッカー用アクティブユーザー一覧（氏名カナ昇順）
+export async function getScheduleUsersAction(): Promise<ScheduleUser[]> {
+  await requireAuth()
+  return getScheduleUsers()
+}
+
+// ユーザーピッカー用グループ一覧（システムグループ除外）
+export async function getGroupListAction(): Promise<ScheduleGroup[]> {
+  await requireAuth()
+  return getGroupList()
+}
+
+// グループメンバー一覧（ピッカーのグループ展開時に取得）
+export async function getGroupMembersAction(groupId: number): Promise<ScheduleUser[]> {
+  await requireAuth()
+  return getGroupMembers(groupId)
+}
+
+// 編集フォーム初期値用: スケジュールの現在の参加者 ID リストを取得する
+export async function getScheduleParticipantIdsAction(scheduleId: number): Promise<number[]> {
+  await requireAuth()
+  return getScheduleParticipantIds(scheduleId)
 }
