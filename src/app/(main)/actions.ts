@@ -12,6 +12,8 @@ import {
   reorderPages,
   getWidgetSettings,
   saveWidgetSettings,
+  getMobileWidgetSettings,
+  saveMobileWidgetSettings,
   type PageLayout,
   type WidgetType,
 } from '@/lib/pages'
@@ -221,4 +223,21 @@ export async function saveWidgetSettingsAction(
 ): Promise<void> {
   await requireAuth()
   await saveWidgetSettings(widgetId, settings)
+}
+
+// モバイル表示用ウィジェット設定の読み書き。
+// oripo_mobile_widget_settings テーブルに user_id + widget_type をキーとして保存する。
+export async function getMobileWidgetSettingsAction(
+  widgetType: string
+): Promise<Record<string, unknown> | null> {
+  const { userId } = await requireAuth()
+  return getMobileWidgetSettings(userId, widgetType)
+}
+
+export async function saveMobileWidgetSettingsAction(
+  widgetType: string,
+  settings: Record<string, unknown>
+): Promise<void> {
+  const { userId } = await requireAuth()
+  await saveMobileWidgetSettings(userId, widgetType, settings)
 }

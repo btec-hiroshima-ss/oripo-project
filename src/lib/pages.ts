@@ -109,6 +109,44 @@ export async function saveWidgetSettings(
     .execute()
 }
 
+// モバイル表示用ウィジェット設定（oripo_mobile_widget_settings）。
+// oripo_page_widgets はPC版のページ構成に紐づくため、PC側の設定と独立したテーブルで管理する。
+export async function getMobileWidgetSettings(
+  userId: number,
+  widgetType: string
+): Promise<Record<string, unknown> | null> {
+  const row = await db
+    .selectFrom('oripo_mobile_widget_settings')
+    .select('settings')
+    .where('user_id', '=', userId)
+    .where('widget_type', '=', widgetType)
+    .executeTakeFirst()
+  return (row?.settings as Record<string, unknown> | null) ?? null
+}
+
+export async function saveMobileWidgetSettings(
+  userId: number,
+  widgetType: string,
+  settings: Record<string, unknown>
+): Promise<void> {
+  // UPSERT: 行がなければ INSERT、あれば settings と updated_at を UPDATE
+  await db
+    .insertInto('oripo_mobile_widget_settings')
+    .values({
+      user_id: userId,
+      widget_type: widgetType,
+      settings: sql`${JSON.stringify(settings)}::jsonb`,
+      updated_at: new Date(),
+    })
+    .onConflict((oc) =>
+      oc.columns(['user_id', 'widget_type']).doUpdateSet({
+        settings: sql`${JSON.stringify(settings)}::jsonb`,
+        updated_at: new Date(),
+      })
+    )
+    .execute()
+}
+
 export async function createPage(userId: number, pageName: string): Promise<Page> {
   const existing = await getUserPages(userId)
   const maxOrder = existing.reduce((m, p) => Math.max(m, p.sortOrder), -1)
