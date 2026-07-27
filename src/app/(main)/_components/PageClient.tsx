@@ -30,9 +30,9 @@ type Props = {
 function MobileWidgetView({ widgetType, widgets }: { widgetType: WidgetType; widgets: PageWidget[] }) {
   if (widgetType === 'Schedule') {
     const w = widgets.find((w) => w.widgetType === 'Schedule')
-    // ページに Schedule ウィジェットがない場合（ユーザーが削除した等）は非表示
-    if (!w) return null
-    return <ScheduleWidget widgetId={w.widgetId} />
+    // widgetId が取れない場合（PC 版でウィジェット削除済み等）でも表示する。
+    // 選択ユーザーの DB 永続化はできないが、モバイルでスケジュールが見えなくなるのを防ぐ。
+    return <ScheduleWidget widgetId={w?.widgetId} />
   }
   if (widgetType === 'Whatsnew') return <ActivityWidget />
   if (widgetType === 'UserList') return <UserListWidget />

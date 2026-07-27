@@ -171,7 +171,9 @@ type ScheduleWidgetSettings = {
   viewUserNames: Record<string, string>
 }
 
-export default function ScheduleWidget({ widgetId }: { widgetId: number }) {
+// widgetId は省略可能。モバイルでページに Schedule ウィジェットが存在しない場合でも
+// 表示できるようにするため optional にする。undefined の場合は DB 設定の読み書きをスキップする。
+export default function ScheduleWidget({ widgetId }: { widgetId?: number }) {
   const [weekStart, setWeekStart] = useState<string>(() => getMonday(new Date()))
   const [schedules, setSchedules] = useState<MultiUserScheduleEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -223,11 +225,14 @@ export default function ScheduleWidget({ widgetId }: { widgetId: number }) {
 
   // マウント時にログインユーザー情報と DB 保存済みの選択ユーザーを並行取得して初期化する。
   // AIPO の PSML p6a-uids 相当: ウィジェットインスタンスごとに DB に永続化されている。
+  // widgetId が undefined の場合（モバイルでページに Schedule ウィジェットがない等）は
+  // 設定を読まずに自分のみで初期化する。
   useEffect(() => {
-    Promise.all([
-      getLoginUserIdAction(),
-      getWidgetSettingsAction(widgetId),
-    ])
+    const settingsPromise = widgetId !== undefined
+      ? getWidgetSettingsAction(widgetId)
+      : Promise.resolve(null)
+
+    Promise.all([getLoginUserIdAction(), settingsPromise])
       .then(([{ userId, fullName }, settings]) => {
         setLoginUserId(userId)
         setLoginUserName(fullName)
@@ -354,9 +359,11 @@ export default function ScheduleWidget({ widgetId }: { widgetId: number }) {
     setViewUserIds(sorted)
     setShowUserPicker(false)
 
-    // 選択ユーザーを DB に保存する（ウィジェットインスタンスごとに永続化）
+    // 選択ユーザーを DB に保存する（widgetId がある場合のみ）
     const viewUserNames = Object.fromEntries(mergedNames)
-    saveWidgetSettingsAction(widgetId, { viewUserIds: sorted, viewUserNames }).catch(() => {})
+    if (widgetId !== undefined) {
+      saveWidgetSettingsAction(widgetId, { viewUserIds: sorted, viewUserNames }).catch(() => {})
+    }
   }
 
   return (
@@ -441,9 +448,11 @@ export default function ScheduleWidget({ widgetId }: { widgetId: number }) {
                       const newIds = viewUserIds.filter((id) => id !== uid)
                       setViewUserIds(newIds)
                       setSchedules((prev) => prev.filter((s) => s.viewUserId !== uid))
-                      // チップ削除後の選択状態を DB に保存する
-                      const viewUserNames = Object.fromEntries(knownUserNames)
-                      saveWidgetSettingsAction(widgetId, { viewUserIds: newIds, viewUserNames }).catch(() => {})
+                      // チップ削除後の選択状態を DB に保存する（widgetId がある場合のみ）
+                      if (widgetId !== undefined) {
+                        const viewUserNames = Object.fromEntries(knownUserNames)
+                        saveWidgetSettingsAction(widgetId, { viewUserIds: newIds, viewUserNames }).catch(() => {})
+                      }
                     }}
                     className="opacity-80 hover:opacity-100 ml-0.5"
                     aria-label={`${name}を削除`}
