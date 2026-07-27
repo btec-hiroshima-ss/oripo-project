@@ -27,12 +27,11 @@ type Props = {
 
 // モバイル（lg未満）: ドロワーで選択したウィジェットを1つフル画面表示
 // ウィジェットヘッダー・削除ボタンは不要なため WidgetWrapper を使わずに直接描画する
-function MobileWidgetView({ widgetType, widgets }: { widgetType: WidgetType; widgets: PageWidget[] }) {
+function MobileWidgetView({ widgetType }: { widgetType: WidgetType }) {
   if (widgetType === 'Schedule') {
-    const w = widgets.find((w) => w.widgetType === 'Schedule')
-    // widgetId が取れない場合（PC 版でウィジェット削除済み等）でも表示する。
-    // 選択ユーザーの DB 永続化はできないが、モバイルでスケジュールが見えなくなるのを防ぐ。
-    return <ScheduleWidget widgetId={w?.widgetId} />
+    // isMobileView=true でモバイル専用テーブル（oripo_mobile_widget_settings）を使用する。
+    // PC版のページ構成（oripo_page_widgets）と独立しているため widgetId 不要。
+    return <ScheduleWidget isMobileView />
   }
   if (widgetType === 'Whatsnew') return <ActivityWidget />
   if (widgetType === 'UserList') return <UserListWidget />
@@ -103,7 +102,7 @@ export default function PageClient({ loginName, userId, fullName, department, in
       ) : isMobile ? (
         // モバイル: ドロワーで選択したウィジェットのみフル画面表示（モックアップ①③準拠）
         <div className="flex-1">
-          <MobileWidgetView widgetType={activeMobileWidget} widgets={widgets} />
+          <MobileWidgetView widgetType={activeMobileWidget} />
         </div>
       ) : (
         // デスクトップ: マルチカラムレイアウト＋ D&D

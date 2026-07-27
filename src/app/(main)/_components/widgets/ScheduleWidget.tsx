@@ -11,6 +11,8 @@ import {
   getHolidaysAction,
   getWidgetSettingsAction,
   saveWidgetSettingsAction,
+  getMobileWidgetSettingsAction,
+  saveMobileWidgetSettingsAction,
 } from '../../actions'
 import type { ScheduleInput, MultiUserScheduleEntry } from '@/lib/schedule.types'
 import { MAX_USERS, HOUR_PX, MIN_BLOCK_PX, DOW_JA, USER_COLORS } from '@/lib/schedule.constants'
@@ -171,9 +173,10 @@ type ScheduleWidgetSettings = {
   viewUserNames: Record<string, string>
 }
 
-// widgetId は省略可能。モバイルでページに Schedule ウィジェットが存在しない場合でも
-// 表示できるようにするため optional にする。undefined の場合は DB 設定の読み書きをスキップする。
-export default function ScheduleWidget({ widgetId }: { widgetId?: number }) {
+// isMobileView=true の場合はモバイル専用テーブル（oripo_mobile_widget_settings）を使う。
+// PC版のページ構成（oripo_page_widgets）と独立しているため、PCからウィジェットを削除しても
+// モバイルでの選択ユーザー設定が失われない。
+export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: number; isMobileView?: boolean }) {
   const [weekStart, setWeekStart] = useState<string>(() => getMonday(new Date()))
   const [schedules, setSchedules] = useState<MultiUserScheduleEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -225,12 +228,13 @@ export default function ScheduleWidget({ widgetId }: { widgetId?: number }) {
 
   // マウント時にログインユーザー情報と DB 保存済みの選択ユーザーを並行取得して初期化する。
   // AIPO の PSML p6a-uids 相当: ウィジェットインスタンスごとに DB に永続化されている。
-  // widgetId が undefined の場合（モバイルでページに Schedule ウィジェットがない等）は
-  // 設定を読まずに自分のみで初期化する。
+  // isMobileView=true の場合は oripo_mobile_widget_settings を参照する（PC設定と独立）。
   useEffect(() => {
-    const settingsPromise = widgetId !== undefined
-      ? getWidgetSettingsAction(widgetId)
-      : Promise.resolve(null)
+    const settingsPromise = isMobileView
+      ? getMobileWidgetSettingsAction('Schedule')
+      : widgetId !== undefined
+        ? getWidgetSettingsAction(widgetId)
+        : Promise.resolve(null)
 
     Promise.all([getLoginUserIdAction(), settingsPromise])
       .then(([{ userId, fullName }, settings]) => {
@@ -256,7 +260,9 @@ export default function ScheduleWidget({ widgetId }: { widgetId?: number }) {
         }
       })
       .catch(() => {})
-  }, [widgetId])
+  // isMobileView/widgetId が変わった場合（例: デスクトップ←→モバイル切り替え）に再取得する
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobileView, widgetId])
 
   // viewUserIds または weekStart が変わったときにスケジュールを再取得する
   useEffect(() => {
@@ -359,9 +365,11 @@ export default function ScheduleWidget({ widgetId }: { widgetId?: number }) {
     setViewUserIds(sorted)
     setShowUserPicker(false)
 
-    // 選択ユーザーを DB に保存する（widgetId がある場合のみ）
+    // 選択ユーザーを DB に保存する（モバイルとデスクトップで保存先を切り替える）
     const viewUserNames = Object.fromEntries(mergedNames)
-    if (widgetId !== undefined) {
+    if (isMobileView) {
+      saveMobileWidgetSettingsAction('Schedule', { viewUserIds: sorted, viewUserNames }).catch(() => {})
+    } else if (widgetId !== undefined) {
       saveWidgetSettingsAction(widgetId, { viewUserIds: sorted, viewUserNames }).catch(() => {})
     }
   }
@@ -448,9 +456,11 @@ export default function ScheduleWidget({ widgetId }: { widgetId?: number }) {
                       const newIds = viewUserIds.filter((id) => id !== uid)
                       setViewUserIds(newIds)
                       setSchedules((prev) => prev.filter((s) => s.viewUserId !== uid))
-                      // チップ削除後の選択状態を DB に保存する（widgetId がある場合のみ）
-                      if (widgetId !== undefined) {
-                        const viewUserNames = Object.fromEntries(knownUserNames)
+                      // チップ削除後の選択状態を DB に保存する
+                      const viewUserNames = Object.fromEntries(knownUserNames)
+                      if (isMobileView) {
+                        saveMobileWidgetSettingsAction('Schedule', { viewUserIds: newIds, viewUserNames }).catch(() => {})
+                      } else if (widgetId !== undefined) {
                         saveWidgetSettingsAction(widgetId, { viewUserIds: newIds, viewUserNames }).catch(() => {})
                       }
                     }}

@@ -181,6 +181,22 @@ CREATE TABLE oripo_page_widgets (
 );
 ```
 
+### `oripo_mobile_widget_settings`（新規）
+
+モバイル表示時のウィジェット設定を保存するテーブル。
+`oripo_page_widgets` はPCのページ構成に紐づくため、PCからウィジェットを削除しても
+モバイルの設定（選択ユーザー等）が消えないよう専用テーブルを用意する。
+
+```sql
+CREATE TABLE oripo_mobile_widget_settings (
+  user_id     INTEGER NOT NULL REFERENCES turbine_user(user_id) ON DELETE CASCADE,
+  widget_type TEXT NOT NULL,
+  settings    JSONB NOT NULL DEFAULT '{}',
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, widget_type)
+);
+```
+
 ---
 
 ## ファイル構成
@@ -249,3 +265,6 @@ src/
 - [ ] モバイルでスケジュールがデフォルト表示される
 - [ ] モバイルのドロワーメニューからウィジェットを切り替えられる
 - [ ] モバイルでD&Dが無効になっている
+- [ ] PC版のページにスケジュールウィジェットがなくてもモバイルでスケジュールが表示される
+- [ ] モバイルのスケジュールウィジェットで選択したユーザーがリロード後も保持される
+- [ ] モバイルのスケジュール設定（表示ユーザー）はPC版のウィジェット設定と独立している（PCからスケジュールを削除してもモバイルの設定が消えない）

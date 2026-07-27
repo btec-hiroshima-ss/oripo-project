@@ -9,6 +9,8 @@ import {
   reorderPages,
   getWidgetSettings,
   saveWidgetSettings,
+  getMobileWidgetSettings,
+  saveMobileWidgetSettings,
 } from './pages'
 
 // Kysely の流暢 API（メソッドチェーン）を模倣するモック。
@@ -25,6 +27,9 @@ const mockDb = vi.hoisted(() => {
     values: vi.fn(),
     returning: vi.fn(),
     set: vi.fn(),
+    onConflict: vi.fn(),
+    columns: vi.fn(),
+    doUpdateSet: vi.fn(),
     execute: vi.fn(),
     executeTakeFirst: vi.fn(),
     executeTakeFirstOrThrow: vi.fn(),
@@ -41,6 +46,7 @@ beforeEach(() => {
   for (const method of [
     'selectFrom', 'insertInto', 'updateTable', 'deleteFrom',
     'select', 'where', 'orderBy', 'values', 'returning', 'set',
+    'onConflict', 'columns', 'doUpdateSet',
   ]) {
     mockDb[method].mockReturnValue(mockDb)
   }
@@ -275,5 +281,47 @@ describe('reorderPages', () => {
     expect(setCalls[0][0]).toMatchObject({ sort_order: 0 })
     expect(setCalls[1][0]).toMatchObject({ sort_order: 1 })
     expect(setCalls[2][0]).toMatchObject({ sort_order: 2 })
+  })
+})
+
+// ============================================================
+describe('getMobileWidgetSettings', () => {
+  it('設定が存在する場合、パースしたオブジェクトを返す', async () => {
+    const stored = { viewUserIds: [1, 2], viewUserNames: { '1': '田中', '2': '鈴木' } }
+    mockDb.executeTakeFirst.mockResolvedValueOnce({ settings: stored })
+
+    const result = await getMobileWidgetSettings(5, 'Schedule')
+
+    expect(result).toEqual(stored)
+    expect(mockDb.selectFrom).toHaveBeenCalledWith('oripo_mobile_widget_settings')
+    expect(mockDb.where).toHaveBeenCalledWith('user_id', '=', 5)
+    expect(mockDb.where).toHaveBeenCalledWith('widget_type', '=', 'Schedule')
+  })
+
+  it('設定がない場合、null を返す', async () => {
+    mockDb.executeTakeFirst.mockResolvedValueOnce(undefined)
+
+    const result = await getMobileWidgetSettings(5, 'Schedule')
+
+    expect(result).toBeNull()
+  })
+})
+
+// ============================================================
+describe('saveMobileWidgetSettings', () => {
+  it('user_id + widget_type をキーとして UPSERT する', async () => {
+    mockDb.execute.mockResolvedValueOnce([])
+    const settings = { viewUserIds: [1, 3], viewUserNames: { '1': '田中', '3': '佐藤' } }
+
+    await saveMobileWidgetSettings(5, 'Schedule', settings)
+
+    expect(mockDb.insertInto).toHaveBeenCalledWith('oripo_mobile_widget_settings')
+    expect(mockDb.values).toHaveBeenCalled()
+    const valuesArg = mockDb.values.mock.calls[0][0]
+    expect(valuesArg.user_id).toBe(5)
+    expect(valuesArg.widget_type).toBe('Schedule')
+    expect(valuesArg.updated_at).toBeInstanceOf(Date)
+    // ON CONFLICT による UPSERT が呼ばれることを確認
+    expect(mockDb.onConflict).toHaveBeenCalled()
   })
 })
