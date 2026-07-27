@@ -66,21 +66,6 @@ export async function getUserList(): Promise<UserListUser[]> {
   )
 }
 
-// ログインユーザーの主所属部署名を1件取得する（ヘッダー表示用）。
-// 複数部署がある場合は post_id が最小（= 最初に登録）のものを返す。
-export async function getUserDepartment(userId: number): Promise<string | null> {
-  const row = await db
-    .selectFrom('turbine_user_group_role')
-    .innerJoin('turbine_group', 'turbine_group.group_id', 'turbine_user_group_role.group_id')
-    .innerJoin('eip_m_post', 'eip_m_post.group_name', 'turbine_group.group_name')
-    .select('eip_m_post.post_name')
-    .where('turbine_user_group_role.user_id', '=', userId)
-    .orderBy('eip_m_post.post_id', 'asc')
-    .limit(1)
-    .executeTakeFirst()
-  return row?.post_name ?? null
-}
-
 // ユーザー詳細を取得する。
 // 要件定義書 2.5 準拠: 氏名・カナ・部署・携帯電話番号のみ。役職・メール・外線・内線は Oripo 管理対象外。
 export async function getUserDetail(userId: number): Promise<UserListDetail | null> {

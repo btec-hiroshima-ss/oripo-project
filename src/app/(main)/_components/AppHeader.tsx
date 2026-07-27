@@ -10,7 +10,6 @@ import InitialAvatar from './InitialAvatar'
 import PageSettingsModal from './PageSettingsModal'
 import PageTab from './PageTab'
 import MobileDrawer from './MobileDrawer'
-import UserEditModal from './UserEditModal'
 
 type Props = {
   loginName: string
@@ -26,6 +25,7 @@ type Props = {
   onWidgetsAdd: (types: WidgetType[]) => void
   onOpenSettings: () => void
   onCloseSettings: () => void
+  onOpenUserEdit: () => void
 }
 
 // アプリ全体のヘッダー。ページ CRUD とモーダル表示を管理する。
@@ -44,11 +44,11 @@ export default function AppHeader({
   onWidgetsAdd,
   onOpenSettings,
   onCloseSettings,
+  onOpenUserEdit,
 }: Props) {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showPageSettings, setShowPageSettings] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [showUserEdit, setShowUserEdit] = useState(false)
 
   async function handleAddPage(pageName: string) {
     setShowAddModal(false)
@@ -161,7 +161,7 @@ export default function AppHeader({
 
           {/* デスクトップ: アバター（イニシャル円）＋氏名＋部署名 */}
           <div className="hidden lg:flex items-center gap-1.5">
-            <InitialAvatar userId={userId} name={fullName} onClick={() => setShowUserEdit(true)} />
+            <InitialAvatar userId={userId} name={fullName} onClick={onOpenUserEdit} />
             <span className="text-sm text-white/90">{fullName}</span>
             {department && (
               <span className="text-xs text-white/60">{department}</span>
@@ -180,7 +180,7 @@ export default function AppHeader({
 
           {/* モバイル: イニシャルアバターのみ */}
           <div className="lg:hidden">
-            <InitialAvatar userId={userId} name={fullName} onClick={() => setShowUserEdit(true)} />
+            <InitialAvatar userId={userId} name={fullName} onClick={onOpenUserEdit} />
           </div>
         </div>
       </header>
@@ -210,10 +210,6 @@ export default function AppHeader({
           onClose={() => setShowPageSettings(false)}
           onConfirm={handlePageSettingsConfirm}
         />
-      )}
-
-      {showUserEdit && (
-        <UserEditModal onClose={() => setShowUserEdit(false)} />
       )}
     </>
   )
