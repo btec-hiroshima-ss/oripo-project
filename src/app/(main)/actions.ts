@@ -34,11 +34,17 @@ import {
   getGroupMembers,
   getScheduleParticipantIds,
   getLoginUserName,
+  addRepeatSchedule,
+  updateRepeatOne,
+  updateRepeatAll,
+  deleteRepeatOne,
+  deleteRepeatAll,
 } from '@/lib/schedule'
 import type {
   ScheduleEntry,
   ScheduleDetail,
   ScheduleInput,
+  RepeatScheduleInput,
   ScheduleUser,
   ScheduleGroup,
   MultiUserScheduleEntry,
@@ -154,6 +160,35 @@ export async function updateScheduleAction(
 export async function deleteScheduleAction(scheduleId: number): Promise<void> {
   const { userId } = await requireAuth()
   return deleteSchedule(scheduleId, userId)
+}
+
+// ===========================================================
+// Phase C: 繰り返し予定
+// ===========================================================
+
+export async function addRepeatScheduleAction(input: RepeatScheduleInput): Promise<void> {
+  const { userId } = await requireAuth()
+  return addRepeatSchedule(userId, input)
+}
+
+export async function updateRepeatOneAction(scheduleId: number, input: ScheduleInput): Promise<void> {
+  const { userId } = await requireAuth()
+  return updateRepeatOne(scheduleId, userId, input)
+}
+
+export async function updateRepeatAllAction(parentId: number, input: ScheduleInput): Promise<void> {
+  const { userId } = await requireAuth()
+  return updateRepeatAll(parentId, userId, input)
+}
+
+export async function deleteRepeatOneAction(scheduleId: number): Promise<void> {
+  const { userId } = await requireAuth()
+  return deleteRepeatOne(scheduleId, userId)
+}
+
+export async function deleteRepeatAllAction(parentId: number): Promise<void> {
+  const { userId } = await requireAuth()
+  return deleteRepeatAll(parentId, userId)
 }
 
 // 祝日データ取得。ログイン済みユーザーのみ利用可能。
