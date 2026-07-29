@@ -5,11 +5,9 @@ const nextConfig: NextConfig = {
   // Chrome DevTools コンテナ（host.docker.internal）からの /_next/* アクセスを許可する。
   // 未設定だと warn のみだが、設定すると block モードになるため allowed list を明示する。
   allowedDevOrigins: ["host.docker.internal", "localhost"],
-  // Server Action ID はビルドごとに変わる。deploymentId を設定すると、クライアントが
-  // 古いIDをキャッシュしている場合に自動でページリロードされ「Failed to find Server Action」を防ぐ。
-  experimental: {
-    deploymentId: process.env.NEXT_PUBLIC_DEPLOYMENT_ID,
-  },
+  // 再デプロイ後に古い Server Action ID をキャッシュしたクライアントが自動リロードされるようにする。
+  // experimental 配下ではなくトップレベルに置く必要がある（Next.js 15.5 の型定義に準拠）。
+  deploymentId: process.env.NEXT_PUBLIC_DEPLOYMENT_ID,
 };
 
 export default nextConfig;
