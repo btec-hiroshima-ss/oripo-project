@@ -511,7 +511,8 @@ export async function getScheduleParticipantIds(scheduleId: number): Promise<num
 export async function addRepeatSchedule(userId: number, input: RepeatScheduleInput): Promise<void> {
   const occurrences = calcOccurrenceDates({
     repeatType: input.repeatType,
-    firstStart: input.startDate,
+    // AIPO 準拠: limitStartDate が指定された場合、その日から出現日を生成する（limit_start_date 相当）
+    firstStart: input.limitStartDate ?? input.startDate,
     weekDays: input.weekDays,
     limitEndDate: input.limitEndDate ?? null,
   })

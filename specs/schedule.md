@@ -525,9 +525,13 @@ export type ScheduleInput = {
 
 **毎月の場合:** 「毎月X日」と表示のみ（Xは開始日の日付を自動計算。変更不可）。
 
-**終了条件:**
-- 「終了日なし」（デフォルト）: 開始日から2年後まで子レコードを展開
-- 「終了日あり」: 終了日 DatePicker を表示。終了日まで子レコードを展開（最大2年で制限）
+**繰り返し期間（AIPO 準拠）:**
+- 「終了日なし」（デフォルト）: イベント開始日から2年後まで子レコードを展開
+- 「終了日あり」: `[繰り返し開始日] 〜 [繰り返し終了日]` の DatePicker ペアを表示
+  - **繰り返し開始日（`limit_start_date`）**: イベント開始日（`start_date`）で初期化。変更可能
+    - 変更した場合、変更後の日付以降の出現日から子レコードを展開する
+  - **繰り返し終了日（`limit_end_date`）**: 終了日まで子レコードを展開（最大2年で制限）
+  - 繰り返し開始日 ≦ 繰り返し終了日 の制約を設ける
 
 ### repeat_pattern エンコード規則
 
@@ -646,10 +650,19 @@ calcOccurrences(input: RepeatScheduleInput): Date[]
 export type RepeatType = 'none' | 'daily' | 'weekly' | 'monthly'
 
 // 繰り返し予定の作成・「全ての予定を変更」で使用
-export type RepeatScheduleInput = ScheduleInput & {
-  repeatType: Exclude<RepeatType, 'none'> // 'daily' | 'weekly' | 'monthly'
-  repeatWeekDays?: boolean[]              // [日, 月, 火, 水, 木, 金, 土]（毎週の場合のみ）
-  limitEndDate?: Date | null             // null = 終了日なし
+export type RepeatScheduleInput = {
+  name: string
+  note?: string
+  place?: string
+  startDate: Date
+  endDate: Date
+  publicFlag: 'O' | 'P' | 'C'
+  participantIds?: number[]
+  repeatType: RepeatType
+  weekDays?: boolean[]        // [日, 月, 火, 水, 木, 金, 土]（毎週の場合のみ）
+  /** AIPO の limit_start_date 準拠。指定日以降の出現日から子レコードを生成する */
+  limitStartDate?: Date | null
+  limitEndDate?: Date | null  // null = 2年分展開（無期限）
 }
 ```
 

@@ -66,6 +66,12 @@ export type RepeatScheduleInput = {
   repeatType: RepeatType
   /** 毎週の場合の曜日フラグ [日, 月, 火, 水, 木, 金, 土] */
   weekDays?: boolean[]
+  /**
+   * 繰り返し期間の開始日（AIPO の limit_start_date 準拠）。
+   * 指定した場合、その日付以降の出現日から子レコードを生成する。
+   * 未指定の場合は startDate を使用する。
+   */
+  limitStartDate?: Date | null
   /** null = 2年分展開（無期限） */
   limitEndDate?: Date | null
 }

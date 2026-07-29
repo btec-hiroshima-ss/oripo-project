@@ -726,6 +726,39 @@ describe('addRepeatSchedule', () => {
     expect(mapValues[1].user_id).toBe(99)
     expect(mapValues[1].status).toBe('T')
   })
+
+  it('limitStartDate 指定時: その日付以降から出現日を生成する', async () => {
+    // startDate = 2026-07-07 10:00 JST, limitStartDate = 2026-07-09 00:00 JST, limitEndDate = 2026-07-10 00:00 JST
+    // 毎日繰り返し → limitStartDate 以降の 2026-07-09 と 2026-07-10 の 2件が出現
+    const startDate = new Date('2026-07-07T01:00:00Z')        // 2026-07-07 10:00 JST
+    const endDate = new Date('2026-07-07T02:00:00Z')          // 2026-07-07 11:00 JST
+    const limitStartDate = new Date('2026-07-08T15:00:00Z')   // 2026-07-09 00:00 JST
+    const limitEndDate = new Date('2026-07-09T15:00:00Z')     // 2026-07-10 00:00 JST
+
+    mockDb.executeTakeFirstOrThrow.mockResolvedValueOnce({ seq_id: 100 })
+    mockDb.execute
+      .mockResolvedValueOnce([])                              // INSERT parent
+      .mockResolvedValueOnce([{ seq_id: 101 }, { seq_id: 102 }])  // nextNSeqIds(child 2件)
+      .mockResolvedValueOnce([])                              // INSERT children
+      .mockResolvedValueOnce([{ seq_id: 200 }, { seq_id: 201 }])  // nextNSeqIds(map 2件)
+      .mockResolvedValueOnce([])                              // INSERT maps
+
+    await addRepeatSchedule(42, {
+      name: 'limitStartDate テスト',
+      startDate,
+      endDate,
+      publicFlag: 'O',
+      repeatType: 'daily',
+      limitStartDate,
+      limitEndDate,
+    })
+
+    // 子レコードは 2026-07-09 と 2026-07-10 の 2件（startDate=2026-07-07 からではなく limitStartDate から）
+    const childrenValues = mockDb.values.mock.calls[1][0]
+    expect(childrenValues).toHaveLength(2)
+    expect(childrenValues[0].start_date).toBe('2026-07-09 10:00:00')
+    expect(childrenValues[1].start_date).toBe('2026-07-10 10:00:00')
+  })
 })
 
 // ===========================================================

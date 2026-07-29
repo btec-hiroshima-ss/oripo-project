@@ -64,6 +64,7 @@ export default function ScheduleFormModal({
   const [repeatType, setRepeatType] = useState<'none' | RepeatType>('none')
   const [weekDays, setWeekDays] = useState<boolean[]>(new Array(7).fill(false))
   const [hasLimit, setHasLimit] = useState(false)
+  const [limitStartDateStr, setLimitStartDateStr] = useState('')
   const [limitDateStr, setLimitDateStr] = useState('')
 
   // 期間で指定: 既存の期間予定（isAllDay かつ startDate !== endDate）を編集する場合は初期値を設定する
@@ -157,9 +158,13 @@ export default function ScheduleFormModal({
       if (repeatType === 'weekly' && !weekDays.some(Boolean)) {
         errs.weekDays = '曜日を1つ以上選択してください'
       }
-      if (hasLimit && !limitDateStr) errs.limitDate = '終了日を選択してください'
-      if (hasLimit && limitDateStr && dateStr && limitDateStr < dateStr) {
-        errs.limitDate = '終了日は開始日以降にしてください'
+      if (hasLimit && !limitStartDateStr) errs.limitStartDate = '繰り返し開始日を選択してください'
+      if (hasLimit && limitStartDateStr && dateStr && limitStartDateStr < dateStr) {
+        errs.limitStartDate = '繰り返し開始日はイベント開始日以降にしてください'
+      }
+      if (hasLimit && !limitDateStr) errs.limitDate = '繰り返し終了日を選択してください'
+      if (hasLimit && limitStartDateStr && limitDateStr && limitDateStr < limitStartDateStr) {
+        errs.limitDate = '繰り返し終了日は繰り返し開始日以降にしてください'
       }
     } else {
       // 通常
@@ -218,6 +223,9 @@ export default function ScheduleFormModal({
         // 繰り返し予定
         const startDate = new Date(`${dateStr}T${startTime}:00+09:00`)
         const endDate = new Date(`${dateStr}T${endTime}:00+09:00`)
+        const limitStartDate = hasLimit && limitStartDateStr
+          ? new Date(limitStartDateStr + 'T00:00:00+09:00')
+          : null
         const limitEndDate = hasLimit && limitDateStr
           ? new Date(limitDateStr + 'T00:00:00+09:00')
           : null
@@ -231,6 +239,7 @@ export default function ScheduleFormModal({
           participantIds: participantIds.size > 0 ? Array.from(participantIds) : undefined,
           repeatType,
           weekDays: repeatType === 'weekly' ? weekDays : undefined,
+          limitStartDate,
           limitEndDate,
         }
         await onSave(input)
@@ -270,13 +279,18 @@ export default function ScheduleFormModal({
 
   // 繰り返しボタンのラベル
   const repeatButtonLabel = (() => {
-    if (repeatType === 'daily') return hasLimit ? `毎日（${limitDateStr}まで）` : '毎日'
+    const limitSuffix = hasLimit && limitStartDateStr && limitDateStr
+      ? `（${limitStartDateStr}〜${limitDateStr}）`
+      : hasLimit && limitDateStr
+        ? `（〜${limitDateStr}）`
+        : ''
+    if (repeatType === 'daily') return `毎日${limitSuffix}`
     if (repeatType === 'weekly') {
       const days = weekDays.map((on, i) => on ? DOW_LABELS[i] : null).filter(Boolean)
       const prefix = days.length > 0 ? `毎週（${days.join('・')}）` : '毎週'
-      return hasLimit ? `${prefix}（${limitDateStr}まで）` : prefix
+      return `${prefix}${limitSuffix}`
     }
-    if (repeatType === 'monthly') return hasLimit ? `毎月（${limitDateStr}まで）` : '毎月'
+    if (repeatType === 'monthly') return `毎月${limitSuffix}`
     return '繰り返しなし'
   })()
 
@@ -509,6 +523,7 @@ export default function ScheduleFormModal({
                       repeatType={repeatType}
                       weekDays={weekDays}
                       hasLimit={hasLimit}
+                      limitStartDateStr={limitStartDateStr}
                       limitDateStr={limitDateStr}
                       dateStr={dateStr}
                       errors={errors}
@@ -517,7 +532,14 @@ export default function ScheduleFormModal({
                         if (type === 'none') setShowRepeatPanel(false)
                       }}
                       onWeekDaysChange={setWeekDays}
-                      onHasLimitChange={setHasLimit}
+                      onHasLimitChange={(v) => {
+                        setHasLimit(v)
+                        // AIPO 準拠: 終了日あり選択時、limitStartDate をイベント開始日で初期化する
+                        if (v && !limitStartDateStr && dateStr) {
+                          setLimitStartDateStr(dateStr)
+                        }
+                      }}
+                      onLimitStartDateStrChange={setLimitStartDateStr}
                       onLimitDateStrChange={setLimitDateStr}
                     />
                   )}
@@ -626,12 +648,14 @@ type RepeatPanelProps = {
   repeatType: 'none' | RepeatType
   weekDays: boolean[]
   hasLimit: boolean
+  limitStartDateStr: string
   limitDateStr: string
   dateStr: string
   errors: Record<string, string>
   onRepeatTypeChange: (type: 'none' | RepeatType) => void
   onWeekDaysChange: (days: boolean[]) => void
   onHasLimitChange: (v: boolean) => void
+  onLimitStartDateStrChange: (s: string) => void
   onLimitDateStrChange: (s: string) => void
 }
 
@@ -639,12 +663,14 @@ function RepeatPanel({
   repeatType,
   weekDays,
   hasLimit,
+  limitStartDateStr,
   limitDateStr,
   dateStr,
   errors,
   onRepeatTypeChange,
   onWeekDaysChange,
   onHasLimitChange,
+  onLimitStartDateStrChange,
   onLimitDateStrChange,
 }: RepeatPanelProps) {
   const tabs: { value: 'none' | RepeatType; label: string }[] = [
@@ -709,10 +735,10 @@ function RepeatPanel({
         </div>
       )}
 
-      {/* 繰り返し設定時のみ表示: 終了条件 */}
+      {/* 繰り返し設定時のみ表示: 繰り返し期間（AIPO 準拠: 開始日〜終了日のペア） */}
       {repeatType !== 'none' && (
         <div>
-          <p className="text-xs text-gray-500 mb-1.5">終了条件</p>
+          <p className="text-xs text-gray-500 mb-1.5">繰り返し期間</p>
           <div className="flex gap-2">
             <label className="flex items-center gap-1.5 text-xs cursor-pointer">
               <input
@@ -736,15 +762,30 @@ function RepeatPanel({
             </label>
           </div>
           {hasLimit && (
-            <div className="mt-2">
+            <div className="mt-2 space-y-1.5">
+              {/* 繰り返し開始日（limit_start_date: AIPO 準拠） */}
+              <input
+                type="date"
+                value={limitStartDateStr}
+                onChange={(e) => onLimitStartDateStrChange(e.target.value)}
+                min={dateStr}
+                className="w-full px-3 py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
+                placeholder="繰り返し開始日"
+              />
+              {errors.limitStartDate && <p className="text-xs text-red-500">{errors.limitStartDate}</p>}
+              <div className="flex items-center gap-1 text-xs text-gray-400">
+                <span className="px-2">〜</span>
+              </div>
+              {/* 繰り返し終了日（limit_end_date: AIPO 準拠） */}
               <input
                 type="date"
                 value={limitDateStr}
                 onChange={(e) => onLimitDateStrChange(e.target.value)}
-                min={dateStr}
+                min={limitStartDateStr || dateStr}
                 className="w-full px-3 py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand"
+                placeholder="繰り返し終了日"
               />
-              {errors.limitDate && <p className="mt-1 text-xs text-red-500">{errors.limitDate}</p>}
+              {errors.limitDate && <p className="text-xs text-red-500">{errors.limitDate}</p>}
             </div>
           )}
         </div>
