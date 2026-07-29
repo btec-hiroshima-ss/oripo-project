@@ -43,4 +43,5 @@ export type PageWidget = {
   widgetType: WidgetType
   col: number
   row: number
+  settings?: Record<string, unknown> | null
 }

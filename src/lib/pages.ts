@@ -1,3 +1,4 @@
+import { sql } from 'kysely'
 import { db } from './db'
 import type { PageLayout, PageWidget, WidgetType, Page } from './pages.types'
 
@@ -71,7 +72,7 @@ export async function getOrCreateDefaultPages(userId: number): Promise<Page[]> {
 export async function getPageWidgets(pageId: number): Promise<PageWidget[]> {
   const rows = await db
     .selectFrom('oripo_page_widgets')
-    .select(['widget_id', 'page_id', 'widget_type', 'col', 'row'])
+    .select(['widget_id', 'page_id', 'widget_type', 'col', 'row', 'settings'])
     .where('page_id', '=', pageId)
     .orderBy('col', 'asc')
     .orderBy('row', 'asc')
@@ -83,7 +84,67 @@ export async function getPageWidgets(pageId: number): Promise<PageWidget[]> {
     widgetType: r.widget_type as WidgetType,
     col: r.col,
     row: r.row,
+    settings: r.settings as Record<string, unknown> | null,
   }))
+}
+
+export async function getWidgetSettings(widgetId: number): Promise<Record<string, unknown> | null> {
+  const row = await db
+    .selectFrom('oripo_page_widgets')
+    .select('settings')
+    .where('widget_id', '=', widgetId)
+    .executeTakeFirst()
+  return (row?.settings as Record<string, unknown> | null) ?? null
+}
+
+export async function saveWidgetSettings(
+  widgetId: number,
+  settings: Record<string, unknown>
+): Promise<void> {
+  await db
+    .updateTable('oripo_page_widgets')
+    // sql テンプレートで jsonb にキャストすることで Kysely 型システムをバイパスする
+    .set({ settings: sql`${JSON.stringify(settings)}::jsonb`, updated_at: new Date() })
+    .where('widget_id', '=', widgetId)
+    .execute()
+}
+
+// モバイル表示用ウィジェット設定（oripo_mobile_widget_settings）。
+// oripo_page_widgets はPC版のページ構成に紐づくため、PC側の設定と独立したテーブルで管理する。
+export async function getMobileWidgetSettings(
+  userId: number,
+  widgetType: string
+): Promise<Record<string, unknown> | null> {
+  const row = await db
+    .selectFrom('oripo_mobile_widget_settings')
+    .select('settings')
+    .where('user_id', '=', userId)
+    .where('widget_type', '=', widgetType)
+    .executeTakeFirst()
+  return (row?.settings as Record<string, unknown> | null) ?? null
+}
+
+export async function saveMobileWidgetSettings(
+  userId: number,
+  widgetType: string,
+  settings: Record<string, unknown>
+): Promise<void> {
+  // UPSERT: 行がなければ INSERT、あれば settings と updated_at を UPDATE
+  await db
+    .insertInto('oripo_mobile_widget_settings')
+    .values({
+      user_id: userId,
+      widget_type: widgetType,
+      settings: sql`${JSON.stringify(settings)}::jsonb`,
+      updated_at: new Date(),
+    })
+    .onConflict((oc) =>
+      oc.columns(['user_id', 'widget_type']).doUpdateSet({
+        settings: sql`${JSON.stringify(settings)}::jsonb`,
+        updated_at: new Date(),
+      })
+    )
+    .execute()
 }
 
 export async function createPage(userId: number, pageName: string): Promise<Page> {

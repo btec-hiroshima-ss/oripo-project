@@ -113,9 +113,12 @@ Oripo 独自の正規化テーブル（`oripo_pages` / `oripo_page_widgets`）�
 | ブレークポイント | 挙動 |
 |---|---|
 | デスクトップ（lg 以上） | マルチカラムレイアウト + D&D 有効 |
-| モバイル（lg 未満） | 1列に強制（カラム設定を無視して縦積み）・D&D 無効 |
+| モバイル（lg 未満） | アクティブウィジェットを 1 つフル画面表示。D&D 無効 |
 
-モバイルでのウィジェット表示順: カラム 0 の row 昇順 → カラム 1 の row 昇順 → …（col 昇順に結合）
+**モバイルのウィジェット切り替え:**
+- ドロワーメニューでスケジュール / 更新情報 / ユーザー名簿を切り替える（`specs/layout.md` 参照）
+- デフォルト表示: スケジュール
+- ページ（タブ）の概念はモバイルでは非表示（ドロワーでウィジェット切り替えのみ）
 
 ---
 
@@ -175,6 +178,22 @@ CREATE TABLE oripo_page_widgets (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
   -- UNIQUE (page_id, widget_type) は migration で削除済み（同一種別の複数配置を許可するため）
+);
+```
+
+### `oripo_mobile_widget_settings`（新規）
+
+モバイル表示時のウィジェット設定を保存するテーブル。
+`oripo_page_widgets` はPCのページ構成に紐づくため、PCからウィジェットを削除しても
+モバイルの設定（選択ユーザー等）が消えないよう専用テーブルを用意する。
+
+```sql
+CREATE TABLE oripo_mobile_widget_settings (
+  user_id     INTEGER NOT NULL REFERENCES turbine_user(user_id) ON DELETE CASCADE,
+  widget_type TEXT NOT NULL,
+  settings    JSONB NOT NULL DEFAULT '{}',
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, widget_type)
 );
 ```
 
@@ -243,5 +262,9 @@ src/
 - [ ] 移動後の位置がDBに保存され、リロード後も維持される
 
 ### レスポンシブ
-- [ ] モバイルで全ウィジェットが1列縦積みで表示される
+- [ ] モバイルでスケジュールがデフォルト表示される
+- [ ] モバイルのドロワーメニューからウィジェットを切り替えられる
 - [ ] モバイルでD&Dが無効になっている
+- [ ] PC版のページにスケジュールウィジェットがなくてもモバイルでスケジュールが表示される
+- [ ] モバイルのスケジュールウィジェットで選択したユーザーがリロード後も保持される
+- [ ] モバイルのスケジュール設定（表示ユーザー）はPC版のウィジェット設定と独立している（PCからスケジュールを削除してもモバイルの設定が消えない）

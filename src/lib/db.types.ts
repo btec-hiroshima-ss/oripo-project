@@ -11,6 +11,18 @@ export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
 
 export type Int8 = ColumnType<string, bigint | number | string, bigint | number | string>;
 
+export type Json = JsonValue;
+
+export type JsonArray = JsonValue[];
+
+export type JsonObject = {
+  [x: string]: JsonValue | undefined;
+};
+
+export type JsonPrimitive = boolean | number | string | null;
+
+export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
+
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
 export interface Activity {
@@ -898,6 +910,13 @@ export interface OauthToken {
   token_secret: string | null;
 }
 
+export interface OripoMobileWidgetSettings {
+  settings: Generated<Json>;
+  updated_at: Generated<Timestamp>;
+  user_id: number;
+  widget_type: string;
+}
+
 export interface OripoPages {
   created_at: Generated<Timestamp>;
   is_default: Generated<boolean>;
@@ -914,6 +933,7 @@ export interface OripoPageWidgets {
   created_at: Generated<Timestamp>;
   page_id: number;
   row: Generated<number>;
+  settings: Json | null;
   updated_at: Generated<Timestamp>;
   widget_id: Generated<number>;
   widget_type: string;
@@ -1124,6 +1144,7 @@ export interface DB {
   oauth_consumer: OauthConsumer;
   oauth_entry: OauthEntry;
   oauth_token: OauthToken;
+  oripo_mobile_widget_settings: OripoMobileWidgetSettings;
   oripo_page_widgets: OripoPageWidgets;
   oripo_pages: OripoPages;
   oripo_sessions: OripoSessions;

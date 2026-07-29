@@ -10,6 +10,10 @@ import {
   updateWidgetPosition,
   deleteWidget,
   reorderPages,
+  getWidgetSettings,
+  saveWidgetSettings,
+  getMobileWidgetSettings,
+  saveMobileWidgetSettings,
   type PageLayout,
   type WidgetType,
 } from '@/lib/pages'
@@ -18,6 +22,28 @@ import { getUserList, getUserDetail } from '@/lib/user-list'
 import type { UserListUser, UserListDetail } from '@/lib/user-list.types'
 import { getActivityList } from '@/lib/activity'
 import type { ActivityEntry } from '@/lib/activity.types'
+import {
+  getWeekSchedules,
+  getScheduleDetail,
+  addSchedule,
+  updateSchedule,
+  deleteSchedule,
+  getWeekSchedulesMulti,
+  getScheduleUsers,
+  getGroupList,
+  getGroupMembers,
+  getScheduleParticipantIds,
+  getLoginUserName,
+} from '@/lib/schedule'
+import type {
+  ScheduleEntry,
+  ScheduleDetail,
+  ScheduleInput,
+  ScheduleUser,
+  ScheduleGroup,
+  MultiUserScheduleEntry,
+} from '@/lib/schedule.types'
+import { fetchHolidays } from '@/lib/holidays'
 
 export async function addPageAction(pageName: string) {
   const { userId } = await requireAuth()
@@ -94,4 +120,124 @@ export async function getActivityAction(
 ): Promise<{ entries: ActivityEntry[]; totalCount: number }> {
   const { loginName } = await requireAuth()
   return getActivityList(loginName, page)
+}
+
+// スケジュールウィジェット用。
+
+// weekStart: "YYYY-MM-DD"（JST 月曜日）。週の月曜〜翌週月曜 00:00 JST 範囲で取得する。
+export async function getWeekSchedulesAction(weekStart: string): Promise<ScheduleEntry[]> {
+  const { userId } = await requireAuth()
+  // weekStart を JST 00:00 として解釈し、7日間の範囲を計算する
+  const from = new Date(weekStart + 'T00:00:00+09:00')
+  const to = new Date(from.getTime() + 7 * 24 * 60 * 60 * 1000)
+  return getWeekSchedules(userId, from, to)
+}
+
+export async function getScheduleDetailAction(scheduleId: number): Promise<ScheduleDetail> {
+  await requireAuth()
+  return getScheduleDetail(scheduleId)
+}
+
+export async function addScheduleAction(input: ScheduleInput): Promise<ScheduleEntry> {
+  const { userId } = await requireAuth()
+  return addSchedule(userId, input)
+}
+
+export async function updateScheduleAction(
+  scheduleId: number,
+  input: ScheduleInput
+): Promise<ScheduleEntry> {
+  const { userId } = await requireAuth()
+  return updateSchedule(scheduleId, userId, input)
+}
+
+export async function deleteScheduleAction(scheduleId: number): Promise<void> {
+  const { userId } = await requireAuth()
+  return deleteSchedule(scheduleId, userId)
+}
+
+// 祝日データ取得。ログイン済みユーザーのみ利用可能。
+// holidays-jp API から取得し Next.js fetch キャッシュで24時間保持する。
+export async function getHolidaysAction(): Promise<Record<string, string>> {
+  await requireAuth()
+  return fetchHolidays()
+}
+
+// Phase B: マルチユーザービュー・ユーザーピッカー用アクション
+
+// ログインユーザーの userId と氏名を返す（Client Component からマルチユーザービューの初期化に使用）
+// fullName はチップ表示に使う。スケジュールが0件の週でも正しく表示するために氏名を別途取得する。
+export async function getLoginUserIdAction(): Promise<{ userId: number; fullName: string }> {
+  const { userId } = await requireAuth()
+  const fullName = await getLoginUserName(userId)
+  return { userId, fullName }
+}
+
+// 複数ユーザーの週スケジュールを一括取得する（ユーザー選択ビュー用）。
+// 他ユーザーの public_flag='C' は除外し、'P' は "非公開" にマスキングする。
+export async function getWeekSchedulesMultiAction(
+  userIds: number[],
+  weekStart: string
+): Promise<MultiUserScheduleEntry[]> {
+  const { userId } = await requireAuth()
+  const from = new Date(weekStart + 'T00:00:00+09:00')
+  const to = new Date(from.getTime() + 7 * 24 * 60 * 60 * 1000)
+  return getWeekSchedulesMulti(userId, userIds, from, to)
+}
+
+// ユーザーピッカー用アクティブユーザー一覧（氏名カナ昇順）
+export async function getScheduleUsersAction(): Promise<ScheduleUser[]> {
+  await requireAuth()
+  return getScheduleUsers()
+}
+
+// ユーザーピッカー用グループ一覧（システムグループ除外）
+export async function getGroupListAction(): Promise<ScheduleGroup[]> {
+  await requireAuth()
+  return getGroupList()
+}
+
+// グループメンバー一覧（ピッカーのグループ展開時に取得）
+export async function getGroupMembersAction(groupId: number): Promise<ScheduleUser[]> {
+  await requireAuth()
+  return getGroupMembers(groupId)
+}
+
+// 編集フォーム初期値用: スケジュールの現在の参加者 ID リストを取得する
+export async function getScheduleParticipantIdsAction(scheduleId: number): Promise<number[]> {
+  await requireAuth()
+  return getScheduleParticipantIds(scheduleId)
+}
+
+// ウィジェット設定の読み書き（AIPO の PSML portlet_config 相当）。
+// Schedule の選択ユーザー等、ウィジェットインスタンスごとの設定を永続化する。
+
+export async function getWidgetSettingsAction(widgetId: number): Promise<Record<string, unknown> | null> {
+  await requireAuth()
+  return getWidgetSettings(widgetId)
+}
+
+export async function saveWidgetSettingsAction(
+  widgetId: number,
+  settings: Record<string, unknown>
+): Promise<void> {
+  await requireAuth()
+  await saveWidgetSettings(widgetId, settings)
+}
+
+// モバイル表示用ウィジェット設定の読み書き。
+// oripo_mobile_widget_settings テーブルに user_id + widget_type をキーとして保存する。
+export async function getMobileWidgetSettingsAction(
+  widgetType: string
+): Promise<Record<string, unknown> | null> {
+  const { userId } = await requireAuth()
+  return getMobileWidgetSettings(userId, widgetType)
+}
+
+export async function saveMobileWidgetSettingsAction(
+  widgetType: string,
+  settings: Record<string, unknown>
+): Promise<void> {
+  const { userId } = await requireAuth()
+  await saveMobileWidgetSettings(userId, widgetType, settings)
 }
