@@ -5,6 +5,8 @@
  * DB の timestamp は JST で格納されており、日付計算はすべて JST 基準で行う。
  */
 
+import { formatInTimeZone } from 'date-fns-tz'
+
 export type RepeatType = 'daily' | 'weekly' | 'monthly'
 
 // 1日のミリ秒数
@@ -38,9 +40,8 @@ export function getJstTimeOffsetMs(utcDate: Date): number {
  * date_trunc('day', start_date) + 'HH:MM:SS'::interval で JST 時刻を指定するために使う。
  */
 export function msToIntervalStr(ms: number): string {
-  // ms は常に 24h 未満（JST 深夜0時からの時刻オフセット）なので
-  // UTC epoch として Date に変換し、ISO 文字列の時刻部分をそのまま使える
-  return new Date(ms).toISOString().slice(11, 19)
+  // ms を UTC epoch として Date に変換し、UTC 基準で "HH:mm:ss" にフォーマットする
+  return formatInTimeZone(new Date(ms), 'UTC', 'HH:mm:ss')
 }
 
 /**
