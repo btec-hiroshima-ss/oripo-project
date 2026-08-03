@@ -38,10 +38,9 @@ export function getJstTimeOffsetMs(utcDate: Date): number {
  * date_trunc('day', start_date) + 'HH:MM:SS'::interval で JST 時刻を指定するために使う。
  */
 export function msToIntervalStr(ms: number): string {
-  const hours = Math.floor(ms / 3600000)
-  const mins = Math.floor((ms % 3600000) / 60000)
-  const secs = Math.floor((ms % 60000) / 1000)
-  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+  // ms は常に 24h 未満（JST 深夜0時からの時刻オフセット）なので
+  // UTC epoch として Date に変換し、ISO 文字列の時刻部分をそのまま使える
+  return new Date(ms).toISOString().slice(11, 19)
 }
 
 /**

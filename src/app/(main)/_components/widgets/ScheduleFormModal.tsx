@@ -5,6 +5,7 @@ import { X, RefreshCw, Calendar } from 'lucide-react'
 import type { ScheduleEntry, ScheduleInput, RepeatScheduleInput, ScheduleUser } from '@/lib/schedule.types'
 import type { RepeatType } from '@/lib/repeat'
 import { decodeRepeatPattern } from '@/lib/repeat'
+import { subDays } from 'date-fns'
 import { toJstDateStr, toJstTimeStr } from '@/lib/jst'
 import { getScheduleParticipantIdsAction, getScheduleUsersAction } from '../../actions'
 import UserPickerModal from './UserPickerModal'
@@ -73,7 +74,7 @@ export default function ScheduleFormModal({
   const [periodEndDateStr, setPeriodEndDateStr] = useState(() => {
     if (initialIsPeriod && schedule) {
       // end_date は exclusive（endDay+1 00:00 JST）→ 1日引いて表示用の inclusive end_day に変換
-      const inclusiveEnd = new Date(schedule.endDate.getTime() - 24 * 60 * 60 * 1000)
+      const inclusiveEnd = subDays(schedule.endDate, 1)
       return toJstDateStr(inclusiveEnd)
     }
     return ''
@@ -279,11 +280,12 @@ export default function ScheduleFormModal({
 
   // 繰り返しボタンのラベル
   const repeatButtonLabel = (() => {
-    const limitSuffix = hasLimit && limitStartDateStr && limitDateStr
-      ? `（${limitStartDateStr}〜${limitDateStr}）`
-      : hasLimit && limitDateStr
-        ? `（〜${limitDateStr}）`
-        : ''
+    let limitSuffix = ''
+    if (hasLimit && limitStartDateStr && limitDateStr) {
+      limitSuffix = `（${limitStartDateStr}〜${limitDateStr}）`
+    } else if (hasLimit && limitDateStr) {
+      limitSuffix = `（〜${limitDateStr}）`
+    }
     if (repeatType === 'daily') return `毎日${limitSuffix}`
     if (repeatType === 'weekly') {
       const days = weekDays.map((on, i) => on ? DOW_LABELS[i] : null).filter(Boolean)
