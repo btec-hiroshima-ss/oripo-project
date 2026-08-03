@@ -1,3 +1,5 @@
+import { addDays } from 'date-fns'
+import { toZonedTime } from 'date-fns-tz'
 import { sql } from 'kysely'
 import { db } from './db'
 import { logger } from './logger'
@@ -157,7 +159,7 @@ export async function addSchedule(userId: number, input: ScheduleInput): Promise
       // periodEndDate は "YYYY-MM-DDT00:00:00+09:00" で渡される JST 深夜0時。
       // +24h で翌日 JST 深夜0時（exclusive end）になる。
       // new Date(year, month, day+1) はサーバー local timezone に依存するため使わない。
-      endStr = toJstStr(new Date(input.periodEndDate.getTime() + 24 * 60 * 60 * 1000))
+      endStr = toJstStr(addDays(input.periodEndDate, 1))
     } else {
       endStr = startStr
     }
@@ -173,11 +175,11 @@ export async function addSchedule(userId: number, input: ScheduleInput): Promise
     start_date: startStr,
     end_date: endStr,
     public_flag: input.publicFlag,
-    // 終日・期間で指定どちらも 'S'（AIPO の repeat_pattern 仕様準拠）
+    // repeat_pattern: 'S' = 終日/期間で指定、'N' = 繰り返しなし（AIPO 仕様）
     repeat_pattern: input.isAllDay ? 'S' : 'N',
     parent_id: 0,
-    edit_flag: 'T',
-    mail_flag: 'N',
+    edit_flag: 'T',   // 'T' = 編集可（AIPO の boolean 表現: 'T'rue）
+    mail_flag: 'N',   // 'N' = メール通知なし（AIPO の boolean 表現: 'N'o）
     owner_id: userId,
     create_user_id: userId,
     update_user_id: userId,
@@ -194,7 +196,7 @@ export async function addSchedule(userId: number, input: ScheduleInput): Promise
   let returnEndDate: Date
   if (input.isAllDay) {
     returnEndDate = input.periodEndDate
-      ? new Date(input.periodEndDate.getTime() + 24 * 60 * 60 * 1000)
+      ? addDays(input.periodEndDate, 1)
       : input.startDate
   } else {
     returnEndDate = input.endDate
@@ -236,6 +238,7 @@ export async function insertScheduleParticipants(
       schedule_id: scheduleId,
       user_id: uid,
       type: 'U',
+      // status: 'O' = オーナー（作成者）、'T' = 承認済み参加者（AIPO 仕様）
       status: uid === ownerId ? 'O' : 'T',
       common_category_id: 1,
     }).execute()
@@ -252,7 +255,7 @@ export async function updateSchedule(
   let endStr: string
   if (input.isAllDay) {
     if (input.periodEndDate) {
-      endStr = toJstStr(new Date(input.periodEndDate.getTime() + 24 * 60 * 60 * 1000))
+      endStr = toJstStr(addDays(input.periodEndDate, 1))
     } else {
       endStr = startStr
     }
@@ -287,7 +290,7 @@ export async function updateSchedule(
   let returnEndDate: Date
   if (input.isAllDay) {
     returnEndDate = input.periodEndDate
-      ? new Date(input.periodEndDate.getTime() + 24 * 60 * 60 * 1000)
+      ? addDays(input.periodEndDate, 1)
       : input.startDate
   } else {
     returnEndDate = input.endDate
@@ -525,7 +528,7 @@ export async function addRepeatSchedule(userId: number, input: RepeatScheduleInp
   const endIntervalStr = msToIntervalStr(endOffsetMs)
 
   // 最初の出現日の JST 日付から毎月の日付を算出（毎月繰り返しパターン用）
-  const firstJstDay = new Date(occurrences[0].getTime() + 9 * 60 * 60 * 1000).getUTCDate()
+  const firstJstDay = toZonedTime(occurrences[0], 'Asia/Tokyo').getDate()
   const hasLimit = input.limitEndDate != null
   const repeatPattern = encodeRepeatPattern(
     input.repeatType,
@@ -555,8 +558,8 @@ export async function addRepeatSchedule(userId: number, input: RepeatScheduleInp
     public_flag: input.publicFlag,
     repeat_pattern: repeatPattern,
     parent_id: 0,
-    edit_flag: 'T',
-    mail_flag: 'N',
+    edit_flag: 'T',   // 'T' = 編集可（AIPO の boolean 表現: 'T'rue）
+    mail_flag: 'N',   // 'N' = メール通知なし（AIPO の boolean 表現: 'N'o）
     owner_id: userId,
     create_user_id: userId,
     update_user_id: userId,
