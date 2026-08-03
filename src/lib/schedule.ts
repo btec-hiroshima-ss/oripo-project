@@ -1,3 +1,5 @@
+import { addDays } from 'date-fns'
+import { toZonedTime } from 'date-fns-tz'
 import { sql } from 'kysely'
 import { db } from './db'
 import { logger } from './logger'
@@ -5,10 +7,17 @@ import type {
   ScheduleEntry,
   ScheduleDetail,
   ScheduleInput,
+  RepeatScheduleInput,
   ScheduleUser,
   ScheduleGroup,
   MultiUserScheduleEntry,
 } from './schedule.types'
+import {
+  calcOccurrenceDates,
+  encodeRepeatPattern,
+  getJstTimeOffsetMs,
+  msToIntervalStr,
+} from './repeat'
 
 // DB は Asia/Tokyo のタイムゾーンで "timestamp without time zone" カラムに JST を格納している。
 // Node.js の pg クライアントは timezone 情報なしの timestamp を UTC として扱うためズレが生じる。
@@ -36,6 +45,20 @@ async function nextSeqId(seqName: string): Promise<number> {
     .select(sql<number>`sq.seq_id`.as('seq_id'))
     .executeTakeFirstOrThrow()
   return Number(row.seq_id)
+}
+
+/**
+ * AIPO 独自シーケンスから N 件の PK を一括取得する。
+ * 繰り返し予定の子レコード一括 INSERT 前に使用する。
+ * generate_series で1クエリにまとめることで N+1 を回避する。
+ */
+async function nextNSeqIds(seqName: string, count: number): Promise<number[]> {
+  if (count === 0) return []
+  const rows = await db
+    .selectFrom(sql`generate_series(1, ${count})`.as('gs'))
+    .select(sql<number>`nextval(${sql.lit(seqName)})`.as('seq_id'))
+    .execute()
+  return rows.map((r) => Number(r.seq_id))
 }
 
 export async function getWeekSchedules(
@@ -128,8 +151,21 @@ export async function addSchedule(userId: number, input: ScheduleInput): Promise
 
   const nowStr = toJstStr(new Date())
   const startStr = toJstStr(input.startDate)
-  // all-day は AIPO 準拠で start_date = end_date
-  const endStr = input.isAllDay ? startStr : toJstStr(input.endDate)
+  // all-day: 通常は start_date = end_date（AIPO 準拠）
+  // 期間で指定: periodEndDate が指定された場合は (periodEndDate + 1日) 00:00 JST を exclusive end として格納する
+  let endStr: string
+  if (input.isAllDay) {
+    if (input.periodEndDate) {
+      // periodEndDate は "YYYY-MM-DDT00:00:00+09:00" で渡される JST 深夜0時。
+      // +24h で翌日 JST 深夜0時（exclusive end）になる。
+      // new Date(year, month, day+1) はサーバー local timezone に依存するため使わない。
+      endStr = toJstStr(addDays(input.periodEndDate, 1))
+    } else {
+      endStr = startStr
+    }
+  } else {
+    endStr = toJstStr(input.endDate)
+  }
 
   await db.insertInto('eip_t_schedule').values({
     schedule_id: scheduleId,
@@ -139,11 +175,11 @@ export async function addSchedule(userId: number, input: ScheduleInput): Promise
     start_date: startStr,
     end_date: endStr,
     public_flag: input.publicFlag,
-    // 終日: 'S' / 通常: 'N'（AIPO の repeat_pattern 仕様準拠）
+    // repeat_pattern: 'S' = 終日/期間で指定、'N' = 繰り返しなし（AIPO 仕様）
     repeat_pattern: input.isAllDay ? 'S' : 'N',
     parent_id: 0,
-    edit_flag: 'T',
-    mail_flag: 'N',
+    edit_flag: 'T',   // 'T' = 編集可（AIPO の boolean 表現: 'T'rue）
+    mail_flag: 'N',   // 'N' = メール通知なし（AIPO の boolean 表現: 'N'o）
     owner_id: userId,
     create_user_id: userId,
     update_user_id: userId,
@@ -156,14 +192,22 @@ export async function addSchedule(userId: number, input: ScheduleInput): Promise
 
   logger.info({ event: 'schedule.create', userId, scheduleId }, 'スケジュール追加')
 
-  const endDate = input.isAllDay ? input.startDate : input.endDate
+  // 戻り値の endDate: 期間で指定の場合は exclusive end を返す（表示側で範囲判定に使用）
+  let returnEndDate: Date
+  if (input.isAllDay) {
+    returnEndDate = input.periodEndDate
+      ? addDays(input.periodEndDate, 1)
+      : input.startDate
+  } else {
+    returnEndDate = input.endDate
+  }
   return {
     scheduleId,
     name: input.name,
     note: input.note ?? null,
     place: input.place ?? null,
     startDate: input.startDate,
-    endDate,
+    endDate: returnEndDate,
     publicFlag: input.publicFlag,
     repeatPattern: input.isAllDay ? 'S' : 'N',
     isAllDay: input.isAllDay,
@@ -177,8 +221,9 @@ export async function addSchedule(userId: number, input: ScheduleInput): Promise
  * 参加者を eip_t_schedule_map へ一括登録するヘルパー。
  * 作成者は status='O'（オーナー）、その他は status='T'（承認済み）。
  * common_category_id=1 は AIPO の全レコードが 1 を使用しており、0 は FK 違反になる。
+ * Phase C で addRepeatSchedule からも呼び出すため export する。
  */
-async function insertScheduleParticipants(
+export async function insertScheduleParticipants(
   scheduleId: number,
   ownerId: number,
   extraParticipantIds: number[]
@@ -193,6 +238,7 @@ async function insertScheduleParticipants(
       schedule_id: scheduleId,
       user_id: uid,
       type: 'U',
+      // status: 'O' = オーナー（作成者）、'T' = 承認済み参加者（AIPO 仕様）
       status: uid === ownerId ? 'O' : 'T',
       common_category_id: 1,
     }).execute()
@@ -206,7 +252,16 @@ export async function updateSchedule(
 ): Promise<ScheduleEntry> {
   const nowStr = toJstStr(new Date())
   const startStr = toJstStr(input.startDate)
-  const endStr = input.isAllDay ? startStr : toJstStr(input.endDate)
+  let endStr: string
+  if (input.isAllDay) {
+    if (input.periodEndDate) {
+      endStr = toJstStr(addDays(input.periodEndDate, 1))
+    } else {
+      endStr = startStr
+    }
+  } else {
+    endStr = toJstStr(input.endDate)
+  }
 
   await db
     .updateTable('eip_t_schedule')
@@ -232,14 +287,21 @@ export async function updateSchedule(
 
   logger.info({ event: 'schedule.update', userId, scheduleId }, 'スケジュール更新')
 
-  const endDate = input.isAllDay ? input.startDate : input.endDate
+  let returnEndDate: Date
+  if (input.isAllDay) {
+    returnEndDate = input.periodEndDate
+      ? addDays(input.periodEndDate, 1)
+      : input.startDate
+  } else {
+    returnEndDate = input.endDate
+  }
   return {
     scheduleId,
     name: input.name,
     note: input.note ?? null,
     place: input.place ?? null,
     startDate: input.startDate,
-    endDate,
+    endDate: returnEndDate,
     publicFlag: input.publicFlag,
     repeatPattern: input.isAllDay ? 'S' : 'N',
     isAllDay: input.isAllDay,
@@ -433,4 +495,274 @@ export async function getScheduleParticipantIds(scheduleId: number): Promise<num
     .execute()
 
   return rows.map((r) => r.user_id)
+}
+
+// ===========================================================
+// Phase C: 繰り返し予定
+// ===========================================================
+
+/**
+ * 繰り返し予定を作成する。
+ *
+ * Oripo の事前展開方式:
+ *   AIPO は動的生成（子レコードは編集・削除時のみ作成）だが、
+ *   Oripo は実装を単純にするため全出現分の子レコードを一括作成する。
+ *
+ * 親レコード（parent_id=0）は eip_t_schedule_map に登録しない。
+ * 週ビューには子レコード（repeat_pattern='N'）のみが表示される。
+ */
+export async function addRepeatSchedule(userId: number, input: RepeatScheduleInput): Promise<void> {
+  const occurrences = calcOccurrenceDates({
+    repeatType: input.repeatType,
+    // AIPO 準拠: limitStartDate が指定された場合、その日から出現日を生成する（limit_start_date 相当）
+    firstStart: input.limitStartDate ?? input.startDate,
+    weekDays: input.weekDays,
+    limitEndDate: input.limitEndDate ?? null,
+  })
+
+  if (occurrences.length === 0) throw new Error('繰り返し出現日が0件です')
+
+  const startOffsetMs = getJstTimeOffsetMs(input.startDate)
+  const endOffsetMs = getJstTimeOffsetMs(input.endDate)
+  const startIntervalStr = msToIntervalStr(startOffsetMs)
+  const endIntervalStr = msToIntervalStr(endOffsetMs)
+
+  // 最初の出現日の JST 日付から毎月の日付を算出（毎月繰り返しパターン用）
+  const firstJstDay = toZonedTime(occurrences[0], 'Asia/Tokyo').getDate()
+  const hasLimit = input.limitEndDate != null
+  const repeatPattern = encodeRepeatPattern(
+    input.repeatType,
+    hasLimit,
+    input.weekDays,
+    input.repeatType === 'monthly' ? firstJstDay : undefined,
+  )
+
+  const nowStr = toJstStr(new Date())
+  const firstMidnight = occurrences[0]
+  const lastMidnight = occurrences[occurrences.length - 1]
+
+  // 親レコードの start/end: limit=ありは最終出現の終了時刻、なしは最初の出現の終了時刻（AIPO 準拠）
+  const parentStartStr = toJstStr(new Date(firstMidnight.getTime() + startOffsetMs))
+  const parentEndBase = hasLimit ? lastMidnight : firstMidnight
+  const parentEndStr = toJstStr(new Date(parentEndBase.getTime() + endOffsetMs))
+
+  // 親レコード作成
+  const parentId = await nextSeqId('pk_eip_t_schedule')
+  await db.insertInto('eip_t_schedule').values({
+    schedule_id: parentId,
+    name: input.name,
+    note: input.note ?? null,
+    place: input.place ?? null,
+    start_date: parentStartStr,
+    end_date: parentEndStr,
+    public_flag: input.publicFlag,
+    repeat_pattern: repeatPattern,
+    parent_id: 0,
+    edit_flag: 'T',   // 'T' = 編集可（AIPO の boolean 表現: 'T'rue）
+    mail_flag: 'N',   // 'N' = メール通知なし（AIPO の boolean 表現: 'N'o）
+    owner_id: userId,
+    create_user_id: userId,
+    update_user_id: userId,
+    create_date: nowStr,
+    update_date: nowStr,
+  }).execute()
+
+  // 子レコード一括 INSERT（generate_series で N 件の PK を一括取得）
+  const childCount = occurrences.length
+  const childIds = await nextNSeqIds('pk_eip_t_schedule', childCount)
+
+  await db.insertInto('eip_t_schedule').values(
+    occurrences.map((dayMidnight, i) => ({
+      schedule_id: childIds[i],
+      name: input.name,
+      note: input.note ?? null,
+      place: input.place ?? null,
+      start_date: toJstStr(new Date(dayMidnight.getTime() + startOffsetMs)),
+      end_date: toJstStr(new Date(dayMidnight.getTime() + endOffsetMs)),
+      public_flag: input.publicFlag,
+      repeat_pattern: 'N',
+      parent_id: parentId,
+      edit_flag: 'T',
+      mail_flag: 'N',
+      owner_id: userId,
+      create_user_id: userId,
+      update_user_id: userId,
+      create_date: nowStr,
+      update_date: nowStr,
+    }))
+  ).execute()
+
+  // 参加者を全子レコードに一括登録
+  const allParticipantIds = Array.from(new Set([userId, ...(input.participantIds ?? [])]))
+  const totalMapCount = childCount * allParticipantIds.length
+  const mapIds = await nextNSeqIds('pk_eip_t_schedule_map', totalMapCount)
+
+  let mapIdx = 0
+  await db.insertInto('eip_t_schedule_map').values(
+    childIds.flatMap((childId) =>
+      allParticipantIds.map((uid) => ({
+        id: mapIds[mapIdx++],
+        schedule_id: childId,
+        user_id: uid,
+        type: 'U' as const,
+        status: uid === userId ? 'O' : 'T',
+        common_category_id: 1,
+      }))
+    )
+  ).execute()
+
+  logger.info({ event: 'schedule.repeat.create', userId, parentId, count: childCount }, '繰り返しスケジュール追加')
+}
+
+/**
+ * 繰り返し予定のうち、1件だけを更新する（「この予定のみ変更」）。
+ * 子レコードを通常の updateSchedule と同様に更新する。
+ * 繰り返し種別・パターンは変更しない（child の repeat_pattern='N' を維持）。
+ */
+export async function updateRepeatOne(
+  scheduleId: number,
+  userId: number,
+  input: ScheduleInput,
+): Promise<void> {
+  const nowStr = toJstStr(new Date())
+  const startStr = toJstStr(input.startDate)
+  const endStr = input.isAllDay ? startStr : toJstStr(input.endDate)
+
+  await db.updateTable('eip_t_schedule')
+    .set({
+      name: input.name,
+      note: input.note ?? null,
+      place: input.place ?? null,
+      start_date: startStr,
+      end_date: endStr,
+      public_flag: input.publicFlag,
+      // 子レコードの repeat_pattern は 'N' のまま維持する（親パターンとは独立）
+      update_user_id: userId,
+      update_date: nowStr,
+    })
+    .where('schedule_id', '=', scheduleId)
+    .where('owner_id', '=', userId)
+    .execute()
+
+  await db.deleteFrom('eip_t_schedule_map').where('schedule_id', '=', scheduleId).execute()
+  await insertScheduleParticipants(scheduleId, userId, input.participantIds ?? [])
+
+  logger.info({ event: 'schedule.repeat.updateOne', userId, scheduleId }, '繰り返しスケジュール単件更新')
+}
+
+/**
+ * 繰り返し予定の全件を一括更新する（「全ての予定を変更」）。
+ *
+ * 繰り返し種別・終了条件は変更不可。変更可能: タイトル・場所・内容・公開区分・開始/終了時刻。
+ * 時刻変更は date_trunc('day', start_date) + interval で各日の日付を維持したまま時刻のみ置き換える。
+ * DB の timestamp は JST 格納のため、DB 側の date_trunc は正しく JST 深夜0時を返す。
+ */
+export async function updateRepeatAll(
+  parentId: number,
+  userId: number,
+  input: ScheduleInput,
+): Promise<void> {
+  const nowStr = toJstStr(new Date())
+  const startIntervalStr = msToIntervalStr(getJstTimeOffsetMs(input.startDate))
+  const endIntervalStr = msToIntervalStr(getJstTimeOffsetMs(input.endDate))
+
+  // 全子レコードを一括更新（各日の date_trunc('day', ...) に新しい時間 interval を加算）
+  await db.updateTable('eip_t_schedule')
+    .set({
+      name: input.name,
+      note: input.note ?? null,
+      place: input.place ?? null,
+      public_flag: input.publicFlag,
+      start_date: sql`date_trunc('day', start_date) + ${startIntervalStr}::interval`,
+      end_date: sql`date_trunc('day', end_date) + ${endIntervalStr}::interval`,
+      update_user_id: userId,
+      update_date: nowStr,
+    })
+    .where('parent_id', '=', parentId)
+    .where('owner_id', '=', userId)
+    .execute()
+
+  // 親レコードも名前・場所・内容・公開区分を更新（start/end はそのまま）
+  await db.updateTable('eip_t_schedule')
+    .set({
+      name: input.name,
+      note: input.note ?? null,
+      place: input.place ?? null,
+      public_flag: input.publicFlag,
+      update_user_id: userId,
+      update_date: nowStr,
+    })
+    .where('schedule_id', '=', parentId)
+    .where('owner_id', '=', userId)
+    .execute()
+
+  // 参加者の更新: 全子レコードの map を一括置き換え
+  if (input.participantIds !== undefined) {
+    const children = await db.selectFrom('eip_t_schedule')
+      .select('schedule_id')
+      .where('parent_id', '=', parentId)
+      .execute()
+
+    const childIds = children.map((c) => c.schedule_id)
+    if (childIds.length > 0) {
+      await db.deleteFrom('eip_t_schedule_map').where('schedule_id', 'in', childIds).execute()
+
+      const allParticipantIds = Array.from(new Set([userId, ...input.participantIds]))
+      const mapIds = await nextNSeqIds('pk_eip_t_schedule_map', childIds.length * allParticipantIds.length)
+      let mapIdx = 0
+      await db.insertInto('eip_t_schedule_map').values(
+        childIds.flatMap((childId) =>
+          allParticipantIds.map((uid) => ({
+            id: mapIds[mapIdx++],
+            schedule_id: childId,
+            user_id: uid,
+            type: 'U' as const,
+            status: uid === userId ? 'O' : 'T',
+            common_category_id: 1,
+          }))
+        )
+      ).execute()
+    }
+  }
+
+  logger.info({ event: 'schedule.repeat.updateAll', userId, parentId }, '繰り返しスケジュール全更新')
+}
+
+/**
+ * 繰り返し予定のうち1件のみを削除する（「この予定のみ削除」）。
+ * 親レコードと他の子レコードはそのまま残る。
+ */
+export async function deleteRepeatOne(scheduleId: number, userId: number): Promise<void> {
+  await db.deleteFrom('eip_t_schedule_map').where('schedule_id', '=', scheduleId).execute()
+  await db.deleteFrom('eip_t_schedule')
+    .where('schedule_id', '=', scheduleId)
+    .where('owner_id', '=', userId)
+    .execute()
+
+  logger.info({ event: 'schedule.repeat.deleteOne', userId, scheduleId }, '繰り返しスケジュール単件削除')
+}
+
+/**
+ * 繰り返し予定の全件（親 + 全子）を削除する（「全ての予定を削除」）。
+ */
+export async function deleteRepeatAll(parentId: number, userId: number): Promise<void> {
+  const children = await db.selectFrom('eip_t_schedule')
+    .select('schedule_id')
+    .where('parent_id', '=', parentId)
+    .execute()
+
+  const childIds = children.map((c) => c.schedule_id)
+
+  if (childIds.length > 0) {
+    await db.deleteFrom('eip_t_schedule_map').where('schedule_id', 'in', childIds).execute()
+    await db.deleteFrom('eip_t_schedule').where('parent_id', '=', parentId).execute()
+  }
+
+  // 親レコード削除（schedule_map なし）
+  await db.deleteFrom('eip_t_schedule')
+    .where('schedule_id', '=', parentId)
+    .where('owner_id', '=', userId)
+    .execute()
+
+  logger.info({ event: 'schedule.repeat.deleteAll', userId, parentId }, '繰り返しスケジュール全削除')
 }

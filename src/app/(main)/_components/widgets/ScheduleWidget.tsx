@@ -8,13 +8,18 @@ import {
   addScheduleAction,
   updateScheduleAction,
   deleteScheduleAction,
+  addRepeatScheduleAction,
+  updateRepeatOneAction,
+  updateRepeatAllAction,
+  deleteRepeatOneAction,
+  deleteRepeatAllAction,
   getHolidaysAction,
   getWidgetSettingsAction,
   saveWidgetSettingsAction,
   getMobileWidgetSettingsAction,
   saveMobileWidgetSettingsAction,
 } from '../../actions'
-import type { ScheduleInput, MultiUserScheduleEntry } from '@/lib/schedule.types'
+import type { ScheduleInput, RepeatScheduleInput, MultiUserScheduleEntry } from '@/lib/schedule.types'
 import { MAX_USERS, HOUR_PX, MIN_BLOCK_PX, DOW_JA, USER_COLORS } from '@/lib/schedule.constants'
 import ScheduleFormModal from './ScheduleFormModal'
 import ScheduleDetailModal from './ScheduleDetailModal'
@@ -183,6 +188,8 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   const [selectedSchedule, setSelectedSchedule] = useState<MultiUserScheduleEntry | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState<MultiUserScheduleEntry | null>(null)
+  // 繰り返し子の編集モード（'normal' | 'repeatOne' | 'repeatAll'）
+  const [repeatEditMode, setRepeatEditMode] = useState<'normal' | 'repeatOne' | 'repeatAll'>('normal')
   const [toast, setToast] = useState<string | null>(null)
   // 祝日データ: 初回マウント時に外部APIから取得しキャッシュ済みのものを受け取る
   const [holidays, setHolidays] = useState<Record<string, string>>({})
@@ -297,10 +304,23 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   const hasAllDay = schedules.some((s) => s.isAllDay)
 
   for (const s of schedules) {
-    const day = toJstDateStr(s.startDate)
     if (s.isAllDay) {
-      allDayByDay[day] = [...(allDayByDay[day] ?? []), s]
+      const startDay = toJstDateStr(s.startDate)
+      const endDayExclusive = toJstDateStr(s.endDate)
+      if (startDay === endDayExclusive || s.startDate.getTime() === s.endDate.getTime()) {
+        // 通常の終日（AIPO: start_date=end_date）
+        allDayByDay[startDay] = [...(allDayByDay[startDay] ?? []), s]
+      } else {
+        // 期間で指定（end_date は exclusive: startDay <= day < endDayExclusive）
+        // 週の表示範囲内の日付にのみ配置する（週をまたぐ期間予定に対応）
+        for (const day of weekDays) {
+          if (day >= startDay && day < endDayExclusive) {
+            allDayByDay[day] = [...(allDayByDay[day] ?? []), s]
+          }
+        }
+      }
     } else {
+      const day = toJstDateStr(s.startDate)
       timedByDay[day] = [...(timedByDay[day] ?? []), s]
     }
   }
@@ -311,33 +331,66 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
     positionedByDay[day] = positionSchedules(timedByDay[day] ?? [], userColorMap, isMultiUser)
   }
 
-  async function handleAdd(input: ScheduleInput) {
-    const added = await addScheduleAction(input)
-    const entry: MultiUserScheduleEntry = {
-      ...added,
-      viewUserId: loginUserId ?? 0,
-      viewUserName: loginUserName,
+  async function handleAdd(input: ScheduleInput | RepeatScheduleInput) {
+    if ('repeatType' in input) {
+      // 繰り返し予定: 複数レコードが作成されるため全件リロードする
+      await addRepeatScheduleAction(input)
+      fetchSchedules(weekStart, viewUserIds)
+    } else {
+      const added = await addScheduleAction(input)
+      const entry: MultiUserScheduleEntry = {
+        ...added,
+        viewUserId: loginUserId ?? 0,
+        viewUserName: loginUserName,
+      }
+      setSchedules((prev) => [...prev, entry])
     }
-    setSchedules((prev) => [...prev, entry])
     setShowAddForm(false)
   }
 
-  async function handleUpdate(input: ScheduleInput) {
+  async function handleUpdate(input: ScheduleInput | RepeatScheduleInput) {
     if (!editingSchedule) return
-    const updated = await updateScheduleAction(editingSchedule.scheduleId, input)
-    const entry: MultiUserScheduleEntry = {
-      ...updated,
-      viewUserId: editingSchedule.viewUserId,
-      viewUserName: editingSchedule.viewUserName,
+    if (repeatEditMode === 'repeatOne') {
+      // この予定のみ変更
+      await updateRepeatOneAction(editingSchedule.scheduleId, input as ScheduleInput)
+      fetchSchedules(weekStart, viewUserIds)
+    } else if (repeatEditMode === 'repeatAll') {
+      // 全ての予定を変更: parentId を使って一括更新
+      await updateRepeatAllAction(editingSchedule.parentId, input as ScheduleInput)
+      fetchSchedules(weekStart, viewUserIds)
+    } else if ('repeatType' in input) {
+      // 通常→繰り返し変更（新規追加フォームからの繰り返し作成）
+      await addRepeatScheduleAction(input)
+      fetchSchedules(weekStart, viewUserIds)
+    } else {
+      const updated = await updateScheduleAction(editingSchedule.scheduleId, input)
+      const entry: MultiUserScheduleEntry = {
+        ...updated,
+        viewUserId: editingSchedule.viewUserId,
+        viewUserName: editingSchedule.viewUserName,
+      }
+      setSchedules((prev) => prev.map((s) => (s.scheduleId === entry.scheduleId ? entry : s)))
     }
-    setSchedules((prev) => prev.map((s) => (s.scheduleId === entry.scheduleId ? entry : s)))
     setEditingSchedule(null)
+    setRepeatEditMode('normal')
   }
 
-  async function handleDelete(scheduleId: number) {
-    // TODO Phase C: スコープ（single/all/participants）に応じた繰り返し削除を実装する
-    await deleteScheduleAction(scheduleId)
-    setSchedules((prev) => prev.filter((s) => s.scheduleId !== scheduleId))
+  async function handleDelete(scope: string) {
+    if (!selectedSchedule) return
+    const { scheduleId, parentId } = selectedSchedule
+
+    if (scope === 'repeatOne') {
+      await deleteRepeatOneAction(scheduleId)
+      setSchedules((prev) => prev.filter((s) => s.scheduleId !== scheduleId))
+    } else if (scope === 'repeatAll') {
+      await deleteRepeatAllAction(parentId)
+      // 同じ親を持つ子レコードを全て除去する
+      setSchedules((prev) => prev.filter((s) => s.parentId !== parentId && s.scheduleId !== parentId))
+    } else {
+      // 通常予定（single / all / participants）はいずれもこのレコードのみ削除
+      await deleteScheduleAction(scheduleId)
+      setSchedules((prev) => prev.filter((s) => s.scheduleId !== scheduleId))
+    }
     setSelectedSchedule(null)
   }
 
@@ -605,7 +658,6 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
           loginUserName={loginUserName}
           onClose={() => setShowAddForm(false)}
           onSave={handleAdd}
-          onShowRepeatToast={() => showToast('繰り返し予定の設定は Phase C で実装予定です')}
         />
       )}
 
@@ -613,11 +665,14 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
       {editingSchedule && (
         <ScheduleFormModal
           schedule={editingSchedule}
+          editMode={repeatEditMode}
           loginUserId={loginUserId ?? 0}
           loginUserName={loginUserName}
-          onClose={() => setEditingSchedule(null)}
+          onClose={() => {
+            setEditingSchedule(null)
+            setRepeatEditMode('normal')
+          }}
           onSave={handleUpdate}
-          onShowRepeatToast={() => showToast('繰り返し予定の設定は Phase C で実装予定です')}
         />
       )}
 
@@ -626,11 +681,12 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
         <ScheduleDetailModal
           schedule={selectedSchedule}
           onClose={() => setSelectedSchedule(null)}
-          onEdit={() => {
+          onEdit={(mode) => {
+            setRepeatEditMode(mode)
             setEditingSchedule(selectedSchedule)
             setSelectedSchedule(null)
           }}
-          onDelete={(_scope) => handleDelete(selectedSchedule.scheduleId)}
+          onDelete={handleDelete}
           onCopy={handleCopy}
         />
       )}

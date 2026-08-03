@@ -6,13 +6,13 @@ import type { ScheduleEntry, ScheduleDetail } from '@/lib/schedule.types'
 import { getScheduleDetailAction } from '../../actions'
 import { toJstDateJa, toJstTimeStr, formatJstDatetime } from '@/lib/jst'
 
-type DeleteScope = 'single' | 'all' | 'participants'
+type DeleteScope = 'single' | 'all' | 'participants' | 'repeatOne' | 'repeatAll'
+type EditMode = 'normal' | 'repeatOne' | 'repeatAll'
 
 type Props = {
   schedule: ScheduleEntry
   onClose: () => void
-  onEdit: () => void
-  /** 削除スコープを受け取る。"single"=この予定のみ、"all"=完全に削除、"participants"=参加ユーザー全員の予定を削除 */
+  onEdit: (mode: EditMode) => void
   onDelete: (scope: DeleteScope) => void
   onCopy: () => void
 }
@@ -23,7 +23,8 @@ const PUBLIC_FLAG_LABEL: Record<'O' | 'P' | 'C', string> = {
   C: '完全に隠す',
 }
 
-const DELETE_OPTIONS: { value: DeleteScope; label: string }[] = [
+// 通常予定（繰り返しなし・繰り返し親）の削除選択肢
+const NORMAL_DELETE_OPTIONS: { value: DeleteScope; label: string }[] = [
   { value: 'single', label: 'この予定のみを削除します' },
   { value: 'all', label: 'この予定を完全に削除します' },
   { value: 'participants', label: '参加ユーザー全員の予定を削除します' },
@@ -32,10 +33,11 @@ const DELETE_OPTIONS: { value: DeleteScope; label: string }[] = [
 export default function ScheduleDetailModal({ schedule, onClose, onEdit, onDelete, onCopy }: Props) {
   const [detail, setDetail] = useState<ScheduleDetail | null>(null)
   const [deleteScope, setDeleteScope] = useState<DeleteScope>('single')
+  // 繰り返し子の場合は削除スコープを repeatOne/repeatAll で持つ
+  const [repeatDeleteScope, setRepeatDeleteScope] = useState<'repeatOne' | 'repeatAll'>('repeatOne')
 
-  // 繰り返し子レコードは Phase C まで編集・削除不可
   const isRepeatChild = schedule.parentId > 0
-  const canEdit = schedule.isOwner && !isRepeatChild
+  const canEdit = schedule.isOwner
 
   useEffect(() => {
     getScheduleDetailAction(schedule.scheduleId).then(setDetail).catch(() => {})
@@ -88,19 +90,46 @@ export default function ScheduleDetailModal({ schedule, onClose, onEdit, onDelet
             </>
           )}
 
-          {/* 繰り返し予定の案内（Phase C で編集対応） */}
-          {isRepeatChild && (
-            <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
-              繰り返し予定です（編集は Phase C で対応予定）
-            </p>
-          )}
-
-          {/* 削除する場合の条件（owner のみ表示） */}
-          {canEdit && (
+          {/* 繰り返し子レコード: 削除スコープ選択 */}
+          {isRepeatChild && canEdit && (
             <div className="pt-2">
               <p className="text-xs text-gray-500 mb-2">削除する場合の条件</p>
               <div className="space-y-1.5">
-                {DELETE_OPTIONS.map((opt) => (
+                {(
+                  [
+                    { value: 'repeatOne', label: 'この予定のみを削除します' },
+                    { value: 'repeatAll', label: '全ての繰り返し予定を削除します' },
+                  ] as { value: 'repeatOne' | 'repeatAll'; label: string }[]
+                ).map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs cursor-pointer ${
+                      repeatDeleteScope === opt.value
+                        ? 'border-brand bg-orange-50 text-brand'
+                        : 'border-gray-200 text-gray-700'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="repeatDeleteScope"
+                      value={opt.value}
+                      checked={repeatDeleteScope === opt.value}
+                      onChange={() => setRepeatDeleteScope(opt.value)}
+                      className="accent-brand"
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 通常予定（繰り返しなし）: 削除スコープ選択 */}
+          {!isRepeatChild && canEdit && (
+            <div className="pt-2">
+              <p className="text-xs text-gray-500 mb-2">削除する場合の条件</p>
+              <div className="space-y-1.5">
+                {NORMAL_DELETE_OPTIONS.map((opt) => (
                   <label
                     key={opt.value}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs cursor-pointer ${
@@ -127,10 +156,33 @@ export default function ScheduleDetailModal({ schedule, onClose, onEdit, onDelet
 
         {/* フッターボタン */}
         <div className="px-5 pb-5 flex gap-2 flex-wrap">
-          {canEdit ? (
+          {canEdit && isRepeatChild ? (
+            // 繰り返し子レコード: この予定のみ変更 / 全て変更
             <>
               <button
-                onClick={onEdit}
+                onClick={() => onEdit('repeatOne')}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
+              >
+                この予定のみ変更
+              </button>
+              <button
+                onClick={() => onEdit('repeatAll')}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
+              >
+                全ての予定を変更
+              </button>
+              <button
+                onClick={() => onDelete(repeatDeleteScope)}
+                className="px-3 py-2 text-sm text-white bg-red-500 rounded-lg hover:bg-red-600"
+              >
+                削除する
+              </button>
+            </>
+          ) : canEdit ? (
+            // 通常予定
+            <>
+              <button
+                onClick={() => onEdit('normal')}
                 className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
               >
                 編集する
