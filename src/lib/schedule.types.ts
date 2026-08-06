@@ -28,6 +28,21 @@ export type ScheduleDetail = {
   updaterDateJst: string
   /** 参加ユーザー名の配列（owner 含む） */
   participantNames: string[]
+  /** Phase D: 予約設備名の配列（予約なしの場合は空配列） */
+  facilityNames: string[]
+}
+
+// ===========================================================
+// Phase D: 設備予約
+// ===========================================================
+
+/** 設備ピッカー表示用。グループ名を含む設備情報 */
+export type FacilityWithGroup = {
+  facilityId: number
+  facilityName: string
+  /** eip_m_facility_group.group_name。グループ未所属の場合は null */
+  groupName: string | null
+  sort: number
 }
 
 export type ScheduleInput = {
@@ -46,6 +61,8 @@ export type ScheduleInput = {
    * 未指定の場合は通常の終日予定（start_date=end_date）として扱う。
    */
   periodEndDate?: Date
+  /** Phase D: 予約設備 ID リスト（eip_t_schedule_map type='F' で登録される） */
+  facilityIds?: number[]
 }
 
 // ===========================================================
@@ -74,6 +91,8 @@ export type RepeatScheduleInput = {
   limitStartDate?: Date | null
   /** null = 2年分展開（無期限） */
   limitEndDate?: Date | null
+  /** Phase D: 予約設備 ID リスト（eip_t_schedule_map type='F' で登録される） */
+  facilityIds?: number[]
 }
 
 // ===========================================================

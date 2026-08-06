@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, Plus, Users, X } from 'lucide-react'
 import {
   getWeekSchedulesMultiAction,
+  getDaySchedulesAction,
+  getMonthSchedulesAction,
   getLoginUserIdAction,
   addScheduleAction,
   updateScheduleAction,
@@ -24,6 +26,9 @@ import { MAX_USERS, HOUR_PX, MIN_BLOCK_PX, DOW_JA, USER_COLORS } from '@/lib/sch
 import ScheduleFormModal from './ScheduleFormModal'
 import ScheduleDetailModal from './ScheduleDetailModal'
 import UserPickerModal from './UserPickerModal'
+import ScheduleDayView from './ScheduleDayView'
+import ScheduleMonthView from './ScheduleMonthView'
+import ScheduleListView from './ScheduleListView'
 import { Toast, Loading } from '../ui'
 import { toJstDateStr, toJstTimeStr, isTodayJst, toJstMinutesSinceMidnight } from '@/lib/jst'
 
@@ -69,6 +74,13 @@ function formatJapaneseDate(dateStr: string): string {
   const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay()
   const DOW_ALL = ['日', '月', '火', '水', '木', '金', '土']
   return `${y}年${m}月${d}日（${DOW_ALL[dow]}）`
+}
+
+/** "YYYY-MM-DD" に months を加算した "YYYY-MM-01" を返す（月ビューの月送り用） */
+function addMonth(dateStr: string, months: number): string {
+  const [y, m] = dateStr.split('-').map(Number)
+  const result = new Date(Date.UTC(y, m - 1 + months, 1))
+  return `${result.getUTCFullYear()}-${String(result.getUTCMonth() + 1).padStart(2, '0')}-01`
 }
 
 /** 曜日インデックスに対応するテキストカラークラス（土=青、日=赤、平日=デフォルト） */
@@ -171,11 +183,15 @@ function ScheduleBlock({ schedule, onClick }: ScheduleBlockProps) {
 // ScheduleWidget メインコンポーネント
 // ===========================================================
 
+type ViewMode = 'week' | 'day' | 'month' | 'list'
+
 type ScheduleWidgetSettings = {
   viewUserIds: number[]
   // 氏名は userIds から都度取得できるが、スケジュール0件の週でもチップ表示に使うためキャッシュする。
   // 氏名変更は稀なので多少古くても問題ない（AIPO も同様に氏名をキャッシュしている）。
   viewUserNames: Record<string, string>
+  viewMode?: ViewMode   // Phase D: デフォルト 'week'
+  viewDate?: string     // Phase D: YYYY-MM-DD。日/月ビューの基準日
 }
 
 // isMobileView=true の場合はモバイル専用テーブル（oripo_mobile_widget_settings）を使う。
@@ -183,6 +199,9 @@ type ScheduleWidgetSettings = {
 // モバイルでの選択ユーザー設定が失われない。
 export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: number; isMobileView?: boolean }) {
   const [weekStart, setWeekStart] = useState<string>(() => getMonday(new Date()))
+  // 日/月ビューの基準日（YYYY-MM-DD JST）。週ビューの weekStart とは独立して管理する。
+  const [viewDate, setViewDate] = useState<string>(() => toJstDateStr(new Date()))
+  const [viewMode, setViewMode] = useState<ViewMode>('week')
   const [schedules, setSchedules] = useState<MultiUserScheduleEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedSchedule, setSelectedSchedule] = useState<MultiUserScheduleEntry | null>(null)
@@ -191,6 +210,8 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   // 繰り返し子の編集モード（'normal' | 'repeatOne' | 'repeatAll'）
   const [repeatEditMode, setRepeatEditMode] = useState<'normal' | 'repeatOne' | 'repeatAll'>('normal')
   const [toast, setToast] = useState<string | null>(null)
+  // 一覧ビューの再フェッチトリガー: 追加/更新/削除後にインクリメントする
+  const [listRefreshKey, setListRefreshKey] = useState(0)
   // 祝日データ: 初回マウント時に外部APIから取得しキャッシュ済みのものを受け取る
   const [holidays, setHolidays] = useState<Record<string, string>>({})
 
@@ -208,6 +229,8 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   // カレンダーコンテナ: 初期スクロール位置を 8:00 に合わせるため ref を保持
   const calendarRef = useRef<HTMLDivElement>(null)
   const scrolledRef = useRef(false)
+  // 初期化完了フラグ: DB から settings を復元した後にのみ自動保存を許可する
+  const hasInitializedRef = useRef(false)
 
   // viewUserIds の順番に対応するプリセット色マップ
   const userColorMap = new Map<number, string>(
@@ -224,10 +247,18 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
 
   const isMultiUser = viewUserIds.length > 1
 
-  const fetchSchedules = useCallback((ws: string, userIds: number[]) => {
+  const fetchSchedules = useCallback((mode: ViewMode, ws: string, vd: string, userIds: number[]) => {
     if (userIds.length === 0) return
+    // 一覧ビューは ScheduleListView 内部で独自取得するためここでは不要
+    if (mode === 'list') return
     setIsLoading(true)
-    getWeekSchedulesMultiAction(userIds, ws)
+    const promise = mode === 'day'
+      ? getDaySchedulesAction(vd, userIds)
+      : mode === 'month'
+        // 月ビュー: "YYYY-MM" 形式で渡す
+        ? getMonthSchedulesAction(vd.slice(0, 7), userIds)
+        : getWeekSchedulesMultiAction(userIds, ws)
+    promise
       .then(setSchedules)
       .catch(() => {})
       .finally(() => setIsLoading(false))
@@ -252,6 +283,13 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
         const storedIds = s?.viewUserIds ?? []
         const storedNames = s?.viewUserNames ?? {}
 
+        // Phase D: ビューモード・基準日を復元する
+        if (s?.viewMode) setViewMode(s.viewMode)
+        if (s?.viewDate) {
+          setViewDate(s.viewDate)
+          if (s.viewMode === 'week') setWeekStart(getMonday(new Date(s.viewDate + 'T00:00:00+09:00')))
+        }
+
         if (storedIds.length > 0) {
           // DB に保存済みの選択ユーザーを復元する
           setViewUserIds(storedIds)
@@ -265,16 +303,18 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
           // 初回アクセスまたは設定なし: 自分のみで初期化
           setViewUserIds([userId])
         }
+        // 設定復元完了後に自動保存を許可する
+        hasInitializedRef.current = true
       })
       .catch(() => {})
   // isMobileView/widgetId が変わった場合（例: デスクトップ←→モバイル切り替え）に再取得する
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobileView, widgetId])
 
-  // viewUserIds または weekStart が変わったときにスケジュールを再取得する
+  // viewMode / weekStart / viewDate / viewUserIds のいずれかが変わったときにスケジュールを再取得する
   useEffect(() => {
-    fetchSchedules(weekStart, viewUserIds)
-  }, [weekStart, viewUserIds, fetchSchedules])
+    fetchSchedules(viewMode, weekStart, viewDate, viewUserIds)
+  }, [viewMode, weekStart, viewDate, viewUserIds, fetchSchedules])
   // NOTE: viewUserIds はプリミティブ配列だが参照比較になる。
   // setViewUserIds で新配列を渡すのはユーザー追加/削除/週変更などの意図的な操作のみなので問題ない。
 
@@ -290,6 +330,20 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   useEffect(() => {
     getHolidaysAction().then(setHolidays).catch(() => {})
   }, [])
+
+  // viewMode / viewDate が変わったらリロード後に復元できるよう DB に保存する。
+  // viewUserIds / knownUserNames は handleUserPickerConfirm とチップ削除で別途保存されるため deps に含めない。
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!hasInitializedRef.current || viewUserIds.length === 0) return
+    const viewUserNames = Object.fromEntries(knownUserNames)
+    if (isMobileView) {
+      saveMobileWidgetSettingsAction('Schedule', { viewUserIds, viewUserNames, viewMode, viewDate }).catch(() => {})
+    } else if (widgetId !== undefined) {
+      saveWidgetSettingsAction(widgetId, { viewUserIds, viewUserNames, viewMode, viewDate }).catch(() => {})
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, viewDate])
 
   function showToast(msg: string) {
     setToast(msg)
@@ -335,7 +389,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
     if ('repeatType' in input) {
       // 繰り返し予定: 複数レコードが作成されるため全件リロードする
       await addRepeatScheduleAction(input)
-      fetchSchedules(weekStart, viewUserIds)
+      fetchSchedules(viewMode, weekStart, viewDate, viewUserIds)
     } else {
       const added = await addScheduleAction(input)
       const entry: MultiUserScheduleEntry = {
@@ -345,6 +399,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
       }
       setSchedules((prev) => [...prev, entry])
     }
+    setListRefreshKey((k) => k + 1)
     setShowAddForm(false)
   }
 
@@ -353,15 +408,15 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
     if (repeatEditMode === 'repeatOne') {
       // この予定のみ変更
       await updateRepeatOneAction(editingSchedule.scheduleId, input as ScheduleInput)
-      fetchSchedules(weekStart, viewUserIds)
+      fetchSchedules(viewMode, weekStart, viewDate, viewUserIds)
     } else if (repeatEditMode === 'repeatAll') {
       // 全ての予定を変更: parentId を使って一括更新
       await updateRepeatAllAction(editingSchedule.parentId, input as ScheduleInput)
-      fetchSchedules(weekStart, viewUserIds)
+      fetchSchedules(viewMode, weekStart, viewDate, viewUserIds)
     } else if ('repeatType' in input) {
       // 通常→繰り返し変更（新規追加フォームからの繰り返し作成）
       await addRepeatScheduleAction(input)
-      fetchSchedules(weekStart, viewUserIds)
+      fetchSchedules(viewMode, weekStart, viewDate, viewUserIds)
     } else {
       const updated = await updateScheduleAction(editingSchedule.scheduleId, input)
       const entry: MultiUserScheduleEntry = {
@@ -371,6 +426,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
       }
       setSchedules((prev) => prev.map((s) => (s.scheduleId === entry.scheduleId ? entry : s)))
     }
+    setListRefreshKey((k) => k + 1)
     setEditingSchedule(null)
     setRepeatEditMode('normal')
   }
@@ -391,6 +447,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
       await deleteScheduleAction(scheduleId)
       setSchedules((prev) => prev.filter((s) => s.scheduleId !== scheduleId))
     }
+    setListRefreshKey((k) => k + 1)
     setSelectedSchedule(null)
   }
 
@@ -421,9 +478,9 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
     // 選択ユーザーを DB に保存する（モバイルとデスクトップで保存先を切り替える）
     const viewUserNames = Object.fromEntries(mergedNames)
     if (isMobileView) {
-      saveMobileWidgetSettingsAction('Schedule', { viewUserIds: sorted, viewUserNames }).catch(() => {})
+      saveMobileWidgetSettingsAction('Schedule', { viewUserIds: sorted, viewUserNames, viewMode, viewDate }).catch(() => {})
     } else if (widgetId !== undefined) {
-      saveWidgetSettingsAction(widgetId, { viewUserIds: sorted, viewUserNames }).catch(() => {})
+      saveWidgetSettingsAction(widgetId, { viewUserIds: sorted, viewUserNames, viewMode, viewDate }).catch(() => {})
     }
   }
 
@@ -431,48 +488,90 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
     <div className="flex flex-col select-none">
       {/* ナビゲーションヘッダー */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 gap-2 flex-wrap">
-        {/* 週移動 */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setWeekStart(getMonday(new Date()))}
-            className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600"
-          >
-            今日
-          </button>
-          <button
-            onClick={() => setWeekStart(addDays(weekStart, -7))}
-            className="p-1 rounded hover:bg-gray-100 text-gray-500"
-            aria-label="前の週"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setWeekStart(addDays(weekStart, 7))}
-            className="p-1 rounded hover:bg-gray-100 text-gray-500"
-            aria-label="次の週"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-          <span className="text-xs text-gray-600 hidden sm:inline">
-            {formatJapaneseDate(weekStart)}
-          </span>
-        </div>
+        {/* 日付ナビゲーション（一覧ビューでは非表示） */}
+        {viewMode !== 'list' ? (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                const today = toJstDateStr(new Date())
+                setViewDate(today)
+                // 週ビューのみ weekStart も今週に戻す
+                if (viewMode === 'week') setWeekStart(getMonday(new Date()))
+              }}
+              className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600"
+            >
+              今日
+            </button>
+            <button
+              onClick={() => {
+                if (viewMode === 'week') setWeekStart(addDays(weekStart, -7))
+                else if (viewMode === 'day') setViewDate(addDays(viewDate, -1))
+                else if (viewMode === 'month') setViewDate(addMonth(viewDate, -1))
+              }}
+              className="p-1 rounded hover:bg-gray-100 text-gray-500"
+              aria-label="前へ"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => {
+                if (viewMode === 'week') setWeekStart(addDays(weekStart, 7))
+                else if (viewMode === 'day') setViewDate(addDays(viewDate, 1))
+                else if (viewMode === 'month') setViewDate(addMonth(viewDate, 1))
+              }}
+              className="p-1 rounded hover:bg-gray-100 text-gray-500"
+              aria-label="次へ"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <span className="text-xs text-gray-600 hidden sm:inline">
+              {viewMode === 'week'
+                ? formatJapaneseDate(weekStart)
+                : viewMode === 'day'
+                  ? formatJapaneseDate(viewDate)
+                  : `${viewDate.split('-')[0]}年${Number(viewDate.split('-')[1])}月`
+              }
+            </span>
+          </div>
+        ) : (
+          <div />
+        )}
 
         {/* 表示モード + ユーザー追加 + 予定追加ボタン */}
         <div className="flex items-center gap-1">
-          {/* ブロック・週ビューのみ有効（Phase D で日/月/一覧を実装予定） */}
-          {(['ブロック', '日', '週', '月', '一覧'] as const).map((label) => (
-            <span
-              key={label}
-              className={`px-2 py-0.5 text-xs rounded border ${
-                label === 'ブロック'
-                  ? 'bg-brand text-white border-brand'
-                  : 'text-gray-300 border-gray-200 cursor-not-allowed'
-              }`}
-            >
-              {label}
-            </span>
-          ))}
+          {/* ビューモード切り替えボタン（ブロック=AIPO別ビューのため未実装・disabled） */}
+          {[
+            { label: 'ブロック', mode: null as ViewMode | null },
+            { label: '日', mode: 'day' as ViewMode | null },
+            { label: '週', mode: 'week' as ViewMode | null },
+            { label: '月', mode: 'month' as ViewMode | null },
+            { label: '一覧', mode: 'list' as ViewMode | null },
+          ].map(({ label, mode }) => {
+            if (mode === null) {
+              return (
+                <span key={label} className="px-2 py-0.5 text-xs rounded border text-gray-300 border-gray-200 cursor-not-allowed">
+                  {label}
+                </span>
+              )
+            }
+            const isActive = mode === viewMode
+            return (
+              <button
+                key={label}
+                type="button"
+                onClick={() => {
+                  // 週ビューに戻る場合は viewDate をもとに weekStart を更新する
+                  if (mode === 'week') setWeekStart(getMonday(new Date(viewDate + 'T00:00:00+09:00')))
+                  setViewMode(mode)
+                }}
+                className={`px-2 py-0.5 text-xs rounded border ${
+                  isActive ? 'bg-brand text-white border-brand' : 'text-gray-600 border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {label}
+              </button>
+            )
+          })}
           <button
             onClick={() => setShowUserPicker(true)}
             className="flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600 ml-1"
@@ -512,9 +611,9 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
                       // チップ削除後の選択状態を DB に保存する
                       const viewUserNames = Object.fromEntries(knownUserNames)
                       if (isMobileView) {
-                        saveMobileWidgetSettingsAction('Schedule', { viewUserIds: newIds, viewUserNames }).catch(() => {})
+                        saveMobileWidgetSettingsAction('Schedule', { viewUserIds: newIds, viewUserNames, viewMode, viewDate }).catch(() => {})
                       } else if (widgetId !== undefined) {
-                        saveWidgetSettingsAction(widgetId, { viewUserIds: newIds, viewUserNames }).catch(() => {})
+                        saveWidgetSettingsAction(widgetId, { viewUserIds: newIds, viewUserNames, viewMode, viewDate }).catch(() => {})
                       }
                     }}
                     className="opacity-80 hover:opacity-100 ml-0.5"
@@ -533,106 +632,149 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
           h-[calc(100vh-160px)]: ヘッダー44px + ウィジェット見出し40px + ナビバー44px + 余白32px ≒ 160px を引いた固定高さ。
           複数ウィジェットが縦に並ぶ場合はページスクロールで対応する。 */}
       <div ref={calendarRef} className="overflow-auto h-[calc(100vh-160px)] relative">
-        {/* min-width: 時刻軸 40px + 7列 × 最小 64px = 488px（モバイル横スクロール） */}
-        <div className="min-w-[490px]">
 
-          {/* 曜日・日付ヘッダー（sticky top-0） */}
-          <div className="flex sticky top-0 z-20 bg-white border-b border-gray-200">
-            {/* コーナー（sticky left-0 かつ top-0） */}
-            <div className="w-10 shrink-0 sticky left-0 z-30 bg-white" />
-            {weekDays.map((day, i) => {
-              const [, , d] = day.split('-').map(Number)
-              const holiday = holidays[day] ?? null
-              // 祝日は赤表示（土曜より優先）
-              const colorClass = holiday ? 'text-red-600' : dayTextColor(i)
-              const today = isTodayJst(day)
-              return (
-                <div
-                  key={day}
-                  className={`flex-1 text-center py-1 border-l border-gray-100 ${today ? 'bg-orange-50' : ''}`}
-                >
-                  <div className={`text-sm font-semibold ${today ? 'text-brand' : colorClass}`}>
-                    {d}（{DOW_JA[i]}）
-                  </div>
-                  {/* 祝日名（省略表示） */}
-                  {holiday && (
-                    <div className="text-[9px] text-red-500 leading-tight truncate px-0.5">
-                      {holiday}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
-          {/* 終日予定行（終日予定がある場合のみ表示、sticky） */}
-          {hasAllDay && (
-            <div className="flex sticky top-[58px] z-20 bg-white border-b border-gray-200 min-h-[28px]">
-              <div className="w-10 shrink-0 sticky left-0 z-30 bg-white flex items-center justify-center">
-                <span className="text-[10px] text-gray-400 rotate-0">終日</span>
-              </div>
-              {weekDays.map((day, i) => (
-                <div key={i} className="flex-1 border-l border-gray-100 p-0.5 space-y-0.5">
-                  {(allDayByDay[day] ?? []).map((s) => {
-                    const color = isMultiUser
-                      ? (userColorMap.get(s.viewUserId) ?? USER_COLORS[0])
-                      : PUBLIC_FLAG_COLORS[s.publicFlag as 'O' | 'P' | 'C']
-                    return (
-                      <button
-                        key={`${s.scheduleId}-${s.viewUserId}`}
-                        type="button"
-                        className={`w-full text-left text-xs truncate rounded px-1 py-0.5 hover:opacity-90 ${color}`}
-                        onClick={() => setSelectedSchedule(s)}
-                        title={s.name}
-                      >
-                        {s.name}
-                      </button>
-                    )
-                  })}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* 時刻グリッド */}
-          <div className="relative flex">
-            {/* 時刻軸（sticky left-0） */}
-            <div className="w-10 shrink-0 sticky left-0 z-10 bg-white">
-              {Array.from({ length: 24 }, (_, h) => (
-                <div key={h} className="relative border-t border-gray-100" style={{ height: HOUR_PX }}>
-                  {h > 0 && (
-                    <span className="absolute -top-2 right-1 text-[10px] text-gray-400 leading-none">
-                      {String(h).padStart(2, '0')}:00
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* 各日カラム */}
-            {weekDays.map((day, colIdx) => (
-              <div key={colIdx} className="flex-1 relative min-w-0 border-l border-gray-100">
-                {/* 時間区切り線 */}
-                {Array.from({ length: 24 }, (_, h) => (
+        {/* 週ビュー（時刻グリッド） */}
+        {viewMode === 'week' && (
+          // min-width: 時刻軸 40px + 7列 × 最小 64px = 488px（モバイル横スクロール）
+          <div className="min-w-[490px]">
+            {/* 曜日・日付ヘッダー（sticky top-0） */}
+            <div className="flex sticky top-0 z-20 bg-white border-b border-gray-200">
+              {/* コーナー（sticky left-0 かつ top-0） */}
+              <div className="w-10 shrink-0 sticky left-0 z-30 bg-white" />
+              {weekDays.map((day, i) => {
+                const [, , d] = day.split('-').map(Number)
+                const holiday = holidays[day] ?? null
+                // 祝日は赤表示（土曜より優先）
+                const colorClass = holiday ? 'text-red-600' : dayTextColor(i)
+                const today = isTodayJst(day)
+                return (
                   <div
-                    key={h}
-                    className={`border-t ${h % 6 === 0 ? 'border-gray-200' : 'border-gray-100'}`}
-                    style={{ height: HOUR_PX }}
-                  />
-                ))}
-                {/* スケジュールブロック */}
-                {(positionedByDay[day] ?? []).map((ps) => (
-                  <ScheduleBlock
-                    key={`${ps.scheduleId}-${ps.viewUserId}`}
-                    schedule={ps}
-                    onClick={() => setSelectedSchedule(ps)}
-                  />
+                    key={day}
+                    className={`flex-1 text-center py-1 border-l border-gray-100 ${today ? 'bg-orange-50' : ''}`}
+                  >
+                    <div className={`text-sm font-semibold ${today ? 'text-brand' : colorClass}`}>
+                      {d}（{DOW_JA[i]}）
+                    </div>
+                    {/* 祝日名（省略表示） */}
+                    {holiday && (
+                      <div className="text-[9px] text-red-500 leading-tight truncate px-0.5">
+                        {holiday}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* 終日予定行（終日予定がある場合のみ表示、sticky） */}
+            {hasAllDay && (
+              <div className="flex sticky top-[58px] z-20 bg-white border-b border-gray-200 min-h-[28px]">
+                <div className="w-10 shrink-0 sticky left-0 z-30 bg-white flex items-center justify-center">
+                  <span className="text-[10px] text-gray-400 rotate-0">終日</span>
+                </div>
+                {weekDays.map((day, i) => (
+                  <div key={i} className="flex-1 border-l border-gray-100 p-0.5 space-y-0.5">
+                    {(allDayByDay[day] ?? []).map((s) => {
+                      const color = isMultiUser
+                        ? (userColorMap.get(s.viewUserId) ?? USER_COLORS[0])
+                        : PUBLIC_FLAG_COLORS[s.publicFlag as 'O' | 'P' | 'C']
+                      return (
+                        <button
+                          key={`${s.scheduleId}-${s.viewUserId}`}
+                          type="button"
+                          className={`w-full text-left text-xs truncate rounded px-1 py-0.5 hover:opacity-90 ${color}`}
+                          onClick={() => setSelectedSchedule(s)}
+                          title={s.name}
+                        >
+                          {s.name}
+                        </button>
+                      )
+                    })}
+                  </div>
                 ))}
               </div>
-            ))}
-          </div>
+            )}
 
-        </div>
+            {/* 時刻グリッド */}
+            <div className="relative flex">
+              {/* 時刻軸（sticky left-0） */}
+              <div className="w-10 shrink-0 sticky left-0 z-10 bg-white">
+                {Array.from({ length: 24 }, (_, h) => (
+                  <div key={h} className="relative border-t border-gray-100" style={{ height: HOUR_PX }}>
+                    {h > 0 && (
+                      <span className="absolute -top-2 right-1 text-[10px] text-gray-400 leading-none">
+                        {String(h).padStart(2, '0')}:00
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* 各日カラム */}
+              {weekDays.map((day, colIdx) => (
+                <div key={colIdx} className="flex-1 relative min-w-0 border-l border-gray-100">
+                  {/* 時間区切り線 */}
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <div
+                      key={h}
+                      className={`border-t ${h % 6 === 0 ? 'border-gray-200' : 'border-gray-100'}`}
+                      style={{ height: HOUR_PX }}
+                    />
+                  ))}
+                  {/* スケジュールブロック */}
+                  {(positionedByDay[day] ?? []).map((ps) => (
+                    <ScheduleBlock
+                      key={`${ps.scheduleId}-${ps.viewUserId}`}
+                      schedule={ps}
+                      onClick={() => setSelectedSchedule(ps)}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 日ビュー */}
+        {viewMode === 'day' && (
+          <ScheduleDayView
+            viewDate={viewDate}
+            schedules={schedules}
+            userColorMap={userColorMap}
+            isMultiUser={isMultiUser}
+            holidays={holidays}
+            onScheduleClick={setSelectedSchedule}
+          />
+        )}
+
+        {/* 月ビュー */}
+        {viewMode === 'month' && (
+          <ScheduleMonthView
+            monthStart={`${viewDate.slice(0, 7)}-01`}
+            schedules={schedules}
+            userColorMap={userColorMap}
+            isMultiUser={isMultiUser}
+            holidays={holidays}
+            onScheduleClick={setSelectedSchedule}
+            onDayClick={(dateStr) => {
+              // 月ビューの日付セルをクリックしたら日ビューに切り替える
+              setViewDate(dateStr)
+              setViewMode('day')
+            }}
+          />
+        )}
+
+        {/* 一覧ビュー（スケジュール取得は ScheduleListView 内部で行う） */}
+        {viewMode === 'list' && (
+          <ScheduleListView
+            viewUserIds={viewUserIds}
+            userColorMap={userColorMap}
+            isMultiUser={isMultiUser}
+            onScheduleClick={setSelectedSchedule}
+            refreshKey={listRefreshKey}
+          />
+        )}
+
       </div>
 
       {/* ローディング表示 */}

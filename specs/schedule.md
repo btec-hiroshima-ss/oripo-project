@@ -12,8 +12,8 @@ AIPO 準拠: `portlets/schedule`（週表示ウィジェット）に相当。
 |---|---|---|---|
 | **A** | #81 | 週表示・自分のみ・予定 CRUD（繰り返しなし） | 完了 ✅ |
 | **B** | #81 | マルチユーザー表示・参加ユーザー選択 | 完了 ✅ |
-| **C（本 Issue）** | #81 | 繰り返し予定の作成・編集・削除 | 実装中 |
-| D | #81 | 設備予約・日/月/一覧ビュー | 未着手 |
+| **C** | #81 | 繰り返し予定の作成・編集・削除 | 完了 ✅ |
+| **D（本 Issue）** | #81 | 設備予約・日/月/一覧ビュー | 実装中 |
 
 ---
 
@@ -717,3 +717,289 @@ calcOccurrences(input: RepeatScheduleInput): Date[]
 - [ ] 「削除する」クリックで「この予定のみ削除 / 全ての予定を削除」ダイアログが表示される
 - [ ] 「この予定のみ削除」を選択すると、その出現日のみカレンダーから消える（他の出現日は残る）
 - [ ] 「全ての予定を削除」を選択すると、全出現日がカレンダーから消える（親レコードも削除）
+
+---
+
+## 機能要件（Phase D）
+
+### ビュー切替
+
+ウィジェットヘッダーの表示モードボタン（Phase A で非活性表示のみだった）を活性化し、以下のビューを実装する。
+
+| ボタンラベル | ビュー | 説明 |
+|---|---|---|
+| 週 | 週ビュー | Phase A〜C で実装済み |
+| 日 | 日ビュー | 1日分の時刻グリッド表示 |
+| 月 | 月ビュー | カレンダーグリッド表示 |
+| 一覧 | 一覧ビュー | 予定を時系列リスト表示 |
+
+- 選択中のビューボタンをアクティブスタイルで強調する
+- ビューを切り替えても「表示対象ユーザー」「現在日付」の状態は引き継ぐ
+- 選択中のビューモードと表示基準日を `oripo_page_widgets.settings` に保存し、リロード後も復元する
+
+### 日ビュー
+
+AIPO 準拠: `CellScheduleOnedaySelectData` に相当。
+
+- 表示範囲: 選択日の 00:00〜24:00（時刻軸は週ビューと同じ）
+- ヘッダー: `YYYY年MM月DD日（曜日）`
+- ナビゲーション: `◀` / `▶` で前日・翌日に移動、`今日` ボタンで当日に戻る
+- 終日予定を時刻グリッド上部の帯に表示する
+- 通常予定をグリッド内のブロックで表示する（週ビューの1列分を全幅表示）
+- マルチユーザービューが有効なら、週ビューと同様に各ユーザーの予定を色分けして重ねて表示する
+- 予定ブロッククリックで詳細モーダルを開く（週ビューと同じ動作）
+
+### 月ビュー
+
+AIPO 準拠: `AjaxScheduleMonthlySelectData` に相当。
+
+- 表示範囲: 選択月の1日〜末日。月曜始まりの7列グリッド（6行まで）
+- ヘッダー: `YYYY年MM月`
+- ナビゲーション: `◀` / `▶` で前月・翌月に移動、`今日` ボタンで当月に戻る
+- 各日セルに予定タイトルを最大2件表示し、超過分は「+N件」表示する（`MAX_EVENTS_PER_CELL = 2`）
+- 終日予定・期間予定は色帯で横断表示する（期間をまたぐ場合は連続した帯として表示）
+- 当月外の日（前月末尾・翌月先頭）はグレーアウト表示
+- 当日はハイライト（背景色）表示
+- 土曜は青字、日曜・祝日は赤字で日付表示
+- 各日セルクリックで日ビューに切り替える（その日を表示基準日に設定）
+- 予定タイトルクリックで詳細モーダルを開く（週ビューと同じ）
+
+### 一覧ビュー
+
+AIPO 準拠: `ScheduleSearchSelectData`（一覧検索）に相当。
+
+- 本日以降の予定を開始日時の昇順で一覧表示する
+- 表示件数: 30件。「もっと見る」ボタンで追加 30 件を読み込む（無限スクロールではなくボタン式）
+- 各行の表示項目: 開始日時（`YYYY/MM/DD HH:MM`）・終了日時（`HH:MM`）・タイトル・場所（場所がある場合のみ）
+- 終日予定は時刻部分を「終日」と表示する
+- 各行クリックで詳細モーダルを開く
+- 「表示対象ユーザー」が複数の場合、誰の予定かをユーザー名（または色チップ）で示す（Phase B のマルチユーザービューに準拠）
+- 過去の予定は表示しない（本日以降のみ）
+
+### 設備予約
+
+要件定義書 2.4 準拠: 設備（会議室等）の予約と空き確認。
+
+#### フォームへの設備選択追加
+
+予定追加・編集フォームに「設備」フィールドを追加する。
+
+- 参加ユーザー選択フィールド（Phase B）の下に配置する
+- フィールド内に選択済み設備名をカンマ区切りで表示する（未選択時は「なし」または空欄）
+- 「設備選択」ボタンをクリックすると設備ピッカーモーダルが開く
+
+#### 設備ピッカーモーダル
+
+ユーザーピッカー（`UserPickerModal`）と同構造のデュアルリストボックス UI を採用する（AIPO `CellScheduleFormFacilityData` 準拠）。
+
+- **左パネル（選択済み設備）**: 選択済み設備リスト / 「削除」ボタン
+- **右パネル（候補設備）**: 
+  - 設備グループ絞り込みドロップダウン（全グループ + 個別グループ）
+  - 設備リスト（設備名 + 空き状況バッジ）
+  - 「追加」ボタン
+- 空き状況は予定フォームで選択中の日時（`startDate`〜`endDate`）に基づいてリアルタイム確認する
+  - 空き: 通常表示
+  - 使用中: バッジ「使用中」表示 + 選択不可（グレーアウト）
+  - 日時未指定の場合: 空き状況バッジは非表示（全設備を選択可能とする）
+- 「決定」「キャンセル」ボタンで確定・破棄する
+- **空いていない時間帯は選択不可**（要件定義書準拠）
+
+#### 設備の DB 登録
+
+予定保存時、選択した設備を `eip_t_schedule_map` に登録する。
+
+| カラム | 値 | 説明 |
+|---|---|---|
+| `schedule_id` | 保存した予定の schedule_id | FK |
+| `user_id` | 設備の `facility_id` | type='F' 時は設備 ID |
+| `type` | `'F'` | 設備を示す固定値（AIPO 準拠） |
+| `status` | `'O'` | AIPO の実データに基づく固定値 |
+| `common_category_id` | `1` | FK 制約により固定 |
+
+編集時: 既存の `type='F'` レコードを削除して再登録する（ユーザー参加者と同じ全更新方式）。
+
+#### 設備予約の表示
+
+- 詳細モーダルの「参加ユーザー」欄の下に「予約設備」欄を追加する
+- 設備が予約されている場合、設備名リストを表示する
+- 設備が予約されていない場合、「予約設備」欄を表示しない
+
+### ScheduleWidgetSettings 変更
+
+`viewMode` と `viewDate` を settings に追加してビュー状態をリロード後も復元する。
+
+```ts
+type ScheduleWidgetSettings = {
+  viewUserIds: number[]
+  viewUserNames: Record<string, string>
+  viewMode: 'week' | 'day' | 'month' | 'list'  // 追加: デフォルト 'week'
+  viewDate: string  // 追加: YYYY-MM-DD、デフォルト 当日
+}
+```
+
+### レスポンシブ対応（Phase D）
+
+| ブレークポイント | 挙動 |
+|---|---|
+| デスクトップ（lg 以上） | 全ビューを通常表示 |
+| モバイル（lg 未満） | 日ビュー: 週ビューと同様に1列表示。月ビュー: セル幅を縮小・タイトルは1件まで表示。一覧: そのまま縦スクロール。設備ピッカー: 上下2段レイアウト（ユーザーピッカーと同様） |
+
+---
+
+## API（Phase D 追加分）
+
+```ts
+// 日ビュー: 指定日のスケジュール取得（getWeekSchedulesMulti を日範囲で呼び出す）
+getDaySchedulesAction(date: string, userIds: number[]): Promise<MultiUserScheduleEntry[]>
+
+// 月ビュー: 指定月のスケジュール取得（getWeekSchedulesMulti を月範囲で呼び出す）
+getMonthSchedulesAction(month: string, userIds: number[]): Promise<MultiUserScheduleEntry[]>
+
+// 一覧ビュー: 本日以降の予定を offset/limit ページングで取得
+getListSchedulesAction(from: string, userIds: number[], limit: number, offset: number): Promise<MultiUserScheduleEntry[]>
+
+// 設備一覧取得（全設備 + グループ情報）
+getFacilitiesAction(): Promise<FacilityWithGroup[]>
+
+// 設備の空き確認（指定日時に予約済みの facility_id 配列を返す）
+// 呼び出し元で Set<number> に変換して使用する
+getFacilityAvailabilityAction(startDate: string, endDate: string): Promise<number[]>
+
+// 編集フォーム初期化用: スケジュールの予約設備 ID 一覧を取得
+getScheduleFacilityIdsAction(scheduleId: number): Promise<number[]>
+```
+
+### DB クエリ追加（`src/lib/schedule.ts`）
+
+日/月ビューは `getWeekSchedulesMulti` を異なる日付範囲で呼び出して対応（新関数なし）。
+
+```ts
+// 一覧ビュー: start_date 基準で昇順取得（週ビューの end_date 基準とは異なる）
+getListSchedules(loginUserId: number, userIds: number[], from: Date, limit: number, offset: number): Promise<MultiUserScheduleEntry[]>
+
+// 設備一覧取得（LEFT JOIN でグループ情報付き、sort 昇順）
+getFacilities(): Promise<FacilityWithGroup[]>
+
+// 設備空き確認（半開区間: start < endDate AND end > startDate）
+getBookedFacilityIds(startDate: Date, endDate: Date): Promise<number[]>
+
+// 編集フォーム初期値用: type='F' のレコードから facility_id を取得
+getScheduleFacilityIds(scheduleId: number): Promise<number[]>
+```
+
+---
+
+## データモデル（Phase D）
+
+新規テーブルなし。既存テーブルを使用する。
+
+### `eip_m_facility`（設備マスタ、既存）
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| `facility_id` | integer | PK |
+| `user_id` | integer | 登録者 user_id |
+| `facility_name` | varchar(64) | 設備名 |
+| `note` | text | 備考（nullable） |
+| `sort` | integer | 表示順 |
+| `create_date` | date | 登録日 |
+| `update_date` | timestamp | 更新日時 |
+
+### `eip_m_facility_group`（設備グループ、既存）
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| `group_id` | integer | PK |
+| `group_name` | varchar(64) | グループ名 |
+
+### `eip_m_facility_group_map`（グループ↔設備マッピング、既存）
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| `id` | integer | PK |
+| `facility_id` | integer | FK → eip_m_facility |
+| `group_id` | integer | FK → eip_m_facility_group |
+
+### 型定義追加（`src/lib/schedule.types.ts`）
+
+```ts
+// 設備情報（グループ名含む）
+export type FacilityWithGroup = {
+  facilityId: number
+  facilityName: string
+  groupName: string | null
+  sort: number
+}
+
+// ScheduleInput 変更: 設備 ID リスト追加
+export type ScheduleInput = {
+  name: string
+  note?: string
+  place?: string
+  startDate: Date
+  endDate: Date
+  isAllDay: boolean
+  publicFlag: 'O' | 'P' | 'C'
+  participantIds?: number[]
+  facilityIds?: number[]  // Phase D 追加
+}
+
+// RepeatScheduleInput にも同じく追加
+export type RepeatScheduleInput = {
+  // ... 既存フィールド ...
+  facilityIds?: number[]  // Phase D 追加
+}
+```
+
+---
+
+## 受け入れ条件（Phase D）
+
+### ビュー切替
+
+- [ ] ウィジェットヘッダーの「日」「月」「一覧」ボタンが活性化され、クリックでビューが切り替わる
+- [ ] 選択中のビューボタンがアクティブスタイルで表示される
+- [ ] ビュー切替後にリロードすると、切り替え前のビューが復元される
+
+### 日ビュー
+
+- [ ] 選択日の予定が 00:00〜24:00 の時刻グリッドに表示される
+- [ ] 終日予定がグリッド上部の帯に表示される
+- [ ] `◀` `▶` で前日・翌日に移動できる、`今日` ボタンで当日に戻る
+- [ ] 予定ブロッククリックで詳細モーダルが開く
+- [ ] マルチユーザービュー選択時、各ユーザーの予定が色分けして重ねて表示される
+- [ ] モバイル（375px）でも正しく表示・操作できる
+
+### 月ビュー
+
+- [ ] 選択月の全日がカレンダーグリッドに表示される
+- [ ] 各日セルに予定タイトルが最大2件表示され、超過分は「+N件」と表示される
+- [ ] 終日・期間予定が日をまたぐ色帯で表示される
+- [ ] `◀` `▶` で前月・翌月に移動できる、`今日` ボタンで当月に戻る
+- [ ] 当日セルがハイライト表示される
+- [ ] 土曜は青字、日曜・祝日は赤字で日付表示される
+- [ ] セルクリックで日ビューに切り替わる
+- [ ] 予定タイトルクリックで詳細モーダルが開く
+- [ ] モバイル（375px）でも正しく表示・操作できる
+
+### 一覧ビュー
+
+- [ ] 本日以降の予定が開始日時の昇順でリスト表示される
+- [ ] 過去の予定は表示されない
+- [ ] 「もっと見る」ボタンで追加 30 件が読み込まれる
+- [ ] 各行に開始日時・終了時刻・タイトル・場所が表示される
+- [ ] 終日予定の時刻部分が「終日」と表示される
+- [ ] 各行クリックで詳細モーダルが開く
+- [ ] モバイル（375px）でも正しく表示・操作できる
+
+### 設備予約
+
+- [ ] 予定追加・編集フォームに「設備選択」ボタンが表示される
+- [ ] ボタンクリックで設備ピッカーモーダルが開く
+- [ ] モーダルに設備グループ絞り込みドロップダウンと設備リストが表示される
+- [ ] 予定の日時が入力済みの場合、使用中の設備が「使用中」バッジで選択不可になる
+- [ ] 空いている設備を選択して「決定」するとフォームに設備名が表示される
+- [ ] 設備を選択して予定を保存すると、詳細モーダルの「予約設備」欄に設備名が表示される
+- [ ] 編集時、既存の予約設備がピッカーの初期選択状態で表示される
+- [ ] 設備なしで保存した予定は詳細モーダルに「予約設備」欄が表示されない
+- [ ] モバイル（375px）でも設備ピッカーが正しく操作できる
