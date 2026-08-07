@@ -14,6 +14,8 @@ type Props = {
   startDateIso?: string
   /** 空き確認に使う予定終了時刻（ISO 文字列）。未指定の場合は空き判定しない */
   endDateIso?: string
+  /** 編集中のスケジュール ID。自身の設備予約を「使用中」と誤判定しないために除外する */
+  scheduleId?: number
   onConfirm: (ids: Set<number>) => void
   onClose: () => void
 }
@@ -23,6 +25,7 @@ export default function FacilityPickerModal({
   selectedIds,
   startDateIso,
   endDateIso,
+  scheduleId,
   onConfirm,
   onClose,
 }: Props) {
@@ -35,7 +38,7 @@ export default function FacilityPickerModal({
   // 空き状況だけを取得する（設備一覧は親から受け取るため二重取得しない）
   useEffect(() => {
     if (!startDateIso || !endDateIso) return
-    getFacilityAvailabilityAction(startDateIso, endDateIso)
+    getFacilityAvailabilityAction(startDateIso, endDateIso, scheduleId)
       .then((bookedIds) => setBusyIds(new Set(bookedIds)))
       .catch(() => {})
   // ピッカーを開いた時点の日時で1回だけ取得する。

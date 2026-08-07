@@ -648,7 +648,7 @@ calcOccurrences(input: RepeatScheduleInput): Date[]
 ### 型定義追加（`src/lib/schedule.types.ts`）
 
 ```ts
-export type RepeatType = 'none' | 'daily' | 'weekly' | 'monthly'
+export type RepeatType = 'daily' | 'weekly' | 'monthly'
 
 // 繰り返し予定の作成・「全ての予定を変更」で使用
 export type RepeatScheduleInput = {
@@ -749,7 +749,7 @@ AIPO は週ビュー（ブロック）と非週ビュー（日/月/一覧）で�
 
 実装上の動作:
 - **週ビュー**: 「ユーザーを追加」ボタンで最大 30 人まで複数ユーザーを同一グリッドに重ねて表示する（Phase B 実装済み）
-- **日/月/一覧ビュー**: 常に1人のユーザーのみを表示する。ヘッダーのボタン（ユーザー名表示）をクリックするとユーザー切替ピッカーが開く
+- **日/月/一覧ビュー**: 常に1人のユーザーのみを表示する。ヘッダーの「グループ選択」→「ユーザー選択」の2段ドロップダウンで表示ユーザーを切り替える（AIPO の `schedule-monthly.vm` に合わせた実装）
   - デフォルト: ログインユーザー自身
   - 週ビューの「追加ユーザー」設定とは独立（週ビューに戻っても多人数表示は維持される）
   - 自分以外のユーザーの予定も閲覧可能（他ユーザーの `public_flag='C'` は除外）
@@ -881,7 +881,8 @@ getFacilitiesAction(): Promise<FacilityWithGroup[]>
 
 // 設備の空き確認（指定日時に予約済みの facility_id 配列を返す）
 // 呼び出し元で Set<number> に変換して使用する
-getFacilityAvailabilityAction(startDate: string, endDate: string): Promise<number[]>
+// excludeScheduleId: 編集中スケジュール自身を除外（設備再選択時の誤判定防止）
+getFacilityAvailabilityAction(startDate: string, endDate: string, excludeScheduleId?: number): Promise<number[]>
 
 // 編集フォーム初期化用: スケジュールの予約設備 ID 一覧を取得
 getScheduleFacilityIdsAction(scheduleId: number): Promise<number[]>
@@ -899,7 +900,8 @@ getListSchedules(loginUserId: number, userIds: number[], from: Date, limit: numb
 getFacilities(): Promise<FacilityWithGroup[]>
 
 // 設備空き確認（半開区間: start < endDate AND end > startDate）
-getBookedFacilityIds(startDate: Date, endDate: Date): Promise<number[]>
+// excludeScheduleId: 編集中スケジュール自身を除外（自分の設備を「使用中」と誤判定しない）
+getBookedFacilityIds(startDate: Date, endDate: Date, excludeScheduleId?: number): Promise<number[]>
 
 // 編集フォーム初期値用: type='F' のレコードから facility_id を取得
 getScheduleFacilityIds(scheduleId: number): Promise<number[]>
@@ -959,6 +961,7 @@ export type ScheduleInput = {
   isAllDay: boolean
   publicFlag: 'O' | 'P' | 'C'
   participantIds?: number[]
+  periodEndDate?: Date     // Phase C: 期間指定の終了日（isAllDay=true かつ期間指定の場合のみ）
   facilityIds?: number[]  // Phase D 追加
 }
 
@@ -986,7 +989,7 @@ export type RepeatScheduleInput = {
 - [ ] `◀` `▶` で前日・翌日に移動できる、`今日` ボタンで当日に戻る
 - [ ] 予定ブロッククリックで詳細モーダルが開く
 - [ ] 常に1人のユーザーの予定のみ表示される（AIPO 準拠: 非週ビューは単一ユーザー）
-- [ ] ヘッダーのユーザー名ボタンをクリックするとユーザー切替ピッカーが開き、別ユーザーの予定に切り替えられる
+- [ ] ヘッダーの「グループ選択」→「ユーザー選択」の2段ドロップダウンで別ユーザーの予定に切り替えられる
 - [ ] モバイル（375px）でも正しく表示・操作できる
 
 ### 月ビュー
@@ -999,7 +1002,7 @@ export type RepeatScheduleInput = {
 - [ ] 土曜は青字、日曜・祝日は赤字で日付表示される
 - [ ] 予定タイトルクリックで詳細モーダルが開く
 - [ ] 常に1人のユーザーの予定のみ表示される（AIPO 準拠: 非週ビューは単一ユーザー）
-- [ ] ヘッダーのユーザー名ボタンをクリックするとユーザー切替ピッカーが開き、別ユーザーの予定に切り替えられる
+- [ ] ヘッダーの「グループ選択」→「ユーザー選択」の2段ドロップダウンで別ユーザーの予定に切り替えられる
 - [ ] モバイル（375px）でも正しく表示・操作できる
 
 ### 一覧ビュー
@@ -1011,7 +1014,7 @@ export type RepeatScheduleInput = {
 - [ ] 終日予定の時刻部分が「終日」と表示される
 - [ ] 各行クリックで詳細モーダルが開く
 - [ ] 常に1人のユーザーの予定のみ表示される（AIPO 準拠: 非週ビューは単一ユーザー）
-- [ ] ヘッダーのユーザー名ボタンをクリックするとユーザー切替ピッカーが開き、別ユーザーの予定に切り替えられる
+- [ ] ヘッダーの「グループ選択」→「ユーザー選択」の2段ドロップダウンで別ユーザーの予定に切り替えられる
 - [ ] モバイル（375px）でも正しく表示・操作できる
 
 ### 設備予約

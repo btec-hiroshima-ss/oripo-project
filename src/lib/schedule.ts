@@ -937,11 +937,16 @@ export async function getFacilities(): Promise<FacilityWithGroup[]> {
  * 指定日時に予約済みの設備 ID セットを返す（空き確認用）。
  * 開始時刻 < endDate かつ 終了時刻 > startDate で重複判定（半開区間）。
  */
-export async function getBookedFacilityIds(startDate: Date, endDate: Date): Promise<number[]> {
+export async function getBookedFacilityIds(
+  startDate: Date,
+  endDate: Date,
+  // 編集中のスケジュール自身を除外することで「自分の設備が使用中」と誤判定されないようにする
+  excludeScheduleId?: number,
+): Promise<number[]> {
   const startStr = toJstStr(startDate)
   const endStr = toJstStr(endDate)
 
-  const rows = await db
+  let query = db
     .selectFrom('eip_t_schedule_map as sm')
     .innerJoin('eip_t_schedule as s', 's.schedule_id', 'sm.schedule_id')
     .where('sm.type', '=', 'F')
@@ -949,8 +954,12 @@ export async function getBookedFacilityIds(startDate: Date, endDate: Date): Prom
     .where(sql`s.start_date::text`, '<', endStr)
     .where(sql`s.end_date::text`, '>', startStr)
     .select(['sm.user_id as facility_id'])
-    .execute()
 
+  if (excludeScheduleId !== undefined) {
+    query = query.where('s.schedule_id', '!=', excludeScheduleId)
+  }
+
+  const rows = await query.execute()
   return rows.map((r) => r.facility_id)
 }
 

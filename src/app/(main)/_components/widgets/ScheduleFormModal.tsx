@@ -678,6 +678,7 @@ export default function ScheduleFormModal({
         <FacilityPickerModal
           facilities={allFacilities}
           selectedIds={facilityIds}
+          scheduleId={schedule?.scheduleId}
           // 日時が入力済みの場合のみ空き確認を行う（終日・期間予定では日付のみのため確認しない）
           startDateIso={
             !isAllDay && !isPeriod && dateStr && startTime

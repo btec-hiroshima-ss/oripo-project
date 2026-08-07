@@ -6,7 +6,8 @@ import { LIST_VIEW_PAGE_SIZE, USER_COLORS } from '@/lib/schedule.constants'
 import { toJstDateStr, toJstTimeStr } from '@/lib/jst'
 import { getListSchedulesAction } from '../../actions'
 
-// 単独ユーザービューの公開区分色（左端のカラーバー用）
+// schedule.constants の PUBLIC_FLAG_COLORS は "bg-brand text-white" 形式（背景＋文字色）で
+// テキストを持たないカラーバー div には合わないため、カラーバー専用クラスを別定義する。
 const FLAG_BAR_COLORS: Record<'O' | 'P' | 'C', string> = {
   O: 'bg-brand',
   P: 'bg-gray-400',

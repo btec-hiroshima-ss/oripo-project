@@ -20,8 +20,11 @@ import {
   saveWidgetSettingsAction,
   getMobileWidgetSettingsAction,
   saveMobileWidgetSettingsAction,
+  getGroupListAction,
+  getGroupMembersAction,
+  getScheduleUsersAction,
 } from '../../actions'
-import type { ScheduleInput, RepeatScheduleInput, MultiUserScheduleEntry } from '@/lib/schedule.types'
+import type { ScheduleInput, RepeatScheduleInput, MultiUserScheduleEntry, ScheduleGroup, ScheduleUser } from '@/lib/schedule.types'
 import { MAX_USERS, HOUR_PX, MIN_BLOCK_PX, DOW_JA, USER_COLORS, PUBLIC_FLAG_COLORS } from '@/lib/schedule.constants'
 import ScheduleFormModal from './ScheduleFormModal'
 import ScheduleDetailModal from './ScheduleDetailModal'
@@ -221,8 +224,11 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   // 非週ビュー（日/月/一覧）は AIPO の target_user_id 相当の単一ユーザー表示のみ。
   // 週ビューの viewUserIds（multi-user）とは独立して管理する。
   const [nonWeekTargetUserId, setNonWeekTargetUserId] = useState<number | null>(null)
-  const [nonWeekTargetUserName, setNonWeekTargetUserName] = useState<string>('')
-  const [showNonWeekUserPicker, setShowNonWeekUserPicker] = useState(false)
+  // AIPO 準拠: 非週ビューフィルターは「グループ選択→ユーザー選択」の2段ドロップダウン。
+  const [nonWeekGroups, setNonWeekGroups] = useState<ScheduleGroup[]>([])
+  const [nonWeekGroupId, setNonWeekGroupId] = useState<number | null>(null)
+  const [nonWeekAllUsers, setNonWeekAllUsers] = useState<ScheduleUser[]>([])
+  const [nonWeekGroupUsers, setNonWeekGroupUsers] = useState<ScheduleUser[]>([])
 
   // カレンダーコンテナ: 初期スクロール位置を 8:00 に合わせるため ref を保持
   const calendarRef = useRef<HTMLDivElement>(null)
@@ -274,13 +280,15 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
         ? getWidgetSettingsAction(widgetId)
         : Promise.resolve(null)
 
-    Promise.all([getLoginUserIdAction(), settingsPromise])
-      .then(([{ userId, fullName }, settings]) => {
+    Promise.all([getLoginUserIdAction(), settingsPromise, getGroupListAction(), getScheduleUsersAction()])
+      .then(([{ userId, fullName }, settings, groups, allUsers]) => {
         setLoginUserId(userId)
         setLoginUserName(fullName)
         // 非週ビューの表示ユーザーはログインユーザーで初期化する
         setNonWeekTargetUserId(userId)
-        setNonWeekTargetUserName(fullName)
+        setNonWeekGroups(groups)
+        setNonWeekAllUsers(allUsers)
+        setNonWeekGroupUsers(allUsers)
 
         const s = settings as ScheduleWidgetSettings | null
         const storedIds = s?.viewUserIds ?? []
@@ -313,6 +321,22 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   // isMobileView/widgetId が変わった場合（例: デスクトップ←→モバイル切り替え）に再取得する
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobileView, widgetId])
+
+  // グループ選択が変わったらそのグループのメンバーを取得し、表示ユーザーをログインユーザーにリセットする。
+  // nonWeekGroupId=null（全グループ）のときは全ユーザーリストをそのまま使う。
+  useEffect(() => {
+    if (nonWeekGroupId === null) {
+      setNonWeekGroupUsers(nonWeekAllUsers)
+    } else {
+      getGroupMembersAction(nonWeekGroupId).then((members) => {
+        setNonWeekGroupUsers(members)
+        // グループ切替時はログインユーザーに戻す（AIPO のデフォルト動作）
+        if (loginUserId !== null) setNonWeekTargetUserId(loginUserId)
+      })
+    }
+  // nonWeekAllUsers が変わったとき（初期ロード完了後）も更新する
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nonWeekGroupId, nonWeekAllUsers])
 
   // viewMode / weekStart / viewDate / viewUserIds / nonWeekTargetUserId のいずれかが変わったときにスケジュールを再取得する
   useEffect(() => {
@@ -493,16 +517,6 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
     }
   }
 
-  // 非週ビューはユーザーを1人だけ選択する（AIPO target_user_id 相当）。
-  // UserPickerModal から複数選択が来た場合は先頭の1人だけ使う。
-  function handleNonWeekUserPickerConfirm(ids: Set<number>, names?: Map<number, string>) {
-    const selectedId = Array.from(ids)[0]
-    if (!selectedId) return
-    setNonWeekTargetUserId(selectedId)
-    setNonWeekTargetUserName(names?.get(selectedId) ?? `ユーザー${selectedId}`)
-    setShowNonWeekUserPicker(false)
-  }
-
   return (
     <div className="flex flex-col select-none">
       {/* ナビゲーションヘッダー */}
@@ -591,8 +605,8 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
               </button>
             )
           })}
-          {/* 週ビュー: マルチユーザー追加。非週ビュー: 単一ユーザー切替（AIPO target_user_id 相当） */}
-          {viewMode === 'week' ? (
+          {/* 週ビュー: マルチユーザー追加ボタン */}
+          {viewMode === 'week' && (
             <button
               onClick={() => setShowUserPicker(true)}
               className="flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600 ml-1"
@@ -600,15 +614,6 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
             >
               <Users className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">ユーザーを追加</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => setShowNonWeekUserPicker(true)}
-              className="flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600 ml-1"
-              title="表示ユーザーを切り替え"
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline truncate max-w-[80px]">{nonWeekTargetUserName || 'ユーザー'}</span>
             </button>
           )}
           <button
@@ -656,6 +661,37 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
               </span>
             )
           })}
+        </div>
+      )}
+
+      {/* 非週ビュー用フィルター（AIPO 準拠: グループ選択→ユーザー選択の2段ドロップダウン） */}
+      {viewMode !== 'week' && (
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 bg-gray-50 flex-wrap">
+          {/* グループ選択 */}
+          <select
+            value={nonWeekGroupId ?? ''}
+            onChange={(e) => setNonWeekGroupId(e.target.value === '' ? null : Number(e.target.value))}
+            className="text-xs border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-brand max-w-[140px] sm:max-w-[180px]"
+          >
+            <option value="">全グループ</option>
+            {nonWeekGroups.map((g) => (
+              <option key={g.groupId} value={g.groupId}>{g.groupName}</option>
+            ))}
+          </select>
+          {/* ユーザー選択 */}
+          <select
+            value={nonWeekTargetUserId ?? ''}
+            onChange={(e) => {
+              const id = Number(e.target.value)
+              if (id) setNonWeekTargetUserId(id)
+            }}
+            className="text-xs border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-brand max-w-[140px] sm:max-w-[180px]"
+          >
+            <option value="">メンバーを選択</option>
+            {nonWeekGroupUsers.map((u) => (
+              <option key={u.userId} value={u.userId}>{u.fullName}</option>
+            ))}
+          </select>
         </div>
       )}
 
@@ -816,16 +852,6 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
           lockedIds={new Set([loginUserId])}
           onConfirm={handleUserPickerConfirm}
           onClose={() => setShowUserPicker(false)}
-        />
-      )}
-
-      {/* 非週ビュー用単一ユーザーピッカー（AIPO target_user_id 相当・自分以外も選択可） */}
-      {showNonWeekUserPicker && (
-        <UserPickerModal
-          selectedIds={nonWeekTargetUserId !== null ? new Set([nonWeekTargetUserId]) : new Set()}
-          lockedIds={new Set()}
-          onConfirm={handleNonWeekUserPickerConfirm}
-          onClose={() => setShowNonWeekUserPicker(false)}
         />
       )}
 
