@@ -86,7 +86,8 @@ export default function ScheduleListView({
         <table className="w-full min-w-[320px] text-sm">
           <tbody>
             {schedules.map((s, idx) => {
-              // 色: マルチユーザーはユーザー色、単独は公開区分色
+              // USER_COLORS の値は "bg-xxx text-white" 形式（ブロック用の背景＋文字色）のため、
+              // カラーバー（背景のみ）として使う場合は text-white を除去する必要がある。
               const barColor = isMultiUser
                 ? (userColorMap.get(s.viewUserId) ?? USER_COLORS[0]).replace('text-white', '').trim()
                 : FLAG_BAR_COLORS[s.publicFlag as 'O' | 'P' | 'C']

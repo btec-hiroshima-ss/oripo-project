@@ -218,6 +218,11 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   // viewUserIds: 表示対象ユーザー ID 一覧（自分が常に先頭。setViewUserIds で明示的に更新する）
   const [viewUserIds, setViewUserIds] = useState<number[]>([])
   const [showUserPicker, setShowUserPicker] = useState(false)
+  // 非週ビュー（日/月/一覧）は AIPO の target_user_id 相当の単一ユーザー表示のみ。
+  // 週ビューの viewUserIds（multi-user）とは独立して管理する。
+  const [nonWeekTargetUserId, setNonWeekTargetUserId] = useState<number | null>(null)
+  const [nonWeekTargetUserName, setNonWeekTargetUserName] = useState<string>('')
+  const [showNonWeekUserPicker, setShowNonWeekUserPicker] = useState(false)
 
   // カレンダーコンテナ: 初期スクロール位置を 8:00 に合わせるため ref を保持
   const calendarRef = useRef<HTMLDivElement>(null)
@@ -238,7 +243,9 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
     ...(loginUserId !== null ? [[loginUserId, loginUserName] as [number, string]] : []),
   ])
 
-  const isMultiUser = viewUserIds.length > 1
+  // 週ビューのみマルチユーザー表示が有効（AIPO 週ビュー: memberList）。
+  // 非週ビューは AIPO と同様に単一ユーザー（target_user_id）のみ表示する。
+  const isMultiUser = viewMode === 'week' && viewUserIds.length > 1
 
   const fetchSchedules = useCallback((mode: ViewMode, ws: string, vd: string, userIds: number[]) => {
     if (userIds.length === 0) return
@@ -271,6 +278,9 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
       .then(([{ userId, fullName }, settings]) => {
         setLoginUserId(userId)
         setLoginUserName(fullName)
+        // 非週ビューの表示ユーザーはログインユーザーで初期化する
+        setNonWeekTargetUserId(userId)
+        setNonWeekTargetUserName(fullName)
 
         const s = settings as ScheduleWidgetSettings | null
         const storedIds = s?.viewUserIds ?? []
@@ -304,10 +314,14 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobileView, widgetId])
 
-  // viewMode / weekStart / viewDate / viewUserIds のいずれかが変わったときにスケジュールを再取得する
+  // viewMode / weekStart / viewDate / viewUserIds / nonWeekTargetUserId のいずれかが変わったときにスケジュールを再取得する
   useEffect(() => {
-    fetchSchedules(viewMode, weekStart, viewDate, viewUserIds)
-  }, [viewMode, weekStart, viewDate, viewUserIds, fetchSchedules])
+    // 非週ビューは単一ユーザー（AIPO target_user_id 相当）でフェッチする
+    const ids = viewMode === 'week'
+      ? viewUserIds
+      : nonWeekTargetUserId !== null ? [nonWeekTargetUserId] : []
+    fetchSchedules(viewMode, weekStart, viewDate, ids)
+  }, [viewMode, weekStart, viewDate, viewUserIds, nonWeekTargetUserId, fetchSchedules])
   // NOTE: viewUserIds はプリミティブ配列だが参照比較になる。
   // setViewUserIds で新配列を渡すのはユーザー追加/削除/週変更などの意図的な操作のみなので問題ない。
 
@@ -382,7 +396,8 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
     if ('repeatType' in input) {
       // 繰り返し予定: 複数レコードが作成されるため全件リロードする
       await addRepeatScheduleAction(input)
-      fetchSchedules(viewMode, weekStart, viewDate, viewUserIds)
+      const ids = viewMode === 'week' ? viewUserIds : nonWeekTargetUserId !== null ? [nonWeekTargetUserId] : []
+      fetchSchedules(viewMode, weekStart, viewDate, ids)
     } else {
       const added = await addScheduleAction(input)
       const entry: MultiUserScheduleEntry = {
@@ -398,18 +413,19 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
 
   async function handleUpdate(input: ScheduleInput | RepeatScheduleInput) {
     if (!editingSchedule) return
+    const effectiveIds = viewMode === 'week' ? viewUserIds : nonWeekTargetUserId !== null ? [nonWeekTargetUserId] : []
     if (repeatEditMode === 'repeatOne') {
       // この予定のみ変更
       await updateRepeatOneAction(editingSchedule.scheduleId, input as ScheduleInput)
-      fetchSchedules(viewMode, weekStart, viewDate, viewUserIds)
+      fetchSchedules(viewMode, weekStart, viewDate, effectiveIds)
     } else if (repeatEditMode === 'repeatAll') {
       // 全ての予定を変更: parentId を使って一括更新
       await updateRepeatAllAction(editingSchedule.parentId, input as ScheduleInput)
-      fetchSchedules(viewMode, weekStart, viewDate, viewUserIds)
+      fetchSchedules(viewMode, weekStart, viewDate, effectiveIds)
     } else if ('repeatType' in input) {
       // 通常→繰り返し変更（新規追加フォームからの繰り返し作成）
       await addRepeatScheduleAction(input)
-      fetchSchedules(viewMode, weekStart, viewDate, viewUserIds)
+      fetchSchedules(viewMode, weekStart, viewDate, effectiveIds)
     } else {
       const updated = await updateScheduleAction(editingSchedule.scheduleId, input)
       const entry: MultiUserScheduleEntry = {
@@ -475,6 +491,16 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
     } else if (widgetId !== undefined) {
       saveWidgetSettingsAction(widgetId, { viewUserIds: sorted, viewUserNames, viewMode, viewDate }).catch(() => {})
     }
+  }
+
+  // 非週ビューはユーザーを1人だけ選択する（AIPO target_user_id 相当）。
+  // UserPickerModal から複数選択が来た場合は先頭の1人だけ使う。
+  function handleNonWeekUserPickerConfirm(ids: Set<number>, names?: Map<number, string>) {
+    const selectedId = Array.from(ids)[0]
+    if (!selectedId) return
+    setNonWeekTargetUserId(selectedId)
+    setNonWeekTargetUserName(names?.get(selectedId) ?? `ユーザー${selectedId}`)
+    setShowNonWeekUserPicker(false)
   }
 
   return (
@@ -565,14 +591,26 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
               </button>
             )
           })}
-          <button
-            onClick={() => setShowUserPicker(true)}
-            className="flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600 ml-1"
-            title="ユーザーを追加"
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">ユーザーを追加</span>
-          </button>
+          {/* 週ビュー: マルチユーザー追加。非週ビュー: 単一ユーザー切替（AIPO target_user_id 相当） */}
+          {viewMode === 'week' ? (
+            <button
+              onClick={() => setShowUserPicker(true)}
+              className="flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600 ml-1"
+              title="ユーザーを追加"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">ユーザーを追加</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowNonWeekUserPicker(true)}
+              className="flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600 ml-1"
+              title="表示ユーザーを切り替え"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline truncate max-w-[80px]">{nonWeekTargetUserName || 'ユーザー'}</span>
+            </button>
+          )}
           <button
             onClick={() => setShowAddForm(true)}
             className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-white bg-brand rounded hover:bg-brand-dark"
@@ -755,9 +793,9 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
         {/* 一覧ビュー（スケジュール取得は ScheduleListView 内部で行う） */}
         {viewMode === 'list' && (
           <ScheduleListView
-            viewUserIds={viewUserIds}
+            viewUserIds={nonWeekTargetUserId !== null ? [nonWeekTargetUserId] : viewUserIds.slice(0, 1)}
             userColorMap={userColorMap}
-            isMultiUser={isMultiUser}
+            isMultiUser={false}
             onScheduleClick={setSelectedSchedule}
             refreshKey={listRefreshKey}
           />
@@ -771,13 +809,23 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
       {/* トースト（繰り返し未実装の案内など） */}
       <Toast message={toast} />
 
-      {/* ユーザーピッカーモーダル（loginUserId が確定してから表示） */}
+      {/* 週ビュー用マルチユーザーピッカー（loginUserId が確定してから表示） */}
       {showUserPicker && loginUserId !== null && (
         <UserPickerModal
           selectedIds={new Set(viewUserIds)}
           lockedIds={new Set([loginUserId])}
           onConfirm={handleUserPickerConfirm}
           onClose={() => setShowUserPicker(false)}
+        />
+      )}
+
+      {/* 非週ビュー用単一ユーザーピッカー（AIPO target_user_id 相当・自分以外も選択可） */}
+      {showNonWeekUserPicker && (
+        <UserPickerModal
+          selectedIds={nonWeekTargetUserId !== null ? new Set([nonWeekTargetUserId]) : new Set()}
+          lockedIds={new Set()}
+          onConfirm={handleNonWeekUserPickerConfirm}
+          onClose={() => setShowNonWeekUserPicker(false)}
         />
       )}
 
