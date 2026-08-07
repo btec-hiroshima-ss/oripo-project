@@ -602,7 +602,8 @@ updateRepeatOneAction(scheduleId: number, data: ScheduleInput): Promise<void>
 
 // 繰り返し予定の編集（全ての予定を変更: 親更新 + 全子再展開）
 // parentId: 子レコードの parent_id 値
-updateRepeatAllAction(parentId: number, data: RepeatScheduleInput): Promise<void>
+// 繰り返し種別・終了条件は変更不可なため RepeatScheduleInput ではなく ScheduleInput を使用する
+updateRepeatAllAction(parentId: number, data: ScheduleInput): Promise<void>
 
 // 繰り返し予定の削除（この予定のみ）
 deleteRepeatOneAction(scheduleId: number): Promise<void>
