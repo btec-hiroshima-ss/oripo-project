@@ -46,14 +46,13 @@ function addDays(dateStr: string, days: number): string {
   return `${yr}-${mo}-${dy}`
 }
 
-/** 指定 Date の週の月曜日を "YYYY-MM-DD"（JST）で返す */
-function getMonday(date: Date): string {
+/** 指定 Date の週の日曜日を "YYYY-MM-DD"（JST）で返す（AIPO準拠: 週は日曜始まり） */
+function getSunday(date: Date): string {
   const dateStr = toJstDateStr(date)
   const [y, m, d] = dateStr.split('-').map(Number)
-  // 日付文字列から曜日を算出（UTC 基準で構わない: 日付のみで時刻なし）
+  // UTC 基準で曜日を算出（日付のみで時刻なし）
   const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay() // 0=日, 1=月, ..., 6=土
-  const daysBack = dow === 0 ? 6 : dow - 1
-  return addDays(dateStr, -daysBack)
+  return addDays(dateStr, -dow) // 日曜=0 はそのまま、月曜=1 は1日戻す、...
 }
 
 /** weekStart から 7 日分の "YYYY-MM-DD" 配列を返す */
@@ -76,10 +75,13 @@ function addMonth(dateStr: string, months: number): string {
   return `${result.getUTCFullYear()}-${String(result.getUTCMonth() + 1).padStart(2, '0')}-01`
 }
 
-/** 曜日インデックスに対応するテキストカラークラス（土=青、日=赤、平日=デフォルト） */
+/**
+ * 週ビュー列インデックスに対応するテキストカラークラス（日曜始まり: 0=日、6=土）
+ * 月ビューと同じ配色（日=赤、土=青）を維持する
+ */
 function dayTextColor(dowIndex: number): string {
-  if (dowIndex === 5) return 'text-blue-600' // 土
-  if (dowIndex === 6) return 'text-red-600'  // 日
+  if (dowIndex === 0) return 'text-red-600'  // 日
+  if (dowIndex === 6) return 'text-blue-600' // 土
   return 'text-gray-700'
 }
 
@@ -191,17 +193,20 @@ type ScheduleWidgetSettings = {
 // PC版のページ構成（oripo_page_widgets）と独立しているため、PCからウィジェットを削除しても
 // モバイルでの選択ユーザー設定が失われない。
 export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: number; isMobileView?: boolean }) {
-  const [weekStart, setWeekStart] = useState<string>(() => getMonday(new Date()))
+  const [weekStart, setWeekStart] = useState<string>(() => getSunday(new Date()))
   // 日/月ビューの基準日（YYYY-MM-DD JST）。週ビューの weekStart とは独立して管理する。
   const [viewDate, setViewDate] = useState<string>(() => toJstDateStr(new Date()))
   const [viewMode, setViewMode] = useState<ViewMode>('week')
   const [schedules, setSchedules] = useState<MultiUserScheduleEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  // 他ユーザー所有の予定詳細モーダル（閲覧専用）
   const [selectedSchedule, setSelectedSchedule] = useState<MultiUserScheduleEntry | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState<MultiUserScheduleEntry | null>(null)
   // 繰り返し子の編集モード（'normal' | 'repeatOne' | 'repeatAll'）
   const [repeatEditMode, setRepeatEditMode] = useState<'normal' | 'repeatOne' | 'repeatAll'>('normal')
+  // AIPO準拠: 繰り返し子をクリックした際に「この予定のみ / 全件変更」を選ばせるダイアログ用
+  const [repeatModeSchedule, setRepeatModeSchedule] = useState<MultiUserScheduleEntry | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   // 一覧ビューの再フェッチトリガー: 追加/更新/削除後にインクリメントする
   const [listRefreshKey, setListRefreshKey] = useState(0)
@@ -280,7 +285,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
         if (s?.viewMode) setViewMode(s.viewMode)
         if (s?.viewDate) {
           setViewDate(s.viewDate)
-          if (s.viewMode === 'week') setWeekStart(getMonday(new Date(s.viewDate + 'T00:00:00+09:00')))
+          if (s.viewMode === 'week') setWeekStart(getSunday(new Date(s.viewDate + 'T00:00:00+09:00')))
         }
 
         if (storedIds.length > 0) {
@@ -425,15 +430,16 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   }
 
   async function handleDelete(scope: string) {
-    if (!selectedSchedule) return
-    const { scheduleId, parentId } = selectedSchedule
+    // 編集フォームからの削除（editingSchedule）と詳細モーダルからの削除（selectedSchedule）の両方に対応する
+    const target = editingSchedule ?? selectedSchedule
+    if (!target) return
+    const { scheduleId, parentId } = target
 
     if (scope === 'repeatOne') {
       await deleteRepeatOneAction(scheduleId)
       setSchedules((prev) => prev.filter((s) => s.scheduleId !== scheduleId))
     } else if (scope === 'repeatAll') {
       await deleteRepeatAllAction(parentId)
-      // 同じ親を持つ子レコードを全て除去する
       setSchedules((prev) => prev.filter((s) => s.parentId !== parentId && s.scheduleId !== parentId))
     } else {
       // 通常予定（single / all / participants）はいずれもこのレコードのみ削除
@@ -441,12 +447,27 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
       setSchedules((prev) => prev.filter((s) => s.scheduleId !== scheduleId))
     }
     setListRefreshKey((k) => k + 1)
+    setEditingSchedule(null)
+    setRepeatEditMode('normal')
     setSelectedSchedule(null)
   }
 
-  function handleCopy() {
-    showToast('コピーして登録する機能は Phase C で実装予定です')
-    setSelectedSchedule(null)
+  /**
+   * 予定クリック時の動作（AIPO準拠）:
+   * - 自分の予定 → 編集フォームを直接開く（繰り返し子は編集モード選択ダイアログを経由）
+   * - 他ユーザーの予定 → 詳細モーダル（閲覧専用）
+   */
+  function handleScheduleClick(schedule: MultiUserScheduleEntry) {
+    if (!schedule.isOwner) {
+      setSelectedSchedule(schedule)
+      return
+    }
+    if (schedule.parentId > 0) {
+      // 繰り返し子: 「この予定のみ / 全ての予定を変更」を先に選ばせる
+      setRepeatModeSchedule(schedule)
+      return
+    }
+    setEditingSchedule(schedule)
   }
 
   function handleUserPickerConfirm(ids: Set<number>, names?: Map<number, string>) {
@@ -489,7 +510,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
                 const today = toJstDateStr(new Date())
                 setViewDate(today)
                 // 週ビューのみ weekStart も今週に戻す
-                if (viewMode === 'week') setWeekStart(getMonday(new Date()))
+                if (viewMode === 'week') setWeekStart(getSunday(new Date()))
               }}
               className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600"
             >
@@ -554,7 +575,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
                 type="button"
                 onClick={() => {
                   // 週ビューに戻る場合は viewDate をもとに weekStart を更新する
-                  if (mode === 'week') setWeekStart(getMonday(new Date(viewDate + 'T00:00:00+09:00')))
+                  if (mode === 'week') setWeekStart(getSunday(new Date(viewDate + 'T00:00:00+09:00')))
                   setViewMode(mode)
                 }}
                 className={`px-2 py-0.5 text-xs rounded border ${
@@ -676,7 +697,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
                           key={`${s.scheduleId}-${s.viewUserId}`}
                           type="button"
                           className={`w-full text-left text-xs truncate rounded px-1 py-0.5 hover:opacity-90 ${color}`}
-                          onClick={() => setSelectedSchedule(s)}
+                          onClick={() => handleScheduleClick(s)}
                           title={s.name}
                         >
                           {s.name}
@@ -719,7 +740,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
                     <ScheduleBlock
                       key={`${ps.scheduleId}-${ps.viewUserId}`}
                       schedule={ps}
-                      onClick={() => setSelectedSchedule(ps)}
+                      onClick={() => handleScheduleClick(ps)}
                     />
                   ))}
                 </div>
@@ -736,7 +757,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
             userColorMap={userColorMap}
             isMultiUser={isMultiUser}
             holidays={holidays}
-            onScheduleClick={setSelectedSchedule}
+            onScheduleClick={handleScheduleClick}
           />
         )}
 
@@ -748,7 +769,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
             userColorMap={userColorMap}
             isMultiUser={isMultiUser}
             holidays={holidays}
-            onScheduleClick={setSelectedSchedule}
+            onScheduleClick={handleScheduleClick}
           />
         )}
 
@@ -758,7 +779,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
             viewUserIds={viewUserIds}
             userColorMap={userColorMap}
             isMultiUser={isMultiUser}
-            onScheduleClick={setSelectedSchedule}
+            onScheduleClick={handleScheduleClick}
             refreshKey={listRefreshKey}
           />
         )}
@@ -791,7 +812,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
         />
       )}
 
-      {/* 予定編集モーダル */}
+      {/* 予定編集モーダル（AIPO準拠: 自分の予定クリックで直接開く） */}
       {editingSchedule && (
         <ScheduleFormModal
           schedule={editingSchedule}
@@ -803,10 +824,11 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
             setRepeatEditMode('normal')
           }}
           onSave={handleUpdate}
+          onDelete={handleDelete}
         />
       )}
 
-      {/* 予定詳細モーダル */}
+      {/* 他ユーザー所有の予定詳細モーダル（閲覧専用） */}
       {selectedSchedule && !editingSchedule && (
         <ScheduleDetailModal
           schedule={selectedSchedule}
@@ -817,8 +839,48 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
             setSelectedSchedule(null)
           }}
           onDelete={handleDelete}
-          onCopy={handleCopy}
+          onCopy={() => setSelectedSchedule(null)}
         />
+      )}
+
+      {/* 繰り返し子の編集モード選択ダイアログ（AIPO準拠: クリック後に「この予定のみ / 全件変更」を選択） */}
+      {repeatModeSchedule && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-80">
+            <p className="text-sm font-medium text-gray-800 mb-4">繰り返し予定の編集</p>
+            <div className="space-y-2">
+              <button
+                type="button"
+                className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm text-gray-700"
+                onClick={() => {
+                  setRepeatEditMode('repeatOne')
+                  setEditingSchedule(repeatModeSchedule)
+                  setRepeatModeSchedule(null)
+                }}
+              >
+                この予定のみ変更
+              </button>
+              <button
+                type="button"
+                className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm text-gray-700"
+                onClick={() => {
+                  setRepeatEditMode('repeatAll')
+                  setEditingSchedule(repeatModeSchedule)
+                  setRepeatModeSchedule(null)
+                }}
+              >
+                全ての予定を変更
+              </button>
+            </div>
+            <button
+              type="button"
+              className="mt-4 w-full text-center text-xs text-gray-400 hover:text-gray-600"
+              onClick={() => setRepeatModeSchedule(null)}
+            >
+              キャンセル
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )

@@ -1048,6 +1048,34 @@ describe('getListSchedules', () => {
     expect(mockDb.limit).toHaveBeenCalledWith(30)
     expect(mockDb.offset).toHaveBeenCalledWith(30)
   })
+
+  it('keyword を指定すると where に関数形式（eb.or）が追加される', async () => {
+    mockDb.execute.mockResolvedValueOnce([])
+
+    await getListSchedules(42, [42], new Date('2026-08-10T00:00:00+09:00'), 30, 0, '打ち合わせ')
+
+    // keyword 指定時は eb.or を使う関数形式の where が追加で呼ばれる
+    const fnCalls = mockDb.where.mock.calls.filter((args: unknown[]) => typeof args[0] === 'function')
+    expect(fnCalls.length).toBeGreaterThan(0)
+  })
+
+  it('keyword が空文字の場合は keyword 用 where を追加しない', async () => {
+    mockDb.execute.mockResolvedValueOnce([])
+    await getListSchedules(42, [42], new Date('2026-08-10T00:00:00+09:00'), 30, 0, '')
+    const callsWithEmpty = mockDb.where.mock.calls.length
+
+    vi.clearAllMocks()
+    for (const method of ['selectFrom', 'insertInto', 'updateTable', 'deleteFrom', 'innerJoin', 'leftJoin', 'select', 'where', 'set', 'values', 'orderBy', 'limit', 'offset']) {
+      if (!mockDb[method]) mockDb[method] = vi.fn()
+      mockDb[method].mockReturnValue(mockDb)
+    }
+    mockDb.execute.mockResolvedValueOnce([])
+    await getListSchedules(42, [42], new Date('2026-08-10T00:00:00+09:00'), 30, 0)
+    const callsWithoutKeyword = mockDb.where.mock.calls.length
+
+    // 空文字はキーワードなしと同じ where 回数（条件が追加されない）
+    expect(callsWithEmpty).toBe(callsWithoutKeyword)
+  })
 })
 
 // ===========================================================
