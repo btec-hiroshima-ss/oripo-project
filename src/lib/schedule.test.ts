@@ -821,12 +821,12 @@ describe('updateRepeatAll', () => {
   })
 
   it('participantIds 指定時: 全子の参加者マップを一括置き換えする', async () => {
-    // children SELECT → DELETE maps → nextNSeqIds → INSERT maps
+    // children SELECT → DELETE type='U' → nextNSeqIds → INSERT maps
     mockDb.execute
       .mockResolvedValueOnce([])                              // UPDATE children
       .mockResolvedValueOnce([])                              // UPDATE parent
       .mockResolvedValueOnce([{ schedule_id: 101 }])         // SELECT children
-      .mockResolvedValueOnce([])                              // DELETE maps
+      .mockResolvedValueOnce([])                              // DELETE type='U' maps
       .mockResolvedValueOnce([{ seq_id: 200 }, { seq_id: 201 }])  // nextNSeqIds(map 2件)
       .mockResolvedValueOnce([])                              // INSERT maps
 
@@ -841,6 +841,62 @@ describe('updateRepeatAll', () => {
 
     expect(mockDb.deleteFrom).toHaveBeenCalledWith('eip_t_schedule_map')
     expect(mockDb.insertInto).toHaveBeenCalledWith('eip_t_schedule_map')
+  })
+
+  it('facilityIds のみ指定時: 設備マップのみ置き換え、参加者マップの DELETE は1回のみ', async () => {
+    // children SELECT → DELETE type='F' → nextNSeqIds → INSERT facility maps
+    mockDb.execute
+      .mockResolvedValueOnce([])                              // UPDATE children
+      .mockResolvedValueOnce([])                              // UPDATE parent
+      .mockResolvedValueOnce([{ schedule_id: 101 }])         // SELECT children
+      .mockResolvedValueOnce([])                              // DELETE type='F' maps
+      .mockResolvedValueOnce([{ seq_id: 300 }])              // nextNSeqIds(facility 1件)
+      .mockResolvedValueOnce([])                              // INSERT facility maps
+
+    await updateRepeatAll(100, 42, {
+      name: '全件変更（設備のみ）',
+      startDate: new Date('2026-07-07T01:00:00Z'),
+      endDate: new Date('2026-07-07T02:00:00Z'),
+      isAllDay: false,
+      publicFlag: 'O',
+      facilityIds: [5],
+    })
+
+    // DELETE は type='F' のみ（type='U' 参加者は削除されない）
+    expect(mockDb.deleteFrom).toHaveBeenCalledTimes(1)
+    expect(mockDb.deleteFrom).toHaveBeenCalledWith('eip_t_schedule_map')
+    expect(mockDb.where).toHaveBeenCalledWith('type', '=', 'F')
+    expect(mockDb.where).not.toHaveBeenCalledWith('type', '=', 'U')
+    expect(mockDb.insertInto).toHaveBeenCalledWith('eip_t_schedule_map')
+  })
+
+  it('facilityIds と participantIds の両方指定時: それぞれ独立して削除・再挿入する', async () => {
+    // children SELECT → DELETE type='U' → INSERT U maps → DELETE type='F' → INSERT F maps
+    mockDb.execute
+      .mockResolvedValueOnce([])                              // UPDATE children
+      .mockResolvedValueOnce([])                              // UPDATE parent
+      .mockResolvedValueOnce([{ schedule_id: 101 }])         // SELECT children
+      .mockResolvedValueOnce([])                              // DELETE type='U' maps
+      .mockResolvedValueOnce([{ seq_id: 200 }, { seq_id: 201 }])  // nextNSeqIds(U 2件)
+      .mockResolvedValueOnce([])                              // INSERT U maps
+      .mockResolvedValueOnce([])                              // DELETE type='F' maps
+      .mockResolvedValueOnce([{ seq_id: 300 }])              // nextNSeqIds(F 1件)
+      .mockResolvedValueOnce([])                              // INSERT F maps
+
+    await updateRepeatAll(100, 42, {
+      name: '全件変更（両方）',
+      startDate: new Date('2026-07-07T01:00:00Z'),
+      endDate: new Date('2026-07-07T02:00:00Z'),
+      isAllDay: false,
+      publicFlag: 'O',
+      participantIds: [99],
+      facilityIds: [5],
+    })
+
+    // DELETE は type='U' と type='F' の2回
+    expect(mockDb.deleteFrom).toHaveBeenCalledTimes(2)
+    expect(mockDb.where).toHaveBeenCalledWith('type', '=', 'U')
+    expect(mockDb.where).toHaveBeenCalledWith('type', '=', 'F')
   })
 })
 

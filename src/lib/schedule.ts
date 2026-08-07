@@ -752,7 +752,9 @@ export async function updateRepeatAll(
     .where('owner_id', '=', userId)
     .execute()
 
-  // 参加者・設備の更新: 全子レコードの map を一括置き換え
+  // 参加者・設備の更新: タイプ別に個別削除→再挿入する
+  // participantIds と facilityIds を一括削除すると、片方だけ更新する際に
+  // もう片方が消えるデータ消失が起きるため、type='U' / type='F' を分けて操作する
   if (input.participantIds !== undefined || input.facilityIds !== undefined) {
     const children = await db.selectFrom('eip_t_schedule')
       .select('schedule_id')
@@ -761,9 +763,12 @@ export async function updateRepeatAll(
 
     const childIds = children.map((c) => c.schedule_id)
     if (childIds.length > 0) {
-      await db.deleteFrom('eip_t_schedule_map').where('schedule_id', 'in', childIds).execute()
-
       if (input.participantIds !== undefined) {
+        await db.deleteFrom('eip_t_schedule_map')
+          .where('schedule_id', 'in', childIds)
+          .where('type', '=', 'U')
+          .execute()
+
         const allParticipantIds = Array.from(new Set([userId, ...input.participantIds]))
         const mapIds = await nextNSeqIds('pk_eip_t_schedule_map', childIds.length * allParticipantIds.length)
         let mapIdx = 0
@@ -781,21 +786,28 @@ export async function updateRepeatAll(
         ).execute()
       }
 
-      if (input.facilityIds !== undefined && input.facilityIds.length > 0) {
-        const facilityMapIds = await nextNSeqIds('pk_eip_t_schedule_map', childIds.length * input.facilityIds.length)
-        let fIdx = 0
-        await db.insertInto('eip_t_schedule_map').values(
-          childIds.flatMap((childId) =>
-            (input.facilityIds ?? []).map((fid) => ({
-              id: facilityMapIds[fIdx++],
-              schedule_id: childId,
-              user_id: fid,
-              type: 'F' as const,
-              status: 'O',
-              common_category_id: 1,
-            }))
-          )
-        ).execute()
+      if (input.facilityIds !== undefined) {
+        await db.deleteFrom('eip_t_schedule_map')
+          .where('schedule_id', 'in', childIds)
+          .where('type', '=', 'F')
+          .execute()
+
+        if (input.facilityIds.length > 0) {
+          const facilityMapIds = await nextNSeqIds('pk_eip_t_schedule_map', childIds.length * input.facilityIds.length)
+          let fIdx = 0
+          await db.insertInto('eip_t_schedule_map').values(
+            childIds.flatMap((childId) =>
+              (input.facilityIds ?? []).map((fid) => ({
+                id: facilityMapIds[fIdx++],
+                schedule_id: childId,
+                user_id: fid,
+                type: 'F' as const,
+                status: 'O',
+                common_category_id: 1,
+              }))
+            )
+          ).execute()
+        }
       }
     }
   }

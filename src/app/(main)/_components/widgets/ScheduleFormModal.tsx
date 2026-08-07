@@ -676,6 +676,7 @@ export default function ScheduleFormModal({
       {/* 設備ピッカー（Phase D）*/}
       {showFacilityPicker && (
         <FacilityPickerModal
+          facilities={allFacilities}
           selectedIds={facilityIds}
           // 日時が入力済みの場合のみ空き確認を行う（終日・期間予定では日付のみのため確認しない）
           startDateIso={

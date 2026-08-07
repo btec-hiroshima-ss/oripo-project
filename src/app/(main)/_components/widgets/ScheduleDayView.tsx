@@ -1,15 +1,8 @@
 'use client'
 
 import type { MultiUserScheduleEntry } from '@/lib/schedule.types'
-import { HOUR_PX, MIN_BLOCK_PX, USER_COLORS } from '@/lib/schedule.constants'
+import { HOUR_PX, MIN_BLOCK_PX, USER_COLORS, PUBLIC_FLAG_COLORS } from '@/lib/schedule.constants'
 import { toJstDateStr, toJstTimeStr, isTodayJst, toJstMinutesSinceMidnight } from '@/lib/jst'
-
-// 単独ユーザービューでの公開区分色（週ビューと同じ定義）
-const PUBLIC_FLAG_COLORS: Record<'O' | 'P' | 'C', string> = {
-  O: 'bg-brand text-white',
-  P: 'bg-gray-400 text-white',
-  C: 'bg-gray-600 text-white',
-}
 
 type PositionedSchedule = MultiUserScheduleEntry & {
   colIndex: number

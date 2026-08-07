@@ -22,7 +22,7 @@ import {
   saveMobileWidgetSettingsAction,
 } from '../../actions'
 import type { ScheduleInput, RepeatScheduleInput, MultiUserScheduleEntry } from '@/lib/schedule.types'
-import { MAX_USERS, HOUR_PX, MIN_BLOCK_PX, DOW_JA, USER_COLORS } from '@/lib/schedule.constants'
+import { MAX_USERS, HOUR_PX, MIN_BLOCK_PX, DOW_JA, USER_COLORS, PUBLIC_FLAG_COLORS } from '@/lib/schedule.constants'
 import ScheduleFormModal from './ScheduleFormModal'
 import ScheduleDetailModal from './ScheduleDetailModal'
 import UserPickerModal from './UserPickerModal'
@@ -31,13 +31,6 @@ import ScheduleMonthView from './ScheduleMonthView'
 import ScheduleListView from './ScheduleListView'
 import { Toast, Loading } from '../ui'
 import { toJstDateStr, toJstTimeStr, isTodayJst, toJstMinutesSinceMidnight } from '@/lib/jst'
-
-// 単独ユーザービューでの公開区分色（Phase A 互換。自分のみ表示時に使用）
-const PUBLIC_FLAG_COLORS: Record<'O' | 'P' | 'C', string> = {
-  O: 'bg-brand text-white',
-  P: 'bg-gray-400 text-white',
-  C: 'bg-gray-600 text-white',
-}
 
 // ===========================================================
 // 日付ユーティリティ（ウィジェット固有）
@@ -756,11 +749,6 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
             isMultiUser={isMultiUser}
             holidays={holidays}
             onScheduleClick={setSelectedSchedule}
-            onDayClick={(dateStr) => {
-              // 月ビューの日付セルをクリックしたら日ビューに切り替える
-              setViewDate(dateStr)
-              setViewMode('day')
-            }}
           />
         )}
 

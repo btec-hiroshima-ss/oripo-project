@@ -19,6 +19,16 @@ export const DOW_JA = ['月', '火', '水', '木', '金', '土', '日']
 export const LIST_VIEW_PAGE_SIZE = 30
 
 /**
+ * 単独ユーザービューで使用する公開区分ごとの色クラス。
+ * 月ビュー・日ビュー・週ビューで共通して使用する。
+ */
+export const PUBLIC_FLAG_COLORS: Record<'O' | 'P' | 'C', string> = {
+  O: 'bg-brand text-white',
+  P: 'bg-gray-400 text-white',
+  C: 'bg-gray-600 text-white',
+}
+
+/**
  * マルチユーザービューで使用するプリセットカラー。
  * 自分はブランドカラー（インデックス 0）、追加ユーザーはインデックス 1 以降を順に割り当てる。
  * 最大 30 人（AIPO 準拠）に対応できる色数を確保する。

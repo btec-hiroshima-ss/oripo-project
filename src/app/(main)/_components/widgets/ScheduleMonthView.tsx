@@ -1,15 +1,8 @@
 'use client'
 
 import type { MultiUserScheduleEntry } from '@/lib/schedule.types'
-import { USER_COLORS } from '@/lib/schedule.constants'
+import { USER_COLORS, PUBLIC_FLAG_COLORS } from '@/lib/schedule.constants'
 import { toJstDateStr, isTodayJst, toJstTimeStr } from '@/lib/jst'
-
-// 単独ユーザービューでの公開区分色
-const PUBLIC_FLAG_COLORS: Record<'O' | 'P' | 'C', string> = {
-  O: 'bg-brand text-white',
-  P: 'bg-gray-400 text-white',
-  C: 'bg-gray-600 text-white',
-}
 
 // 各日セルに表示する最大予定件数（超過分は +N件 表示）
 const MAX_EVENTS_PER_CELL = 2
@@ -22,8 +15,6 @@ type Props = {
   isMultiUser: boolean
   holidays: Record<string, string>
   onScheduleClick: (schedule: MultiUserScheduleEntry) => void
-  /** セルクリックで日ビューに切り替える */
-  onDayClick: (dateStr: string) => void
 }
 
 export default function ScheduleMonthView({
@@ -33,7 +24,6 @@ export default function ScheduleMonthView({
   isMultiUser,
   holidays,
   onScheduleClick,
-  onDayClick,
 }: Props) {
   const [y, m] = monthStart.split('-').map(Number)
 
@@ -45,10 +35,10 @@ export default function ScheduleMonthView({
     return `${y}-${month}-${day}`
   })
 
-  // 月曜始まりで7列のカレンダーグリッドを作る
-  // 先頭のオフセット（月の1日が何曜日か、月曜=0,日曜=6）
+  // 日曜始まりで7列のカレンダーグリッドを作る（AIPO仕様に準拠）
+  // 先頭のオフセット（月の1日が何曜日か、日曜=0,月曜=1,...,土曜=6）
   const firstDow = new Date(Date.UTC(y, m - 1, 1)).getUTCDay() // 0=日,1=月,...
-  const startOffset = firstDow === 0 ? 6 : firstDow - 1
+  const startOffset = firstDow
 
   // グリッドセルの配列（先頭は前月の空セル）
   const gridCells: (string | null)[] = [
@@ -81,7 +71,7 @@ export default function ScheduleMonthView({
     }
   }
 
-  const DOW_HEADER = ['月', '火', '水', '木', '金', '土', '日']
+  const DOW_HEADER = ['日', '月', '火', '水', '木', '金', '土']
 
   return (
     <div className="min-w-[280px]">
@@ -91,7 +81,7 @@ export default function ScheduleMonthView({
           <div
             key={dow}
             className={`py-1 text-center text-xs font-medium ${
-              i === 5 ? 'text-blue-600' : i === 6 ? 'text-red-600' : 'text-gray-500'
+              i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-500'
             }`}
           >
             {dow}
@@ -108,15 +98,15 @@ export default function ScheduleMonthView({
           }
 
           const [, , dayNum] = dateStr.split('-').map(Number)
-          const colIdx = idx % 7 // 月=0, 火=1, ..., 日=6
+          const colIdx = idx % 7 // 日=0, 月=1, ..., 土=6
           const holiday = holidays[dateStr] ?? null
           const isToday = isTodayJst(dateStr)
 
-          // 土=青字、日=赤字、祝=赤字
+          // 日=赤字、土=青字、祝=赤字
           const dateColorClass = holiday
             ? 'text-red-600'
-            : colIdx === 5 ? 'text-blue-600'
-            : colIdx === 6 ? 'text-red-600'
+            : colIdx === 0 ? 'text-red-600'
+            : colIdx === 6 ? 'text-blue-600'
             : 'text-gray-700'
 
           const daySchedules = schedulesByDay.get(dateStr) ?? []
@@ -128,8 +118,7 @@ export default function ScheduleMonthView({
           return (
             <div
               key={dateStr}
-              className="min-h-[80px] border-b border-r border-gray-100 p-1 cursor-pointer hover:bg-gray-50"
-              onClick={() => onDayClick(dateStr)}
+              className="min-h-[80px] border-b border-r border-gray-100 p-1"
             >
               {/* 日付番号 */}
               <div className="flex items-center justify-between mb-0.5">

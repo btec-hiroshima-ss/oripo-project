@@ -3,9 +3,11 @@
 import { useState, useEffect, useMemo } from 'react'
 import { X } from 'lucide-react'
 import type { FacilityWithGroup } from '@/lib/schedule.types'
-import { getFacilitiesAction, getFacilityAvailabilityAction } from '../../actions'
+import { getFacilityAvailabilityAction } from '../../actions'
 
 type Props = {
+  /** 設備一覧（ScheduleFormModal がマウント時に取得済みのものを渡す） */
+  facilities: FacilityWithGroup[]
   /** 現在選択済みの設備 ID セット */
   selectedIds: Set<number>
   /** 空き確認に使う予定開始時刻（ISO 文字列）。未指定の場合は空き判定しない */
@@ -17,31 +19,24 @@ type Props = {
 }
 
 export default function FacilityPickerModal({
+  facilities,
   selectedIds,
   startDateIso,
   endDateIso,
   onConfirm,
   onClose,
 }: Props) {
-  const [allFacilities, setAllFacilities] = useState<FacilityWithGroup[]>([])
   // 使用中の設備 ID セット（空き確認結果）
   const [busyIds, setBusyIds] = useState<Set<number>>(new Set())
   // 作業用の選択済みセット（決定ボタンで確定するまで親に反映しない）
   const [localSelected, setLocalSelected] = useState<Set<number>>(new Set(selectedIds))
   const [selectedGroup, setSelectedGroup] = useState<string>('all')
 
-  // 設備一覧と空き状況を並行取得する
+  // 空き状況だけを取得する（設備一覧は親から受け取るため二重取得しない）
   useEffect(() => {
-    const facilitiesPromise = getFacilitiesAction()
-    const busyPromise = (startDateIso && endDateIso)
-      ? getFacilityAvailabilityAction(startDateIso, endDateIso)
-      : Promise.resolve([] as number[])
-
-    Promise.all([facilitiesPromise, busyPromise])
-      .then(([facilities, bookedIds]) => {
-        setAllFacilities(facilities)
-        setBusyIds(new Set(bookedIds))
-      })
+    if (!startDateIso || !endDateIso) return
+    getFacilityAvailabilityAction(startDateIso, endDateIso)
+      .then((bookedIds) => setBusyIds(new Set(bookedIds)))
       .catch(() => {})
   // ピッカーを開いた時点の日時で1回だけ取得する。
   // 開いている間に日時が変わった場合は閉じて再度開くことで最新の空き状況が反映される。
@@ -52,7 +47,7 @@ export default function FacilityPickerModal({
   const groups = useMemo(() => {
     const seen = new Set<string>()
     const result: string[] = []
-    for (const f of allFacilities) {
+    for (const f of facilities) {
       const g = f.groupName ?? '未分類'
       if (!seen.has(g)) {
         seen.add(g)
@@ -60,21 +55,21 @@ export default function FacilityPickerModal({
       }
     }
     return result
-  }, [allFacilities])
+  }, [facilities])
 
   // グループで絞り込んだ候補設備（選択済みを除く）
   const candidateFacilities = useMemo(() => {
-    return allFacilities.filter((f) => {
+    return facilities.filter((f) => {
       if (localSelected.has(f.facilityId)) return false
       if (selectedGroup !== 'all' && (f.groupName ?? '未分類') !== selectedGroup) return false
       return true
     })
-  }, [allFacilities, localSelected, selectedGroup])
+  }, [facilities, localSelected, selectedGroup])
 
   // 選択済み設備の情報
   const selectedFacilities = useMemo(() => {
-    return allFacilities.filter((f) => localSelected.has(f.facilityId))
-  }, [allFacilities, localSelected])
+    return facilities.filter((f) => localSelected.has(f.facilityId))
+  }, [facilities, localSelected])
 
   function handleAdd(facilityId: number) {
     // 使用中の設備は追加不可（要件定義書: 空いていない時間帯は選択不可）
