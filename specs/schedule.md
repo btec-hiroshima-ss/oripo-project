@@ -230,6 +230,7 @@ export type ScheduleDetail = {
   updaterName: string
   updaterDateJst: string   // "YYYY-MM-DD HH:MM:SS"（JST）
   participantNames: string[] // 参加ユーザー名（owner 含む）
+  facilityNames: string[]  // 予約設備名（Phase D 追加; 設備なし時は空配列）
 }
 
 export type ScheduleEntry = {
@@ -415,8 +416,9 @@ getWeekSchedulesMulti(userIds: number[], from: Date, to: Date): Promise<MultiUse
 
 ```ts
 type ScheduleWidgetSettings = {
-  viewUserIds: number[]                // 選択中ユーザー ID リスト
-  viewUserNames: Record<string, string> // ID → 氏名マップ（スケジュール0件週でも名前を表示するためキャッシュ）
+  weekDayGroupId?: number | null  // 週・日ビューの選択グループ ID（null=自分のみ）
+  viewMode?: 'week' | 'day' | 'month' | 'list'  // デフォルト 'week'
+  viewDate?: string               // YYYY-MM-DD、デフォルト 当日
 }
 ```
 
@@ -738,33 +740,33 @@ calcOccurrences(input: RepeatScheduleInput): Date[]
 - ビューを切り替えても「表示対象ユーザー」「現在日付」の状態は引き継ぐ
 - 選択中のビューモードと表示基準日を `oripo_page_widgets.settings` に保存し、リロード後も復元する
 
-### 非週ビューのユーザー表示（AIPO 準拠）
+### ビューごとのユーザー選択モデル（AIPO 準拠）
 
-AIPO は週ビュー（ブロック）と非週ビュー（日/月/一覧）でユーザー選択モデルが異なる。
+AIPO のスケジュール調査結果をもとに、ビューを「週・日グループビュー」と「月・一覧ビュー」の2系統に分類して実装する。
 
-| ビュー | AIPO クラス | ユーザー選択 |
-|---|---|---|
-| 週（ブロック） | `AjaxScheduleWeeklyGroupSelectData` | `memberList`（複数 ID） |
-| 日/月/一覧 | `ScheduleMonthlySelectData` / `ScheduleListSelectData` | `target_user_id`（単一 ID） |
+| ビュー | AIPO クラス | フィルター UI | 表示 |
+|---|---|---|---|
+| 週（weekly-group） | `AjaxScheduleWeeklyGroupSelectData` | 1段グループセレクト | グループ全員を色分けして同一グリッドに重ねて表示 |
+| 日（oneday-group） | `CellScheduleOnedayGroupSelectData` | 1段グループセレクト | グループ全員をユーザー別列で並列表示 |
+| 月（monthly） | `AjaxScheduleMonthlySelectData` | 2段ドロップダウン（グループ→ユーザー） | 常に単一ユーザー |
+| 一覧（list） | `ScheduleListSelectData` | 2段ドロップダウン（グループ→ユーザー） | 常に単一ユーザー |
 
 実装上の動作:
-- **週ビュー**: 「ユーザーを追加」ボタンで最大 30 人まで複数ユーザーを同一グリッドに重ねて表示する（Phase B 実装済み）
-- **日/月/一覧ビュー**: 常に1人のユーザーのみを表示する。ヘッダーの「グループ選択」→「ユーザー選択」の2段ドロップダウンで表示ユーザーを切り替える（AIPO の `schedule-monthly.vm` に合わせた実装）
-  - デフォルト: ログインユーザー自身
-  - 週ビューの「追加ユーザー」設定とは独立（週ビューに戻っても多人数表示は維持される）
-  - 自分以外のユーザーの予定も閲覧可能（他ユーザーの `public_flag='C'` は除外）
+- **週・日ビュー（グループビュー）**: ヘッダーに1段グループセレクトを配置する。グループを選択するとそのグループ全員の予定を色分けして並列表示する。未選択時（デフォルト）はログインユーザー自身のみを表示する。グループ一覧はログインユーザーが所属するグループのみ（AIPO `getMyGroups` 相当）。
+- **月・一覧ビュー**: ヘッダーの「グループ選択」→「ユーザー選択」の2段ドロップダウンで表示ユーザーを切り替える（AIPO `schedule-monthly.vm` 準拠）。常に単一ユーザーの予定のみ表示する。
+- 週・日フィルターと月・一覧フィルターは独立して設定を保持する。
 
 ### 日ビュー
 
-AIPO 準拠: `CellScheduleOnedaySelectData` に相当。
+AIPO 準拠: `CellScheduleOnedayGroupSelectData`（グループビュー）に相当。
 
 - 表示範囲: 選択日の 00:00〜24:00（時刻軸は週ビューと同じ）
 - ヘッダー: `YYYY年MM月DD日（曜日）`
 - ナビゲーション: `◀` / `▶` で前日・翌日に移動、`今日` ボタンで当日に戻る
 - 終日予定を時刻グリッド上部の帯に表示する
-- 通常予定をグリッド内のブロックで表示する（週ビューの1列分を全幅表示）
-- 常に単一ユーザーの予定を表示する（AIPO 準拠。マルチユーザーは週ビューのみ）
-- 予定の色は公開区分で色分けする（O=ブランドカラー, P=グレー, C=非公開のため表示なし）
+- フィルター: 週ビューと共通の1段グループセレクトを使用する（上記「ビューごとのユーザー選択モデル」参照）
+  - グループ未選択（デフォルト）: 自分のみ → 単一列表示（公開区分で色分け）
+  - グループ選択時: グループ全員をユーザー別列で並列表示（各ユーザーをプリセットカラーで色分け）
 - 予定ブロッククリックで詳細モーダルを開く（週ビューと同じ動作）
 
 ### 月ビュー
@@ -808,13 +810,12 @@ AIPO 準拠: `ScheduleSearchSelectData`（一覧検索）に相当。
 
 #### 設備ピッカーモーダル
 
-ユーザーピッカー（`UserPickerModal`）と同構造のデュアルリストボックス UI を採用する（AIPO `CellScheduleFormFacilityData` 準拠）。
+2 パネル・行単位ボタン方式の UI を採用する（AIPO `CellScheduleFormFacilityData` 準拠）。
 
-- **左パネル（選択済み設備）**: 選択済み設備リスト / 「削除」ボタン
+- **左パネル（選択済み設備）**: 選択済み設備リスト。各行に「削除」ボタンを配置
 - **右パネル（候補設備）**: 
   - 設備グループ絞り込みドロップダウン（全グループ + 個別グループ）
-  - 設備リスト（設備名 + 空き状況バッジ）
-  - 「追加」ボタン
+  - 設備リスト（設備名 + 空き状況バッジ）。各行に「追加」ボタンを配置
 - 空き状況は予定フォームで選択中の日時（`startDate`〜`endDate`）に基づいてリアルタイム確認する
   - 空き: 通常表示
   - 使用中: バッジ「使用中」表示 + 選択不可（グレーアウト）
@@ -848,10 +849,9 @@ AIPO 準拠: `ScheduleSearchSelectData`（一覧検索）に相当。
 
 ```ts
 type ScheduleWidgetSettings = {
-  viewUserIds: number[]
-  viewUserNames: Record<string, string>
-  viewMode: 'week' | 'day' | 'month' | 'list'  // 追加: デフォルト 'week'
-  viewDate: string  // 追加: YYYY-MM-DD、デフォルト 当日
+  weekDayGroupId?: number | null  // 週・日ビューの選択グループ ID（null=自分のみ）
+  viewMode?: 'week' | 'day' | 'month' | 'list'  // デフォルト 'week'
+  viewDate?: string               // YYYY-MM-DD、デフォルト 当日
 }
 ```
 
@@ -988,8 +988,9 @@ export type RepeatScheduleInput = {
 - [ ] 終日予定がグリッド上部の帯に表示される
 - [ ] `◀` `▶` で前日・翌日に移動できる、`今日` ボタンで当日に戻る
 - [ ] 予定ブロッククリックで詳細モーダルが開く
-- [ ] 常に1人のユーザーの予定のみ表示される（AIPO 準拠: 非週ビューは単一ユーザー）
-- [ ] ヘッダーの「グループ選択」→「ユーザー選択」の2段ドロップダウンで別ユーザーの予定に切り替えられる
+- [ ] グループ未選択時: 自分の予定のみ単一列表示される（AIPO oneday-group デフォルト動作）
+- [ ] 1段グループセレクトでグループを選択するとグループ全員の予定がユーザー別列で並列表示される（AIPO oneday-group 準拠）
+- [ ] 週ビューのグループ設定が日ビューにも引き継がれる（週・日で共通フィルター）
 - [ ] モバイル（375px）でも正しく表示・操作できる
 
 ### 月ビュー

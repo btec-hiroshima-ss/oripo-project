@@ -474,6 +474,28 @@ export async function getScheduleUsers(): Promise<ScheduleUser[]> {
 }
 
 /**
+ * ログインユーザーが所属するグループのみを取得する。
+ * AIPO の ALEipUtils.getMyGroups() 相当。
+ * 週・日グループビューのフィルターに使用する（月・一覧は getGroupList を使う）。
+ */
+export async function getMyGroups(userId: number): Promise<ScheduleGroup[]> {
+  const rows = await db
+    .selectFrom('turbine_group as g')
+    .innerJoin('turbine_user_group_role as ugr', 'ugr.group_id', 'g.group_id')
+    .select(['g.group_id', 'g.group_alias_name'])
+    .where('ugr.user_id', '=', userId)
+    .where('g.group_id', 'not in', [1, 2, 3])
+    .where('g.group_alias_name', 'is not', null)
+    .orderBy('g.group_alias_name', 'asc')
+    .execute()
+
+  return rows.map((r) => ({
+    groupId: r.group_id,
+    groupName: r.group_alias_name ?? '',
+  }))
+}
+
+/**
  * グループ一覧を取得する（システムグループ除外、alias_name ありのみ）。
  * turbine_group はユーザーが作成した個人グループも含むため alias_name で絞り込む。
  */

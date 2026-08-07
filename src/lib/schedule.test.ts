@@ -460,6 +460,35 @@ describe('updateSchedule', () => {
     expect(participantMap.user_id).toBe(99)
     expect(participantMap.status).toBe('T')
   })
+
+  it('facilityIds 指定時: DELETE 後に type="F" の設備マップが登録される', async () => {
+    // UPDATE → DELETE schedule_map → nextSeqId (owner) → INSERT owner map
+    //       → insertScheduleFacilities: nextNSeqIds → INSERT type='F' map
+    mockDb.executeTakeFirstOrThrow
+      .mockResolvedValueOnce({ seq_id: 200 })  // nextSeqId for owner
+      .mockResolvedValueOnce({ seq_id: 201 })  // nextSeqId for facility (nextNSeqIds)
+    mockDb.execute
+      .mockResolvedValueOnce([])  // UPDATE eip_t_schedule
+      .mockResolvedValueOnce([])  // DELETE eip_t_schedule_map
+      .mockResolvedValueOnce([])  // INSERT schedule_map (owner)
+      .mockResolvedValueOnce([])  // INSERT schedule_map (facility)
+
+    await updateSchedule(1, 42, {
+      name: '更新',
+      startDate: new Date('2026-07-22T01:00:00Z'),
+      endDate: new Date('2026-07-22T02:00:00Z'),
+      isAllDay: false,
+      publicFlag: 'O',
+      facilityIds: [7],
+    })
+
+    // insertScheduleFacilities は .values(array) を呼ぶため calls[N][0] が配列になる
+    // ownerMap は calls[0][0]（オブジェクト）、facilityMap は calls[1][0][0]（配列の先頭要素）
+    const facilityMapValues = mockDb.values.mock.calls[1][0][0]
+    expect(facilityMapValues.type).toBe('F')
+    expect(facilityMapValues.user_id).toBe(7)
+    expect(facilityMapValues.schedule_id).toBe(1)
+  })
 })
 
 // ===========================================================

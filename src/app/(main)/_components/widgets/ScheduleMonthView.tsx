@@ -1,11 +1,8 @@
 'use client'
 
 import type { MultiUserScheduleEntry } from '@/lib/schedule.types'
-import { USER_COLORS, PUBLIC_FLAG_COLORS } from '@/lib/schedule.constants'
+import { USER_COLORS, PUBLIC_FLAG_COLORS, MAX_EVENTS_PER_CELL } from '@/lib/schedule.constants'
 import { toJstDateStr, isTodayJst, toJstTimeStr } from '@/lib/jst'
-
-// 各日セルに表示する最大予定件数（超過分は +N件 表示）
-const MAX_EVENTS_PER_CELL = 2
 
 type Props = {
   /** 表示月の1日（YYYY-MM-DD）*/

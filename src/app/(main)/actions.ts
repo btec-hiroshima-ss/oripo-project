@@ -30,6 +30,7 @@ import {
   deleteSchedule,
   getWeekSchedulesMulti,
   getScheduleUsers,
+  getMyGroups,
   getGroupList,
   getGroupMembers,
   getScheduleParticipantIds,
@@ -229,6 +230,12 @@ export async function getWeekSchedulesMultiAction(
 export async function getScheduleUsersAction(): Promise<ScheduleUser[]> {
   await requireAuth()
   return getScheduleUsers()
+}
+
+// 週・日グループビュー用: ログインユーザーが所属するグループのみ（AIPO getMyGroups 相当）
+export async function getMyGroupsAction(userId: number): Promise<ScheduleGroup[]> {
+  await requireAuth()
+  return getMyGroups(userId)
 }
 
 // ユーザーピッカー用グループ一覧（システムグループ除外）
