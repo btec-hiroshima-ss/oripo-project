@@ -1093,10 +1093,11 @@ export function makeDateJst(dateStr: string, timeStr?: string): Date {
 `FacilityPickerModal.tsx` と `UserPickerModal.tsx` はモーダルシェル（ヘッダー・2カラムコンテナ・フッター）の UI 構造を共有しているため、ここだけを共通コンポーネント `TwoColumnPickerModal` に抽出する。
 
 - 共通コンポーネント `TwoColumnPickerModal` を `src/app/(main)/_components/widgets/TwoColumnPickerModal.tsx` に作成する
-- 左右パネルの内容（使用中バッジ・ロック表示・ハイライト操作など）はレンダープロップ（`renderLeftPanel`, `renderRightPanel`）で各ピッカーが提供する
-  - 設備ピッカー固有: 使用中バッジ・単一クリック即追加のインタラクション
-  - ユーザーピッカー固有: ハイライト→まとめて追加のインタラクション・ロック表示（自分自身）
-- `FacilityPickerModal` と `UserPickerModal` のモーダルシェル部分を `TwoColumnPickerModal` に移行する
+- `PickerItem[]`（アイテムデータ）と `selectionMode` を渡すデータ駆動型で実装する
+  - `immediate` モード（設備): 各行に「追加」リンク・左パネルに「削除」リンク
+  - `highlight` モード（ユーザー): クリックでハイライット→「追加」ボタンで確定、ハイライット状態はコンポーネント内部で管理
+- ローディング表示（`isLoading`）・検索・グループ絞り込みも共通化
+- `FacilityPickerModal` と `UserPickerModal` はデータを組み立てて渡すだけになる
 
 ---
 
@@ -1110,17 +1111,33 @@ export function makeDateJst(dateStr: string, timeStr?: string): Date {
 
 ### TwoColumnPickerModal コンポーネント Props
 
-`FacilityPickerModal` と `UserPickerModal` は左右パネルの操作パターンが異なる（設備: 単一クリック即追加／ユーザー: ハイライト選択→まとめて追加）ため、左右パネルの内容はレンダープロップで各ピッカーが提供する。
-
-`TwoColumnPickerModal` が担うのはモーダルシェル（ヘッダー・2カラムコンテナ・フッター）のみ。
+`FacilityPickerModal` と `UserPickerModal` は操作パターンが異なる（設備: 単一クリック即追加／ユーザー: ハイライット選択→まとめて追加）ため、`selectionMode` でモード分岐する。ハイライット状態は `TwoColumnPickerModal` 内部で管理する。
 
 ```ts
+export type PickerItem = {
+  id: number
+  label: string
+  badge?: string       // 「使用中」等のバッジテキスト
+  disabled?: boolean   // immediate モードで追加不可
+  locked?: boolean     // highlight モードで削除不可（自分自身など）
+}
+
 type TwoColumnPickerModalProps = {
   title: string
-  // 左右パネルの内容は各ピッカーがレンダープロップで提供（リッチ表示を各ピッカーで制御できる）
-  renderLeftPanel: () => React.ReactNode
-  renderRightPanel: () => React.ReactNode
-  // フッターの「決定」ボタン押下コールバック（確定処理は各ピッカーが実装）
+  leftLabel: string
+  selectedItems: PickerItem[]
+  availableItems: PickerItem[]
+  selectionMode: 'immediate' | 'highlight'
+  onAdd: (ids: number[]) => void
+  onRemove: (ids: number[]) => void
+  leftHeaderExtra?: React.ReactNode   // 「N 人選択中」等
+  searchValue?: string
+  onSearchChange?: (v: string) => void
+  searchPlaceholder?: string
+  filterOptions?: Array<{ value: string; label: string }>
+  filterValue?: string
+  onFilterChange?: (v: string) => void
+  isLoading?: boolean
   onConfirm: () => void
   onClose: () => void
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import type { FacilityWithGroup } from '@/lib/schedule.types'
 import { getFacilityAvailabilityAction } from '../../actions'
-import TwoColumnPickerModal from './TwoColumnPickerModal'
+import TwoColumnPickerModal, { type PickerItem } from './TwoColumnPickerModal'
 
 type Props = {
   /** 設備一覧（ScheduleFormModal がマウント時に取得済みのものを渡す） */
@@ -33,7 +33,7 @@ export default function FacilityPickerModal({
   const [busyIds, setBusyIds] = useState<Set<number>>(new Set())
   // 作業用の選択済みセット（決定ボタンで確定するまで親に反映しない）
   const [localSelected, setLocalSelected] = useState<Set<number>>(new Set(selectedIds))
-  const [selectedGroup, setSelectedGroup] = useState<string>('all')
+  const [selectedGroup, setSelectedGroup] = useState('')
 
   // 空き状況だけを取得する（設備一覧は親から受け取るため二重取得しない）
   useEffect(() => {
@@ -60,117 +60,53 @@ export default function FacilityPickerModal({
     return result
   }, [facilities])
 
-  // グループで絞り込んだ候補設備（選択済みを除く）
-  const candidateFacilities = useMemo(() => {
-    return facilities.filter((f) => {
-      if (localSelected.has(f.facilityId)) return false
-      if (selectedGroup !== 'all' && (f.groupName ?? '未分類') !== selectedGroup) return false
-      return true
-    })
-  }, [facilities, localSelected, selectedGroup])
+  const filterOptions = useMemo(() => [
+    { value: '', label: 'すべての設備グループ' },
+    ...groups.map((g) => ({ value: g, label: g })),
+  ], [groups])
 
-  // 選択済み設備の情報
-  const selectedFacilities = useMemo(() => {
-    return facilities.filter((f) => localSelected.has(f.facilityId))
-  }, [facilities, localSelected])
+  // 左パネル: 選択済み設備
+  const selectedItems = useMemo<PickerItem[]>(() => (
+    facilities
+      .filter((f) => localSelected.has(f.facilityId))
+      .map((f) => ({ id: f.facilityId, label: f.facilityName }))
+  ), [facilities, localSelected])
 
-  function handleAdd(facilityId: number) {
-    // 使用中の設備は追加不可（要件定義書: 空いていない時間帯は選択不可）
-    if (busyIds.has(facilityId)) return
-    setLocalSelected((prev) => new Set([...prev, facilityId]))
-  }
-
-  function handleRemove(facilityId: number) {
-    setLocalSelected((prev) => {
-      const next = new Set(prev)
-      next.delete(facilityId)
-      return next
-    })
-  }
+  // 右パネル: 候補設備（選択済みを除き、グループで絞り込む）
+  const availableItems = useMemo<PickerItem[]>(() => (
+    facilities
+      .filter((f) => {
+        if (localSelected.has(f.facilityId)) return false
+        if (selectedGroup && (f.groupName ?? '未分類') !== selectedGroup) return false
+        return true
+      })
+      .map((f) => {
+        const isBusy = busyIds.has(f.facilityId)
+        return {
+          id: f.facilityId,
+          label: f.facilityName,
+          // 使用中バッジ: 空き確認が有効な場合のみ付与（要件定義書: 空いていない時間帯は選択不可）
+          badge: isBusy && startDate && endDate ? '使用中' : undefined,
+          disabled: isBusy,
+        }
+      })
+  ), [facilities, localSelected, selectedGroup, busyIds, startDate, endDate])
 
   return (
     <TwoColumnPickerModal
       title="設備を選択"
+      leftLabel="選択済み設備"
+      selectedItems={selectedItems}
+      availableItems={availableItems}
+      selectionMode="immediate"
+      // immediate モード: TwoColumnPickerModal は右パネルの「追加」クリック時に常に [id] の単要素配列を渡す
+      onAdd={([id]) => setLocalSelected((prev) => new Set([...prev, id]))}
+      onRemove={([id]) => setLocalSelected((prev) => { const next = new Set(prev); next.delete(id); return next })}
+      filterOptions={filterOptions}
+      filterValue={selectedGroup}
+      onFilterChange={setSelectedGroup}
       onConfirm={() => onConfirm(localSelected)}
       onClose={onClose}
-      renderLeftPanel={() => (
-        <>
-          <p className="text-xs font-medium text-gray-600 mb-2 shrink-0">選択済み設備</p>
-          <div className="border border-gray-200 rounded-lg overflow-y-auto flex-1 min-h-[120px]">
-            {selectedFacilities.length === 0 ? (
-              <p className="text-xs text-gray-400 p-3">設備が選択されていません</p>
-            ) : (
-              selectedFacilities.map((f) => (
-                <div
-                  key={f.facilityId}
-                  className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
-                >
-                  <span className="text-sm text-gray-800">{f.facilityName}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(f.facilityId)}
-                    className="text-xs text-red-500 hover:text-red-700 ml-2 shrink-0"
-                  >
-                    削除
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        </>
-      )}
-      renderRightPanel={() => (
-        <>
-          {/* グループ絞り込み */}
-          <div className="shrink-0 mb-2">
-            <select
-              value={selectedGroup}
-              onChange={(e) => setSelectedGroup(e.target.value)}
-              className="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand"
-            >
-              <option value="all">すべての設備グループ</option>
-              {groups.map((g) => (
-                <option key={g} value={g}>{g}</option>
-              ))}
-            </select>
-          </div>
-          <div className="border border-gray-200 rounded-lg overflow-y-auto flex-1 min-h-[120px]">
-            {candidateFacilities.length === 0 ? (
-              <p className="text-xs text-gray-400 p-3">候補設備がありません</p>
-            ) : (
-              candidateFacilities.map((f) => {
-                const isBusy = busyIds.has(f.facilityId)
-                return (
-                  <div
-                    key={f.facilityId}
-                    className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={`text-sm truncate ${isBusy ? 'text-gray-400' : 'text-gray-800'}`}>
-                        {f.facilityName}
-                      </span>
-                      {/* 使用中バッジ: 空き確認が有効な場合のみ表示 */}
-                      {isBusy && startDate && endDate && (
-                        <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded shrink-0">
-                          使用中
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleAdd(f.facilityId)}
-                      disabled={isBusy}
-                      className="text-xs text-brand hover:text-brand-dark ml-2 shrink-0 disabled:text-gray-300 disabled:cursor-not-allowed"
-                    >
-                      追加
-                    </button>
-                  </div>
-                )
-              })
-            )}
-          </div>
-        </>
-      )}
     />
   )
 }
