@@ -471,7 +471,6 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   }
 
   async function handleDelete(scope: string) {
-    // 編集フォームからの削除（editingSchedule）と詳細モーダルからの削除（selectedSchedule）の両方に対応する
     const target = editingSchedule ?? selectedSchedule
     if (!target) return
     const { scheduleId, parentId } = target
@@ -850,13 +849,6 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
         <ScheduleDetailModal
           schedule={selectedSchedule}
           onClose={() => setSelectedSchedule(null)}
-          onEdit={(mode) => {
-            setRepeatEditMode(mode)
-            setEditingSchedule(selectedSchedule)
-            setSelectedSchedule(null)
-          }}
-          onDelete={handleDelete}
-          onCopy={() => setSelectedSchedule(null)}
         />
       )}
 

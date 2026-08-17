@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   parseJst, toJstStr,
   getWeekSchedules, getScheduleDetail, addSchedule, updateSchedule, deleteSchedule,
-  getWeekSchedulesMulti, getScheduleUsers, getGroupList, getGroupMembers, getScheduleParticipantIds,
+  getWeekSchedulesMulti, getScheduleUsers, getMyGroups, getGroupList, getGroupMembers, getScheduleParticipantIds,
   addRepeatSchedule, updateRepeatOne, updateRepeatAll, deleteRepeatOne, deleteRepeatAll,
   getListSchedules, getFacilities, getBookedFacilityIds, getScheduleFacilityIds,
 } from './schedule'
@@ -691,6 +691,48 @@ describe('getGroupMembers', () => {
     mockDb.execute.mockResolvedValueOnce([])
 
     const result = await getGroupMembers(99)
+
+    expect(result).toEqual([])
+  })
+})
+
+// ===========================================================
+describe('getMyGroups', () => {
+  it('ログインユーザーが所属するグループ一覧を ScheduleGroup 型に変換して返す', async () => {
+    mockDb.execute.mockResolvedValueOnce([
+      { group_id: 10, group_alias_name: 'レスコ チーム' },
+      { group_id: 20, group_alias_name: 'SE主要' },
+    ])
+
+    const result = await getMyGroups(42)
+
+    expect(result).toHaveLength(2)
+    expect(result[0]).toEqual({ groupId: 10, groupName: 'レスコ チーム' })
+    expect(result[1]).toEqual({ groupId: 20, groupName: 'SE主要' })
+    // ログインユーザーの所属条件が設定されているか
+    expect(mockDb.where).toHaveBeenCalledWith('ugr.user_id', '=', 42)
+  })
+
+  it('システムグループ（group_id=1,2,3）を除外する条件を設定する', async () => {
+    mockDb.execute.mockResolvedValueOnce([])
+
+    await getMyGroups(1)
+
+    expect(mockDb.where).toHaveBeenCalledWith('g.group_id', 'not in', [1, 2, 3])
+  })
+
+  it('alias_name が null のグループを除外する条件を設定する', async () => {
+    mockDb.execute.mockResolvedValueOnce([])
+
+    await getMyGroups(1)
+
+    expect(mockDb.where).toHaveBeenCalledWith('g.group_alias_name', 'is not', null)
+  })
+
+  it('グループが0件の場合は空配列を返す', async () => {
+    mockDb.execute.mockResolvedValueOnce([])
+
+    const result = await getMyGroups(99)
 
     expect(result).toEqual([])
   })

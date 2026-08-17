@@ -468,18 +468,14 @@ export type ScheduleInput = {
 
 ### マルチユーザービュー
 
-- [ ] ヘッダーに「ユーザーを追加」ボタンが表示される
-- [ ] ボタンクリックでユーザーピッカーモーダルが開く
-- [ ] グループを展開してメンバーを選択できる
-- [ ] 氏名フリーワード検索でユーザーを絞り込める
-- [ ] 選択確定後、カレンダーに追加ユーザーの予定が重ねて表示される
-- [ ] 追加ユーザーの予定ブロックは自分と異なる色で表示される
-- [ ] 選択ユーザーのチップがヘッダー下部に表示され、× で削除できる
-- [ ] 31人目を追加しようとするとエラートーストが表示される
-- [ ] 追加ユーザー削除後、そのユーザーの予定がカレンダーから消える
+> Phase D でビューごとのユーザー選択モデルが確定。週・日ビューはグループセレクト（AIPO 準拠）、月・一覧ビューは2段ドロップダウンに変更済み。以下の受け入れ条件は Phase D 実装に準拠する。
+
+- [ ] 週ビュー・日ビューのヘッダーに1段グループセレクト（自分が所属するグループのみ）が表示される
+- [ ] グループを選択するとそのグループメンバー全員の予定がカレンダーに表示される
+- [ ] 月ビュー・一覧ビューのヘッダーに2段ドロップダウン（全グループ → グループメンバー）が表示される
+- [ ] 2段目で特定メンバーを選択するとそのメンバーの予定のみ表示される
 - [ ] 他ユーザーの非公開（P）予定は「非公開」とブロック表示される（タイトル非表示）
 - [ ] 他ユーザーの完全非公開（C）予定はカレンダーに表示されない
-- [ ] タブを切り替えてマイページに戻っても選択ユーザーが保持される（DB 保存のためリロード後も保持）
 
 ### 参加ユーザー選択（フォーム）
 
@@ -575,7 +571,7 @@ export type ScheduleInput = {
 
 ### 繰り返し予定の編集
 
-繰り返し子レコード（`parentId > 0`）の詳細モーダルで「編集する」をクリックすると、以下の確認ダイアログを表示する:
+自分が `owner_id` の繰り返し子レコード（`parentId > 0`）をクリックすると、詳細モーダルを経由せずに直接「この予定のみ変更 / 全ての予定を変更」選択ダイアログを表示する（Phase A 仕様に準拠）。
 
 - **「この予定のみ変更」**: 選択した子レコードのみ更新する
 - **「全ての予定を変更」**: 親レコードを更新し、全子レコードを削除して再展開する
@@ -587,7 +583,7 @@ export type ScheduleInput = {
 
 ### 繰り返し予定の削除
 
-繰り返し子レコード（`parentId > 0`）の詳細モーダルで「削除する」をクリックすると、以下の確認ダイアログを表示する:
+編集フォームの「削除」ボタンをクリックすると「この予定のみ削除 / 全ての予定を削除」選択ダイアログを表示する。詳細モーダル経由では削除できない。
 
 - **「この予定のみ削除」**: 選択した子レコードと `eip_t_schedule_map` のみ削除
 - **「全ての予定を削除」**: 親レコード・全子レコード・全 `eip_t_schedule_map` を削除
@@ -630,7 +626,7 @@ expandAndSaveRepeatChildren(
 deleteRepeatChildren(parentId: number): Promise<void>
 
 // 繰り返し出現日の計算（`src/lib/repeat.ts` に分離）
-calcOccurrences(input: RepeatScheduleInput): Date[]
+calcOccurrenceDates(params: { repeatType: RepeatType; firstStart: Date; weekDays?: boolean[]; limitEndDate?: Date | null }): Date[]
 ```
 
 ---
@@ -682,7 +678,7 @@ encodeRepeatPattern(input: RepeatScheduleInput): string
 decodeRepeatPattern(pattern: string): { repeatType: RepeatType; weekDays?: boolean[] }
 
 // 全出現日（JST 日付）のリストを生成
-calcOccurrences(input: RepeatScheduleInput): Date[]
+calcOccurrenceDates(params: { repeatType: RepeatType; firstStart: Date; weekDays?: boolean[]; limitEndDate?: Date | null }): Date[]
 ```
 
 ---
@@ -710,15 +706,13 @@ calcOccurrences(input: RepeatScheduleInput): Date[]
 
 ### 繰り返し予定の編集
 
-- [ ] 繰り返し子レコード（parentId > 0）の詳細モーダルに「編集する」ボタンが表示される
-- [ ] 「編集する」クリックで「この予定のみ変更 / 全ての予定を変更」ダイアログが表示される
+- [ ] 自分の繰り返し子レコード（parentId > 0）をクリックすると「この予定のみ変更 / 全ての予定を変更」ダイアログが直接表示される（詳細モーダルを経由しない）
 - [ ] 「この予定のみ変更」を選択すると、その出現日のみ変更され他の出現日は変わらない
 - [ ] 「全ての予定を変更」を選択すると、全出現日のタイトル・時刻が更新される
 
 ### 繰り返し予定の削除
 
-- [ ] 繰り返し子レコード（parentId > 0）の詳細モーダルに「削除する」ボタンが表示される
-- [ ] 「削除する」クリックで「この予定のみ削除 / 全ての予定を削除」ダイアログが表示される
+- [ ] 繰り返し予定の編集フォームで「削除」ボタンをクリックすると「この予定のみ削除 / 全ての予定を削除」ダイアログが表示される
 - [ ] 「この予定のみ削除」を選択すると、その出現日のみカレンダーから消える（他の出現日は残る）
 - [ ] 「全ての予定を削除」を選択すると、全出現日がカレンダーから消える（親レコードも削除）
 
@@ -889,6 +883,10 @@ getFacilityAvailabilityAction(startDate: string, endDate: string, excludeSchedul
 
 // 編集フォーム初期化用: スケジュールの予約設備 ID 一覧を取得
 getScheduleFacilityIdsAction(scheduleId: number): Promise<number[]>
+
+// 週・日ビュー用グループセレクト: ログインユーザーが所属するグループ一覧を取得
+// 全グループではなく自分が所属するグループのみ（AIPO getMyGroups 相当）
+getMyGroupsAction(userId: number): Promise<ScheduleGroup[]>
 ```
 
 ### DB クエリ追加（`src/lib/schedule.ts`）

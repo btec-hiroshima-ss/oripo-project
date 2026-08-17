@@ -106,6 +106,20 @@ describe('calcOccurrenceDates', () => {
       const result = calcOccurrenceDates({ repeatType: 'weekly', firstStart, weekDays, limitEndDate })
       expect(result).toHaveLength(5)
     })
+
+    it('終了日なしの場合は2年分（最大104〜105件）を返す', () => {
+      // 2026-07-01 = 水曜
+      const firstStart = jst('2026-07-01T10:00:00')
+      const weekDays = [false, false, false, true, false, false, false] // 水曜のみ
+      const result = calcOccurrenceDates({ repeatType: 'weekly', firstStart, weekDays, limitEndDate: null })
+      // 2年（730日）÷7日 = 104.28週。開始曜日によって104または105件になる
+      expect(result.length).toBeGreaterThanOrEqual(104)
+      expect(result.length).toBeLessThanOrEqual(105)
+      // 最初の日付が開始日で、全件が2年以内に収まること
+      expect(result[0]).toEqual(jst('2026-07-01T00:00:00'))
+      const twoYearsLater = new Date(jst('2026-07-01T00:00:00').getTime() + 2 * 365 * 24 * 60 * 60 * 1000)
+      expect(result[result.length - 1].getTime()).toBeLessThan(twoYearsLater.getTime())
+    })
   })
 
   describe('毎月', () => {
