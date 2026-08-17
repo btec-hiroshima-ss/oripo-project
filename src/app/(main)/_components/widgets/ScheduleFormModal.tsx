@@ -680,14 +680,14 @@ export default function ScheduleFormModal({
           selectedIds={facilityIds}
           scheduleId={schedule?.scheduleId}
           // 日時が入力済みの場合のみ空き確認を行う（終日・期間予定では日付のみのため確認しない）
-          startDateIso={
+          startDate={
             !isAllDay && !isPeriod && dateStr && startTime
-              ? new Date(`${dateStr}T${startTime}:00+09:00`).toISOString()
+              ? new Date(`${dateStr}T${startTime}:00+09:00`)
               : undefined
           }
-          endDateIso={
+          endDate={
             !isAllDay && !isPeriod && dateStr && endTime
-              ? new Date(`${dateStr}T${endTime}:00+09:00`).toISOString()
+              ? new Date(`${dateStr}T${endTime}:00+09:00`)
               : undefined
           }
           onConfirm={(ids) => {

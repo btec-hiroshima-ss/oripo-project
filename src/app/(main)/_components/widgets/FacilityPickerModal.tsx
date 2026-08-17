@@ -10,10 +10,10 @@ type Props = {
   facilities: FacilityWithGroup[]
   /** 現在選択済みの設備 ID セット */
   selectedIds: Set<number>
-  /** 空き確認に使う予定開始時刻（ISO 文字列）。未指定の場合は空き判定しない */
-  startDateIso?: string
-  /** 空き確認に使う予定終了時刻（ISO 文字列）。未指定の場合は空き判定しない */
-  endDateIso?: string
+  /** 空き確認に使う予定開始時刻。未指定の場合は空き判定しない */
+  startDate?: Date
+  /** 空き確認に使う予定終了時刻。未指定の場合は空き判定しない */
+  endDate?: Date
   /** 編集中のスケジュール ID。自身の設備予約を「使用中」と誤判定しないために除外する */
   scheduleId?: number
   onConfirm: (ids: Set<number>) => void
@@ -23,8 +23,8 @@ type Props = {
 export default function FacilityPickerModal({
   facilities,
   selectedIds,
-  startDateIso,
-  endDateIso,
+  startDate,
+  endDate,
   scheduleId,
   onConfirm,
   onClose,
@@ -37,8 +37,8 @@ export default function FacilityPickerModal({
 
   // 空き状況だけを取得する（設備一覧は親から受け取るため二重取得しない）
   useEffect(() => {
-    if (!startDateIso || !endDateIso) return
-    getFacilityAvailabilityAction(startDateIso, endDateIso, scheduleId)
+    if (!startDate || !endDate) return
+    getFacilityAvailabilityAction(startDate.toISOString(), endDate.toISOString(), scheduleId)
       .then((bookedIds) => setBusyIds(new Set(bookedIds)))
       .catch(() => {})
   // ピッカーを開いた時点の日時で1回だけ取得する。
@@ -168,7 +168,7 @@ export default function FacilityPickerModal({
                           {f.facilityName}
                         </span>
                         {/* 使用中バッジ: 空き確認が有効な場合のみ表示 */}
-                        {isBusy && startDateIso && endDateIso && (
+                        {isBusy && startDate && endDate && (
                           <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded shrink-0">
                             使用中
                           </span>
