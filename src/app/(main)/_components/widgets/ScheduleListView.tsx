@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Search, X } from 'lucide-react'
 import type { MultiUserScheduleEntry } from '@/lib/schedule.types'
 import { LIST_VIEW_PAGE_SIZE } from '@/lib/schedule.constants'
 import { toJstDateStr, toJstTimeStr } from '@/lib/jst'
@@ -13,6 +14,9 @@ const FLAG_BAR_COLORS: Record<'O' | 'P' | 'C', string> = {
   P: 'bg-gray-400',
   C: 'bg-gray-600',
 }
+
+// キーワード入力後の検索ディレイ（ms）: 打鍵ごとにリクエストを飛ばさないためのデバウンス
+const KEYWORD_DEBOUNCE_MS = 400
 
 type Props = {
   viewUserIds: number[]
@@ -30,14 +34,25 @@ export default function ScheduleListView({
   const [offset, setOffset] = useState(0)
   const [hasMore, setHasMore] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  // AIPO準拠: キーワード部分一致フィルター（target_keyword）
+  const [keyword, setKeyword] = useState('')
+  // デバウンス後に実際の検索に使うキーワード
+  const [debouncedKeyword, setDebouncedKeyword] = useState('')
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const todayStr = toJstDateStr(new Date())
+
+  function handleKeywordChange(value: string) {
+    setKeyword(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => setDebouncedKeyword(value.trim()), KEYWORD_DEBOUNCE_MS)
+  }
 
   const fetchList = useCallback(async (nextOffset: number) => {
     if (viewUserIds.length === 0) return
     setIsLoading(true)
     try {
-      const items = await getListSchedulesAction(todayStr, viewUserIds, LIST_VIEW_PAGE_SIZE + 1, nextOffset)
+      const items = await getListSchedulesAction(todayStr, viewUserIds, LIST_VIEW_PAGE_SIZE + 1, nextOffset, debouncedKeyword || undefined)
       // 1件余分に取得して hasMore を判定する
       const hasNextPage = items.length > LIST_VIEW_PAGE_SIZE
       const actual = items.slice(0, LIST_VIEW_PAGE_SIZE)
@@ -51,10 +66,9 @@ export default function ScheduleListView({
     }
   // todayStr はマウント時の今日で固定（一覧ビュー期間中に日付が変わっても再計算しない）
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewUserIds])
+  }, [viewUserIds, debouncedKeyword])
 
-  // viewUserIds が変わった場合 (fetchList が新インスタンスになる) または
-  // 追加/更新/削除後 (refreshKey がインクリメントされる) に先頭から再取得する
+  // viewUserIds・debouncedKeyword が変わった場合または追加/更新/削除後に先頭から再取得する
   useEffect(() => {
     setSchedules([])
     setOffset(0)
@@ -76,9 +90,37 @@ export default function ScheduleListView({
   }
 
   return (
-    <div className="overflow-auto flex-1">
+    <div className="flex flex-col flex-1 min-h-0">
+      {/* キーワード検索入力欄（AIPO: target_keyword による部分一致フィルター） */}
+      <div className="px-3 py-2 border-b border-gray-100 shrink-0">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            value={keyword}
+            onChange={(e) => handleKeywordChange(e.target.value)}
+            placeholder="キーワードで絞り込み"
+            className="w-full pl-8 pr-7 py-1.5 text-base border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand text-sm"
+          />
+          {keyword && (
+            <button
+              type="button"
+              onClick={() => { setKeyword(''); setDebouncedKeyword('') }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              aria-label="クリア"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 一覧テーブル */}
+      <div className="overflow-auto flex-1">
       {schedules.length === 0 && !isLoading ? (
-        <p className="text-sm text-gray-400 py-8 text-center">本日以降の予定がありません</p>
+        <p className="text-sm text-gray-400 py-8 text-center">
+          {debouncedKeyword ? '該当する予定がありません' : '本日以降の予定がありません'}
+        </p>
       ) : (
         <table className="w-full min-w-[320px] text-sm">
           <tbody>
@@ -129,6 +171,7 @@ export default function ScheduleListView({
           </button>
         </div>
       )}
+      </div>
     </div>
   )
 }

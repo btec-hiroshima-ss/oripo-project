@@ -309,10 +309,11 @@ export async function getListSchedulesAction(
   userIds: number[],
   limit: number,
   offset: number,
+  keyword?: string,
 ): Promise<MultiUserScheduleEntry[]> {
   const { userId } = await requireAuth()
   const fromDate = new Date(from + 'T00:00:00+09:00')
-  return getListSchedules(userId, userIds, fromDate, limit, offset)
+  return getListSchedules(userId, userIds, fromDate, limit, offset, keyword)
 }
 
 // 設備一覧取得（設備ピッカー用）

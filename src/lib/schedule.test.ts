@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   parseJst, toJstStr,
   getWeekSchedules, getScheduleDetail, addSchedule, updateSchedule, deleteSchedule,
-  getWeekSchedulesMulti, getScheduleUsers, getGroupList, getGroupMembers, getScheduleParticipantIds,
+  getWeekSchedulesMulti, getScheduleUsers, getMyGroups, getGroupList, getGroupMembers, getScheduleParticipantIds,
   addRepeatSchedule, updateRepeatOne, updateRepeatAll, deleteRepeatOne, deleteRepeatAll,
   getListSchedules, getFacilities, getBookedFacilityIds, getScheduleFacilityIds,
 } from './schedule'
@@ -697,6 +697,48 @@ describe('getGroupMembers', () => {
 })
 
 // ===========================================================
+describe('getMyGroups', () => {
+  it('ログインユーザーが所属するグループ一覧を ScheduleGroup 型に変換して返す', async () => {
+    mockDb.execute.mockResolvedValueOnce([
+      { group_id: 10, group_alias_name: 'レスコ チーム' },
+      { group_id: 20, group_alias_name: 'SE主要' },
+    ])
+
+    const result = await getMyGroups(42)
+
+    expect(result).toHaveLength(2)
+    expect(result[0]).toEqual({ groupId: 10, groupName: 'レスコ チーム' })
+    expect(result[1]).toEqual({ groupId: 20, groupName: 'SE主要' })
+    // ログインユーザーの所属条件が設定されているか
+    expect(mockDb.where).toHaveBeenCalledWith('ugr.user_id', '=', 42)
+  })
+
+  it('システムグループ（group_id=1,2,3）を除外する条件を設定する', async () => {
+    mockDb.execute.mockResolvedValueOnce([])
+
+    await getMyGroups(1)
+
+    expect(mockDb.where).toHaveBeenCalledWith('g.group_id', 'not in', [1, 2, 3])
+  })
+
+  it('alias_name が null のグループを除外する条件を設定する', async () => {
+    mockDb.execute.mockResolvedValueOnce([])
+
+    await getMyGroups(1)
+
+    expect(mockDb.where).toHaveBeenCalledWith('g.group_alias_name', 'is not', null)
+  })
+
+  it('グループが0件の場合は空配列を返す', async () => {
+    mockDb.execute.mockResolvedValueOnce([])
+
+    const result = await getMyGroups(99)
+
+    expect(result).toEqual([])
+  })
+})
+
+// ===========================================================
 describe('getScheduleParticipantIds', () => {
   it('スケジュールの参加者 ID リストを返す', async () => {
     mockDb.execute.mockResolvedValueOnce([
@@ -1169,6 +1211,34 @@ describe('getListSchedules', () => {
     expect(result[0].name).toBe('31件目')
     expect(mockDb.limit).toHaveBeenCalledWith(30)
     expect(mockDb.offset).toHaveBeenCalledWith(30)
+  })
+
+  it('keyword を指定すると where に関数形式（eb.or）が追加される', async () => {
+    mockDb.execute.mockResolvedValueOnce([])
+
+    await getListSchedules(42, [42], new Date('2026-08-10T00:00:00+09:00'), 30, 0, '打ち合わせ')
+
+    // keyword 指定時は eb.or を使う関数形式の where が追加で呼ばれる
+    const fnCalls = mockDb.where.mock.calls.filter((args: unknown[]) => typeof args[0] === 'function')
+    expect(fnCalls.length).toBeGreaterThan(0)
+  })
+
+  it('keyword が空文字の場合は keyword 用 where を追加しない', async () => {
+    mockDb.execute.mockResolvedValueOnce([])
+    await getListSchedules(42, [42], new Date('2026-08-10T00:00:00+09:00'), 30, 0, '')
+    const callsWithEmpty = mockDb.where.mock.calls.length
+
+    vi.clearAllMocks()
+    for (const method of ['selectFrom', 'insertInto', 'updateTable', 'deleteFrom', 'innerJoin', 'leftJoin', 'select', 'where', 'set', 'values', 'orderBy', 'limit', 'offset']) {
+      if (!mockDb[method]) mockDb[method] = vi.fn()
+      mockDb[method].mockReturnValue(mockDb)
+    }
+    mockDb.execute.mockResolvedValueOnce([])
+    await getListSchedules(42, [42], new Date('2026-08-10T00:00:00+09:00'), 30, 0)
+    const callsWithoutKeyword = mockDb.where.mock.calls.length
+
+    // 空文字はキーワードなしと同じ where 回数（条件が追加されない）
+    expect(callsWithEmpty).toBe(callsWithoutKeyword)
   })
 })
 

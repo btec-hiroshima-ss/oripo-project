@@ -30,6 +30,11 @@ type Props = {
   editMode?: EditMode
   onClose: () => void
   onSave: (input: ScheduleInput | RepeatScheduleInput) => Promise<void>
+  /**
+   * AIPO準拠: 自分の予定クリックで編集フォームを直接開くため、フォーム内に削除ボタンを配置する。
+   * 未指定の場合（新規追加時）は削除ボタンを表示しない。
+   */
+  onDelete?: (scope: string) => Promise<void>
 }
 
 export default function ScheduleFormModal({
@@ -39,6 +44,7 @@ export default function ScheduleFormModal({
   editMode = 'normal',
   onClose,
   onSave,
+  onDelete,
 }: Props) {
   const isEdit = schedule !== undefined
   const isRepeatAllMode = editMode === 'repeatAll'
@@ -60,6 +66,10 @@ export default function ScheduleFormModal({
   const [publicFlag, setPublicFlag] = useState<'O' | 'P' | 'C'>(schedule?.publicFlag ?? 'O')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isPending, startTransition] = useTransition()
+  // 削除確認ダイアログの表示フラグ（AIPO準拠: フォーム内に削除ボタンを配置するため）
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  // 通常予定の削除スコープ（繰り返し子は editMode から自動決定するため不要）
+  const [deleteScope, setDeleteScope] = useState<'single' | 'all' | 'participants'>('single')
 
   // 繰り返し設定（新規のみ。既存予定の編集時は繰り返しパネルを非表示にする）
   const [showRepeatPanel, setShowRepeatPanel] = useState(false)
@@ -643,6 +653,16 @@ export default function ScheduleFormModal({
 
         {/* フッター */}
         <div className="px-5 pb-4 pt-3 border-t border-gray-100 flex gap-2 shrink-0">
+          {/* 削除ボタン: 自分の予定の編集時のみ表示（AIPO準拠: フォーム内に削除を配置） */}
+          {isEdit && onDelete && (
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="py-2 px-3 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50"
+            >
+              削除
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -660,6 +680,65 @@ export default function ScheduleFormModal({
           </button>
         </div>
       </div>
+
+      {/* 削除確認ダイアログ */}
+      {showDeleteConfirm && onDelete && schedule && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-80">
+            <p className="text-sm font-medium text-gray-800 mb-4">予定を削除しますか？</p>
+
+            {/* 繰り返し子は editMode から削除スコープを自動決定する */}
+            {schedule.parentId === 0 ? (
+              <div className="space-y-2 mb-4">
+                {[
+                  { value: 'single', label: 'この予定のみを削除します' },
+                  { value: 'all', label: 'この予定を完全に削除します' },
+                  { value: 'participants', label: '参加ユーザー全員の予定を削除します' },
+                ].map(({ value, label }) => (
+                  <label key={value} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="deleteScope"
+                      value={value}
+                      checked={deleteScope === value}
+                      onChange={() => setDeleteScope(value as typeof deleteScope)}
+                      className="accent-brand"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 mb-4">
+                {editMode === 'repeatOne' ? 'この出現日のみを削除します。' : '全ての繰り返し予定を削除します。'}
+              </p>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const scope = schedule.parentId > 0
+                    ? (editMode === 'repeatOne' ? 'repeatOne' : 'repeatAll')
+                    : deleteScope
+                  onDelete(scope)
+                  setShowDeleteConfirm(false)
+                }}
+                className="flex-1 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600"
+              >
+                削除する
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 参加ユーザーピッカー */}
       {showUserPicker && (

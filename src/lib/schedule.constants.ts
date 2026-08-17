@@ -10,10 +10,10 @@ export const HOUR_PX = 60
 export const MIN_BLOCK_PX = 20
 
 /**
- * 週カレンダーの曜日ラベル（月曜始まり順）。
- * jst.ts の DOW_JA（日曜始まり、getDay() 対応）とは順序が異なる。
+ * 週カレンダーの曜日ラベル（日曜始まり順、AIPO準拠）。
+ * インデックス 0=日 〜 6=土 で、getWeekDays の先頭（日曜）から並ぶ。
  */
-export const DOW_JA = ['月', '火', '水', '木', '金', '土', '日']
+export const DOW_JA = ['日', '月', '火', '水', '木', '金', '土']
 
 /** 一覧ビューの1ページあたり表示件数（仕様書 Phase D 準拠） */
 export const LIST_VIEW_PAGE_SIZE = 30

@@ -865,12 +865,16 @@ export async function getListSchedules(
   from: Date,
   limit: number,
   offset: number,
+  /** キーワード部分一致フィルター（AIPO: `target_keyword`）。空文字・未指定は全件対象 */
+  keyword?: string,
 ): Promise<MultiUserScheduleEntry[]> {
   if (userIds.length === 0) return []
 
   const fromStr = toJstStr(from)
+  // AIPO と同じ %keyword% 部分一致（ScheduleUtils.getScheduleList 準拠）
+  const kw = keyword?.trim() ?? ''
 
-  const rows = await db
+  let query = db
     .selectFrom('eip_t_schedule as s')
     .innerJoin('eip_t_schedule_map as sm', 'sm.schedule_id', 's.schedule_id')
     .innerJoin('turbine_user as u', 'u.user_id', 'sm.user_id')
@@ -885,6 +889,19 @@ export async function getListSchedules(
     )
     // 一覧ビュー: 指定日以降が開始する予定（end_date ではなく start_date 基準）
     .where(sql`s.start_date::text`, '>=', fromStr)
+
+  if (kw !== '') {
+    const pattern = `%${kw}%`
+    query = query.where((eb) =>
+      eb.or([
+        eb(sql`s.name`, 'ilike', pattern),
+        eb(sql`s.place`, 'ilike', pattern),
+        eb(sql`s.note`, 'ilike', pattern),
+      ])
+    )
+  }
+
+  const rows = await query
     .select([
       's.schedule_id',
       's.name',
