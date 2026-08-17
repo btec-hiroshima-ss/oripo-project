@@ -30,6 +30,7 @@ import {
   deleteSchedule,
   getWeekSchedulesMulti,
   getScheduleUsers,
+  getMyGroups,
   getGroupList,
   getGroupMembers,
   getScheduleParticipantIds,
@@ -231,6 +232,12 @@ export async function getScheduleUsersAction(): Promise<ScheduleUser[]> {
   return getScheduleUsers()
 }
 
+// 週・日グループビュー用: ログインユーザーが所属するグループのみ（AIPO getMyGroups 相当）
+export async function getMyGroupsAction(userId: number): Promise<ScheduleGroup[]> {
+  await requireAuth()
+  return getMyGroups(userId)
+}
+
 // ユーザーピッカー用グループ一覧（システムグループ除外）
 export async function getGroupListAction(): Promise<ScheduleGroup[]> {
   await requireAuth()
@@ -320,9 +327,10 @@ export async function getFacilitiesAction(): Promise<FacilityWithGroup[]> {
 export async function getFacilityAvailabilityAction(
   startDate: string,
   endDate: string,
+  excludeScheduleId?: number,
 ): Promise<number[]> {
   await requireAuth()
-  return getBookedFacilityIds(new Date(startDate), new Date(endDate))
+  return getBookedFacilityIds(new Date(startDate), new Date(endDate), excludeScheduleId)
 }
 
 // 編集フォーム初期値用: スケジュールの現在の予約設備 ID リストを取得する

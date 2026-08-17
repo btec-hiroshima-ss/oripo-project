@@ -3,12 +3,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Search, X } from 'lucide-react'
 import type { MultiUserScheduleEntry } from '@/lib/schedule.types'
-import { LIST_VIEW_PAGE_SIZE, USER_COLORS } from '@/lib/schedule.constants'
+import { LIST_VIEW_PAGE_SIZE } from '@/lib/schedule.constants'
 import { toJstDateStr, toJstTimeStr } from '@/lib/jst'
 import { getListSchedulesAction } from '../../actions'
 
-// schedule.constants の PUBLIC_FLAG_COLORS は "bg-xxx text-white" 形式（ブロック用）。
-// カラーバーは背景色のみなので text-white を含まない専用定義が必要。
+// schedule.constants の PUBLIC_FLAG_COLORS は "bg-brand text-white" 形式（背景＋文字色）で
+// テキストを持たないカラーバー div には合わないため、カラーバー専用クラスを別定義する。
 const FLAG_BAR_COLORS: Record<'O' | 'P' | 'C', string> = {
   O: 'bg-brand',
   P: 'bg-gray-400',
@@ -20,8 +20,6 @@ const KEYWORD_DEBOUNCE_MS = 400
 
 type Props = {
   viewUserIds: number[]
-  userColorMap: Map<number, string>
-  isMultiUser: boolean
   onScheduleClick: (schedule: MultiUserScheduleEntry) => void
   /** 追加/更新/削除後に親からインクリメントされ、先頭から再フェッチさせる */
   refreshKey?: number
@@ -29,8 +27,6 @@ type Props = {
 
 export default function ScheduleListView({
   viewUserIds,
-  userColorMap,
-  isMultiUser,
   onScheduleClick,
   refreshKey,
 }: Props) {
@@ -129,17 +125,14 @@ export default function ScheduleListView({
         <table className="w-full min-w-[320px] text-sm">
           <tbody>
             {schedules.map((s, idx) => {
-              // 色: マルチユーザーはユーザー色、単独は公開区分色
-              const barColor = isMultiUser
-                ? (userColorMap.get(s.viewUserId) ?? USER_COLORS[0]).replace('text-white', '').trim()
-                : FLAG_BAR_COLORS[s.publicFlag as 'O' | 'P' | 'C']
+              const barColor = FLAG_BAR_COLORS[s.publicFlag as 'O' | 'P' | 'C']
               return (
                 <tr
                   key={`${s.scheduleId}-${s.viewUserId}-${idx}`}
                   className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
                   onClick={() => onScheduleClick(s)}
                 >
-                  {/* 左端のカラーバー */}
+                  {/* 左端のカラーバー（公開区分で色分け） */}
                   <td className="w-1 pr-0">
                     <div className={`w-1 h-full min-h-[40px] rounded-r ${barColor}`} />
                   </td>
@@ -154,18 +147,6 @@ export default function ScheduleListView({
                       <div className="text-xs text-gray-400 truncate mt-0.5">{s.place}</div>
                     )}
                   </td>
-                  {/* マルチユーザー: ユーザー名チップ */}
-                  {isMultiUser && (
-                    <td className="px-2 py-2 text-right">
-                      <span
-                        className={`inline-block text-[10px] px-1.5 py-0.5 rounded-full ${
-                          userColorMap.get(s.viewUserId) ?? USER_COLORS[0]
-                        }`}
-                      >
-                        {s.viewUserName}
-                      </span>
-                    </td>
-                  )}
                 </tr>
               )
             })}

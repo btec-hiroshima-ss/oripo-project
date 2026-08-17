@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Users, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
 import {
   getWeekSchedulesMultiAction,
   getDaySchedulesAction,
@@ -20,12 +20,15 @@ import {
   saveWidgetSettingsAction,
   getMobileWidgetSettingsAction,
   saveMobileWidgetSettingsAction,
+  getMyGroupsAction,
+  getGroupListAction,
+  getGroupMembersAction,
+  getScheduleUsersAction,
 } from '../../actions'
-import type { ScheduleInput, RepeatScheduleInput, MultiUserScheduleEntry } from '@/lib/schedule.types'
+import type { ScheduleInput, RepeatScheduleInput, MultiUserScheduleEntry, ScheduleGroup, ScheduleUser } from '@/lib/schedule.types'
 import { MAX_USERS, HOUR_PX, MIN_BLOCK_PX, DOW_JA, USER_COLORS, PUBLIC_FLAG_COLORS } from '@/lib/schedule.constants'
 import ScheduleFormModal from './ScheduleFormModal'
 import ScheduleDetailModal from './ScheduleDetailModal'
-import UserPickerModal from './UserPickerModal'
 import ScheduleDayView from './ScheduleDayView'
 import ScheduleMonthView from './ScheduleMonthView'
 import ScheduleListView from './ScheduleListView'
@@ -146,8 +149,6 @@ function ScheduleBlock({ schedule, onClick }: ScheduleBlockProps) {
   const widthPct = 100 / schedule.colCount
   const leftPct = (schedule.colIndex / schedule.colCount) * 100
 
-  // マルチユーザービューではユーザーごとのプリセット色を使用する。
-  // 単独ユーザービューでは公開区分（P/C）をグレー系で表現する。
   const colorClass = schedule.colorClass
 
   return (
@@ -181,12 +182,10 @@ function ScheduleBlock({ schedule, onClick }: ScheduleBlockProps) {
 type ViewMode = 'week' | 'day' | 'month' | 'list'
 
 type ScheduleWidgetSettings = {
-  viewUserIds: number[]
-  // 氏名は userIds から都度取得できるが、スケジュール0件の週でもチップ表示に使うためキャッシュする。
-  // 氏名変更は稀なので多少古くても問題ない（AIPO も同様に氏名をキャッシュしている）。
-  viewUserNames: Record<string, string>
-  viewMode?: ViewMode   // Phase D: デフォルト 'week'
-  viewDate?: string     // Phase D: YYYY-MM-DD。日/月ビューの基準日
+  // AIPO 準拠: 週・日グループビューのグループフィルター（null = 自分のみ）
+  weekDayGroupId?: number | null
+  viewMode?: ViewMode
+  viewDate?: string
 }
 
 // isMobileView=true の場合はモバイル専用テーブル（oripo_mobile_widget_settings）を使う。
@@ -215,14 +214,24 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
 
   // loginUserId: マウント時に getLoginUserIdAction で取得。null の間はスケジュール取得をスキップ。
   const [loginUserId, setLoginUserId] = useState<number | null>(null)
-  // loginUserName: チップの自分ラベル用。スケジュール0件の週でも正しく名前を表示するために別途保持する。
   const [loginUserName, setLoginUserName] = useState<string>('')
-  // knownUserNames: ウィジェット設定から復元したユーザー ID → 氏名マップ。スケジュール0件の週でも名前を表示するために保持する。
-  // マウント時の useEffect で DB の settings から復元する（AIPO の PSML キャッシュ相当）。
-  const [knownUserNames, setKnownUserNames] = useState<Map<number, string>>(new Map())
-  // viewUserIds: 表示対象ユーザー ID 一覧（自分が常に先頭。setViewUserIds で明示的に更新する）
-  const [viewUserIds, setViewUserIds] = useState<number[]>([])
-  const [showUserPicker, setShowUserPicker] = useState(false)
+
+  // 週・日グループビュー（AIPO oneday-group/weekly-group 準拠）:
+  // 1段グループセレクトでグループを選択 → グループ全員を別列で並列表示する。
+  // null = 自分のみ表示（AIPO のデフォルト状態と同じ）。
+  const [weekDayGroupId, setWeekDayGroupId] = useState<number | null>(null)
+  // ログインユーザーが所属するグループのみ（AIPO getMyGroups 相当）
+  const [weekDayGroups, setWeekDayGroups] = useState<ScheduleGroup[]>([])
+  // 選択グループのメンバー一覧（グループ切替時に取得）
+  const [weekDayGroupUsers, setWeekDayGroupUsers] = useState<ScheduleUser[]>([])
+
+  // 月・一覧ビュー（AIPO monthly/list 準拠）:
+  // 2段ドロップダウン（グループ選択→ユーザー選択）で単一ユーザーの予定を表示する。
+  const [nonWeekTargetUserId, setNonWeekTargetUserId] = useState<number | null>(null)
+  const [nonWeekGroups, setNonWeekGroups] = useState<ScheduleGroup[]>([])
+  const [nonWeekGroupId, setNonWeekGroupId] = useState<number | null>(null)
+  const [nonWeekAllUsers, setNonWeekAllUsers] = useState<ScheduleUser[]>([])
+  const [nonWeekGroupUsers, setNonWeekGroupUsers] = useState<ScheduleUser[]>([])
 
   // カレンダーコンテナ: 初期スクロール位置を 8:00 に合わせるため ref を保持
   const calendarRef = useRef<HTMLDivElement>(null)
@@ -230,20 +239,23 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   // 初期化完了フラグ: DB から settings を復元した後にのみ自動保存を許可する
   const hasInitializedRef = useRef(false)
 
+  // 週・日ビューの表示ユーザー ID リスト（グループ選択から導出）
+  const weekDayUserIds = weekDayGroupId === null
+    ? (loginUserId !== null ? [loginUserId] : [])
+    : weekDayGroupUsers.map((u) => u.userId)
+
+  // 週・日ビューでグループメンバーが複数いる場合にマルチカラー表示を有効にする
+  const isMultiUser = (viewMode === 'week' || viewMode === 'day') && weekDayUserIds.length > 1
+
   // viewUserIds の順番に対応するプリセット色マップ
   const userColorMap = new Map<number, string>(
-    viewUserIds.map((uid, i) => [uid, USER_COLORS[i % USER_COLORS.length]])
+    weekDayUserIds.map((uid, i) => [uid, USER_COLORS[i % USER_COLORS.length]])
   )
-  // schedules からの userId → 表示氏名マップ。
-  // ピッカーで取得した knownUserNames で初期化し、スケジュール有無に関わらず名前を表示する。
-  // 自分の名前は loginUserName で上書き（スケジュール0件の週でも正しく表示）。
+  // userId → 表示名マップ（週・日ビューのユーザー列ヘッダー用）
   const userNames = new Map<number, string>([
-    ...knownUserNames,
-    ...schedules.map((s) => [s.viewUserId, s.viewUserName] as [number, string]),
+    ...weekDayGroupUsers.map((u) => [u.userId, u.fullName] as [number, string]),
     ...(loginUserId !== null ? [[loginUserId, loginUserName] as [number, string]] : []),
   ])
-
-  const isMultiUser = viewUserIds.length > 1
 
   const fetchSchedules = useCallback((mode: ViewMode, ws: string, vd: string, userIds: number[]) => {
     if (userIds.length === 0) return
@@ -262,9 +274,8 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
       .finally(() => setIsLoading(false))
   }, [])
 
-  // マウント時にログインユーザー情報と DB 保存済みの選択ユーザーを並行取得して初期化する。
-  // AIPO の PSML p6a-uids 相当: ウィジェットインスタンスごとに DB に永続化されている。
-  // isMobileView=true の場合は oripo_mobile_widget_settings を参照する（PC設定と独立）。
+  // マウント時にログインユーザー情報・グループ一覧・DB 保存済み設定を並行取得して初期化する。
+  // 週・日ビュー用のマイグループは userId 確定後に取得するため、ログイン取得後に並行実行する。
   useEffect(() => {
     const settingsPromise = isMobileView
       ? getMobileWidgetSettingsAction('Schedule')
@@ -272,36 +283,34 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
         ? getWidgetSettingsAction(widgetId)
         : Promise.resolve(null)
 
-    Promise.all([getLoginUserIdAction(), settingsPromise])
-      .then(([{ userId, fullName }, settings]) => {
+    getLoginUserIdAction()
+      .then(async ({ userId, fullName }) => {
         setLoginUserId(userId)
         setLoginUserName(fullName)
+        setNonWeekTargetUserId(userId)
+
+        const [settings, allGroups, allUsers, myGroups] = await Promise.all([
+          settingsPromise,
+          getGroupListAction(),
+          getScheduleUsersAction(),
+          // ログインユーザーが所属するグループのみ取得（AIPO getMyGroups 相当）
+          getMyGroupsAction(userId),
+        ])
+
+        setNonWeekGroups(allGroups)
+        setNonWeekAllUsers(allUsers)
+        setNonWeekGroupUsers(allUsers)
+        setWeekDayGroups(myGroups)
 
         const s = settings as ScheduleWidgetSettings | null
-        const storedIds = s?.viewUserIds ?? []
-        const storedNames = s?.viewUserNames ?? {}
-
-        // Phase D: ビューモード・基準日を復元する
         if (s?.viewMode) setViewMode(s.viewMode)
         if (s?.viewDate) {
           setViewDate(s.viewDate)
           if (s.viewMode === 'week') setWeekStart(getSunday(new Date(s.viewDate + 'T00:00:00+09:00')))
         }
+        // 保存済みのグループフィルターを復元する（null = 自分のみ）
+        setWeekDayGroupId(s?.weekDayGroupId ?? null)
 
-        if (storedIds.length > 0) {
-          // DB に保存済みの選択ユーザーを復元する
-          setViewUserIds(storedIds)
-          const nameMap = new Map<number, string>(
-            Object.entries(storedNames).map(([id, name]) => [Number(id), name])
-          )
-          // ログインユーザーの最新氏名で上書き（保存時より名前が変わっている場合に対応）
-          nameMap.set(userId, fullName)
-          setKnownUserNames(nameMap)
-        } else {
-          // 初回アクセスまたは設定なし: 自分のみで初期化
-          setViewUserIds([userId])
-        }
-        // 設定復元完了後に自動保存を許可する
         hasInitializedRef.current = true
       })
       .catch(() => {})
@@ -309,12 +318,43 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobileView, widgetId])
 
-  // viewMode / weekStart / viewDate / viewUserIds のいずれかが変わったときにスケジュールを再取得する
+  // 週・日グループフィルターが変わったらそのグループのメンバーを取得する。
+  // null（自分のみ）の場合はメンバーリストをクリアする。
   useEffect(() => {
-    fetchSchedules(viewMode, weekStart, viewDate, viewUserIds)
-  }, [viewMode, weekStart, viewDate, viewUserIds, fetchSchedules])
-  // NOTE: viewUserIds はプリミティブ配列だが参照比較になる。
-  // setViewUserIds で新配列を渡すのはユーザー追加/削除/週変更などの意図的な操作のみなので問題ない。
+    if (weekDayGroupId === null) {
+      setWeekDayGroupUsers([])
+    } else {
+      getGroupMembersAction(weekDayGroupId)
+        .then(setWeekDayGroupUsers)
+        .catch(() => {})
+    }
+  }, [weekDayGroupId])
+
+  // 月・一覧ビューのグループ選択が変わったらユーザーリストを更新し、表示ユーザーをリセットする。
+  useEffect(() => {
+    if (nonWeekGroupId === null) {
+      setNonWeekGroupUsers(nonWeekAllUsers)
+    } else {
+      getGroupMembersAction(nonWeekGroupId).then((members) => {
+        setNonWeekGroupUsers(members)
+        // グループ切替時はログインユーザーに戻す（AIPO のデフォルト動作）
+        if (loginUserId !== null) setNonWeekTargetUserId(loginUserId)
+      })
+    }
+  // nonWeekAllUsers が変わったとき（初期ロード完了後）も更新する
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nonWeekGroupId, nonWeekAllUsers])
+
+  // viewMode / weekStart / viewDate / weekDayGroupId / weekDayGroupUsers / nonWeekTargetUserId が
+  // 変わったときにスケジュールを再取得する
+  useEffect(() => {
+    const ids = (viewMode === 'week' || viewMode === 'day')
+      ? weekDayUserIds
+      : nonWeekTargetUserId !== null ? [nonWeekTargetUserId] : []
+    fetchSchedules(viewMode, weekStart, viewDate, ids)
+  // weekDayUserIds は derived value のため deps に weekDayGroupId/weekDayGroupUsers/loginUserId を含める
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, weekStart, viewDate, weekDayGroupId, weekDayGroupUsers, loginUserId, nonWeekTargetUserId, fetchSchedules])
 
   // 初回レンダリング後に 8:00 付近にスクロールする
   useEffect(() => {
@@ -329,19 +369,16 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
     getHolidaysAction().then(setHolidays).catch(() => {})
   }, [])
 
-  // viewMode / viewDate が変わったらリロード後に復元できるよう DB に保存する。
-  // viewUserIds / knownUserNames は handleUserPickerConfirm とチップ削除で別途保存されるため deps に含めない。
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // viewMode / viewDate / weekDayGroupId が変わったらリロード後に復元できるよう DB に保存する。
   useEffect(() => {
-    if (!hasInitializedRef.current || viewUserIds.length === 0) return
-    const viewUserNames = Object.fromEntries(knownUserNames)
+    if (!hasInitializedRef.current) return
     if (isMobileView) {
-      saveMobileWidgetSettingsAction('Schedule', { viewUserIds, viewUserNames, viewMode, viewDate }).catch(() => {})
+      saveMobileWidgetSettingsAction('Schedule', { weekDayGroupId, viewMode, viewDate }).catch(() => {})
     } else if (widgetId !== undefined) {
-      saveWidgetSettingsAction(widgetId, { viewUserIds, viewUserNames, viewMode, viewDate }).catch(() => {})
+      saveWidgetSettingsAction(widgetId, { weekDayGroupId, viewMode, viewDate }).catch(() => {})
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode, viewDate])
+  }, [viewMode, viewDate, weekDayGroupId])
 
   function showToast(msg: string) {
     setToast(msg)
@@ -383,11 +420,17 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
     positionedByDay[day] = positionSchedules(timedByDay[day] ?? [], userColorMap, isMultiUser)
   }
 
+  // 追加・更新・削除後の再フェッチで使う実効ユーザー ID リスト
+  function getEffectiveUserIds(): number[] {
+    return (viewMode === 'week' || viewMode === 'day')
+      ? weekDayUserIds
+      : nonWeekTargetUserId !== null ? [nonWeekTargetUserId] : []
+  }
+
   async function handleAdd(input: ScheduleInput | RepeatScheduleInput) {
     if ('repeatType' in input) {
-      // 繰り返し予定: 複数レコードが作成されるため全件リロードする
       await addRepeatScheduleAction(input)
-      fetchSchedules(viewMode, weekStart, viewDate, viewUserIds)
+      fetchSchedules(viewMode, weekStart, viewDate, getEffectiveUserIds())
     } else {
       const added = await addScheduleAction(input)
       const entry: MultiUserScheduleEntry = {
@@ -403,18 +446,16 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
 
   async function handleUpdate(input: ScheduleInput | RepeatScheduleInput) {
     if (!editingSchedule) return
+    const effectiveIds = getEffectiveUserIds()
     if (repeatEditMode === 'repeatOne') {
-      // この予定のみ変更
       await updateRepeatOneAction(editingSchedule.scheduleId, input as ScheduleInput)
-      fetchSchedules(viewMode, weekStart, viewDate, viewUserIds)
+      fetchSchedules(viewMode, weekStart, viewDate, effectiveIds)
     } else if (repeatEditMode === 'repeatAll') {
-      // 全ての予定を変更: parentId を使って一括更新
       await updateRepeatAllAction(editingSchedule.parentId, input as ScheduleInput)
-      fetchSchedules(viewMode, weekStart, viewDate, viewUserIds)
+      fetchSchedules(viewMode, weekStart, viewDate, effectiveIds)
     } else if ('repeatType' in input) {
-      // 通常→繰り返し変更（新規追加フォームからの繰り返し作成）
       await addRepeatScheduleAction(input)
-      fetchSchedules(viewMode, weekStart, viewDate, viewUserIds)
+      fetchSchedules(viewMode, weekStart, viewDate, effectiveIds)
     } else {
       const updated = await updateScheduleAction(editingSchedule.scheduleId, input)
       const entry: MultiUserScheduleEntry = {
@@ -442,7 +483,6 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
       await deleteRepeatAllAction(parentId)
       setSchedules((prev) => prev.filter((s) => s.parentId !== parentId && s.scheduleId !== parentId))
     } else {
-      // 通常予定（single / all / participants）はいずれもこのレコードのみ削除
       await deleteScheduleAction(scheduleId)
       setSchedules((prev) => prev.filter((s) => s.scheduleId !== scheduleId))
     }
@@ -470,34 +510,6 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
     setEditingSchedule(schedule)
   }
 
-  function handleUserPickerConfirm(ids: Set<number>, names?: Map<number, string>) {
-    if (ids.size > MAX_USERS) {
-      showToast(`最大${MAX_USERS}人まで選択できます`)
-      return
-    }
-    // ピッカーから受け取った氏名マップを knownUserNames にマージして保持する
-    const mergedNames = names ? new Map([...knownUserNames, ...names]) : knownUserNames
-    if (names) setKnownUserNames(mergedNames)
-
-    // ログインユーザーを先頭に固定して並び替える
-    const sorted = loginUserId !== null
-      ? [loginUserId, ...Array.from(ids).filter((id) => id !== loginUserId)]
-      : Array.from(ids)
-
-    // ピッカーで選択解除されたユーザーの予定をローカルから即時削除する
-    setSchedules((prev) => prev.filter((s) => ids.has(s.viewUserId)))
-    setViewUserIds(sorted)
-    setShowUserPicker(false)
-
-    // 選択ユーザーを DB に保存する（モバイルとデスクトップで保存先を切り替える）
-    const viewUserNames = Object.fromEntries(mergedNames)
-    if (isMobileView) {
-      saveMobileWidgetSettingsAction('Schedule', { viewUserIds: sorted, viewUserNames, viewMode, viewDate }).catch(() => {})
-    } else if (widgetId !== undefined) {
-      saveWidgetSettingsAction(widgetId, { viewUserIds: sorted, viewUserNames, viewMode, viewDate }).catch(() => {})
-    }
-  }
-
   return (
     <div className="flex flex-col select-none">
       {/* ナビゲーションヘッダー */}
@@ -518,9 +530,16 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
             </button>
             <button
               onClick={() => {
-                if (viewMode === 'week') setWeekStart(addDays(weekStart, -7))
-                else if (viewMode === 'day') setViewDate(addDays(viewDate, -1))
-                else if (viewMode === 'month') setViewDate(addMonth(viewDate, -1))
+                if (viewMode === 'week') {
+                  // viewDate を weekStart と同期させて設定保存・ビュー切替時の継続性を保つ
+                  const newStart = addDays(weekStart, -7)
+                  setWeekStart(newStart)
+                  setViewDate(newStart)
+                } else if (viewMode === 'day') {
+                  setViewDate(addDays(viewDate, -1))
+                } else if (viewMode === 'month') {
+                  setViewDate(addMonth(viewDate, -1))
+                }
               }}
               className="p-1 rounded hover:bg-gray-100 text-gray-500"
               aria-label="前へ"
@@ -529,9 +548,15 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
             </button>
             <button
               onClick={() => {
-                if (viewMode === 'week') setWeekStart(addDays(weekStart, 7))
-                else if (viewMode === 'day') setViewDate(addDays(viewDate, 1))
-                else if (viewMode === 'month') setViewDate(addMonth(viewDate, 1))
+                if (viewMode === 'week') {
+                  const newStart = addDays(weekStart, 7)
+                  setWeekStart(newStart)
+                  setViewDate(newStart)
+                } else if (viewMode === 'day') {
+                  setViewDate(addDays(viewDate, 1))
+                } else if (viewMode === 'month') {
+                  setViewDate(addMonth(viewDate, 1))
+                }
               }}
               className="p-1 rounded hover:bg-gray-100 text-gray-500"
               aria-label="次へ"
@@ -551,7 +576,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
           <div />
         )}
 
-        {/* 表示モード + ユーザー追加 + 予定追加ボタン */}
+        {/* 表示モード + 予定追加ボタン */}
         <div className="flex items-center gap-1">
           {/* ビューモード切り替えボタン（ブロック=AIPO別ビューのため未実装・disabled） */}
           {[
@@ -587,16 +612,8 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
             )
           })}
           <button
-            onClick={() => setShowUserPicker(true)}
-            className="flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600 ml-1"
-            title="ユーザーを追加"
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">ユーザーを追加</span>
-          </button>
-          <button
             onClick={() => setShowAddForm(true)}
-            className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-white bg-brand rounded hover:bg-brand-dark"
+            className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-white bg-brand rounded hover:bg-brand-dark ml-1"
           >
             <Plus className="w-3.5 h-3.5" />
             予定追加
@@ -604,41 +621,52 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
         </div>
       </div>
 
-      {/* 選択ユーザーチップ（追加ユーザーがいる場合のみ表示） */}
-      {isMultiUser && (
-        <div className="flex flex-wrap gap-1 px-3 py-1.5 border-b border-gray-100 bg-gray-50">
-          {viewUserIds.map((uid, i) => {
-            const color = USER_COLORS[i % USER_COLORS.length]
-            const name = userNames.get(uid) ?? `ユーザー${uid}`
-            const isLogin = uid === loginUserId
-            return (
-              <span key={uid} className={`flex items-center gap-1 px-2 py-0.5 text-xs rounded-full font-medium ${color}`}>
-                {name}
-                {/* 自分自身のチップは削除ボタンを表示しない（常に表示） */}
-                {!isLogin && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newIds = viewUserIds.filter((id) => id !== uid)
-                      setViewUserIds(newIds)
-                      setSchedules((prev) => prev.filter((s) => s.viewUserId !== uid))
-                      // チップ削除後の選択状態を DB に保存する
-                      const viewUserNames = Object.fromEntries(knownUserNames)
-                      if (isMobileView) {
-                        saveMobileWidgetSettingsAction('Schedule', { viewUserIds: newIds, viewUserNames, viewMode, viewDate }).catch(() => {})
-                      } else if (widgetId !== undefined) {
-                        saveWidgetSettingsAction(widgetId, { viewUserIds: newIds, viewUserNames, viewMode, viewDate }).catch(() => {})
-                      }
-                    }}
-                    className="opacity-80 hover:opacity-100 ml-0.5"
-                    aria-label={`${name}を削除`}
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
-              </span>
-            )
-          })}
+      {/* 週・日グループビュー用フィルター（AIPO weekly-group/oneday-group 準拠）:
+          1段グループセレクトでグループを選択するとグループ全員を別列で並列表示する。
+          空文字（自分のみ）がデフォルトで、ログインユーザーの予定のみ表示する。 */}
+      {(viewMode === 'week' || viewMode === 'day') && (
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 bg-gray-50">
+          <select
+            value={weekDayGroupId ?? ''}
+            onChange={(e) => setWeekDayGroupId(e.target.value === '' ? null : Number(e.target.value))}
+            className="text-xs border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-brand max-w-[200px]"
+          >
+            {/* 空文字 = 自分のみ（AIPO の filter='' と同じ） */}
+            <option value="">{loginUserName || '自分のみ'}</option>
+            {weekDayGroups.map((g) => (
+              <option key={g.groupId} value={g.groupId}>{g.groupName}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* 月・一覧ビュー用フィルター（AIPO monthly/list 準拠）:
+          グループ選択→ユーザー選択の2段ドロップダウンで単一ユーザーの予定を表示する。 */}
+      {(viewMode === 'month' || viewMode === 'list') && (
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 bg-gray-50 flex-wrap">
+          <select
+            value={nonWeekGroupId ?? ''}
+            onChange={(e) => setNonWeekGroupId(e.target.value === '' ? null : Number(e.target.value))}
+            className="text-xs border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-brand max-w-[140px] sm:max-w-[180px]"
+          >
+            <option value="">全グループ</option>
+            {nonWeekGroups.map((g) => (
+              <option key={g.groupId} value={g.groupId}>{g.groupName}</option>
+            ))}
+          </select>
+          <select
+            value={nonWeekTargetUserId ?? ''}
+            onChange={(e) => {
+              const id = Number(e.target.value)
+              if (id) setNonWeekTargetUserId(id)
+            }}
+            className="text-xs border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-brand max-w-[140px] sm:max-w-[180px]"
+          >
+            <option value="">メンバーを選択</option>
+            {nonWeekGroupUsers.map((u) => (
+              <option key={u.userId} value={u.userId}>{u.fullName}</option>
+            ))}
+          </select>
         </div>
       )}
 
@@ -669,7 +697,6 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
                     <div className={`text-sm font-semibold ${today ? 'text-brand' : colorClass}`}>
                       {d}（{DOW_JA[i]}）
                     </div>
-                    {/* 祝日名（省略表示） */}
                     {holiday && (
                       <div className="text-[9px] text-red-500 leading-tight truncate px-0.5">
                         {holiday}
@@ -756,6 +783,8 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
             schedules={schedules}
             userColorMap={userColorMap}
             isMultiUser={isMultiUser}
+            viewUserIds={weekDayUserIds}
+            userNames={userNames}
             holidays={holidays}
             onScheduleClick={handleScheduleClick}
           />
@@ -776,9 +805,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
         {/* 一覧ビュー（スケジュール取得は ScheduleListView 内部で行う） */}
         {viewMode === 'list' && (
           <ScheduleListView
-            viewUserIds={viewUserIds}
-            userColorMap={userColorMap}
-            isMultiUser={isMultiUser}
+            viewUserIds={nonWeekTargetUserId !== null ? [nonWeekTargetUserId] : (loginUserId !== null ? [loginUserId] : [])}
             onScheduleClick={handleScheduleClick}
             refreshKey={listRefreshKey}
           />
@@ -791,16 +818,6 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
 
       {/* トースト（繰り返し未実装の案内など） */}
       <Toast message={toast} />
-
-      {/* ユーザーピッカーモーダル（loginUserId が確定してから表示） */}
-      {showUserPicker && loginUserId !== null && (
-        <UserPickerModal
-          selectedIds={new Set(viewUserIds)}
-          lockedIds={new Set([loginUserId])}
-          onConfirm={handleUserPickerConfirm}
-          onClose={() => setShowUserPicker(false)}
-        />
-      )}
 
       {/* 予定追加モーダル */}
       {showAddForm && (

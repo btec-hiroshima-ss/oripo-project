@@ -232,6 +232,7 @@ export type ScheduleDetail = {
   updaterName: string
   updaterDateJst: string   // "YYYY-MM-DD HH:MM:SS"（JST）
   participantNames: string[] // 参加ユーザー名（owner 含む）
+  facilityNames: string[]  // 予約設備名（Phase D 追加; 設備なし時は空配列）
 }
 
 export type ScheduleEntry = {
@@ -416,8 +417,9 @@ getWeekSchedulesMulti(userIds: number[], from: Date, to: Date): Promise<MultiUse
 
 ```ts
 type ScheduleWidgetSettings = {
-  viewUserIds: number[]                // 選択中ユーザー ID リスト
-  viewUserNames: Record<string, string> // ID → 氏名マップ（スケジュール0件週でも名前を表示するためキャッシュ）
+  weekDayGroupId?: number | null  // 週・日ビューの選択グループ ID（null=自分のみ）
+  viewMode?: 'week' | 'day' | 'month' | 'list'  // デフォルト 'week'
+  viewDate?: string               // YYYY-MM-DD、デフォルト 当日
 }
 ```
 
@@ -649,7 +651,7 @@ calcOccurrences(input: RepeatScheduleInput): Date[]
 ### 型定義追加（`src/lib/schedule.types.ts`）
 
 ```ts
-export type RepeatType = 'none' | 'daily' | 'weekly' | 'monthly'
+export type RepeatType = 'daily' | 'weekly' | 'monthly'
 
 // 繰り返し予定の作成・「全ての予定を変更」で使用
 export type RepeatScheduleInput = {
@@ -739,17 +741,35 @@ calcOccurrences(input: RepeatScheduleInput): Date[]
 - ビューを切り替えても「表示対象ユーザー」「現在日付」の状態は引き継ぐ
 - 選択中のビューモードと表示基準日を `oripo_page_widgets.settings` に保存し、リロード後も復元する
 
+### ビューごとのユーザー選択モデル（AIPO 準拠）
+
+AIPO のスケジュール調査結果をもとに、ビューを「週・日グループビュー」と「月・一覧ビュー」の2系統に分類して実装する。
+
+| ビュー | AIPO クラス | フィルター UI | 表示 |
+|---|---|---|---|
+| 週（weekly-group） | `AjaxScheduleWeeklyGroupSelectData` | 1段グループセレクト | グループ全員を色分けして同一グリッドに重ねて表示 |
+| 日（oneday-group） | `CellScheduleOnedayGroupSelectData` | 1段グループセレクト | グループ全員をユーザー別列で並列表示 |
+| 月（monthly） | `AjaxScheduleMonthlySelectData` | 2段ドロップダウン（グループ→ユーザー） | 常に単一ユーザー |
+| 一覧（list） | `ScheduleListSelectData` | 2段ドロップダウン（グループ→ユーザー） | 常に単一ユーザー |
+
+実装上の動作:
+- **週・日ビュー（グループビュー）**: ヘッダーに1段グループセレクトを配置する。グループを選択するとそのグループ全員の予定を色分けして並列表示する。未選択時（デフォルト）はログインユーザー自身のみを表示する。グループ一覧はログインユーザーが所属するグループのみ（AIPO `getMyGroups` 相当）。
+- **月・一覧ビュー**: ヘッダーの「グループ選択」→「ユーザー選択」の2段ドロップダウンで表示ユーザーを切り替える（AIPO `schedule-monthly.vm` 準拠）。常に単一ユーザーの予定のみ表示する。
+- 週・日フィルターと月・一覧フィルターは独立して設定を保持する。
+
 ### 日ビュー
 
-AIPO 準拠: `CellScheduleOnedaySelectData` に相当。
+AIPO 準拠: `CellScheduleOnedayGroupSelectData`（グループビュー）に相当。
 
 - 表示範囲: 選択日の 00:00〜24:00（時刻軸は週ビューと同じ）
 - ヘッダー: `YYYY年MM月DD日（曜日）`
 - ナビゲーション: `◀` / `▶` で前日・翌日に移動、`今日` ボタンで当日に戻る
 - 終日予定を時刻グリッド上部の帯に表示する
 - 通常予定をグリッド内のブロックで表示する（週ビューの1列分を全幅表示）
-- マルチユーザービューが有効なら、週ビューと同様に各ユーザーの予定を色分けして重ねて表示する
-- 予定ブロッククリックで登録フォームを開く（週ビューと同じ動作、AIPO準拠）
+- フィルター: 週ビューと共通の1段グループセレクトを使用する（上記「ビューごとのユーザー選択モデル」参照）
+  - グループ未選択（デフォルト）: 自分のみ → 単一列表示（公開区分で色分け）
+  - グループ選択時: グループ全員をユーザー別列で並列表示（各ユーザーをプリセットカラーで色分け）
+- 予定ブロッククリックで週ビューと同じ動作（AIPO準拠: 自分の予定 → 編集フォーム直接、他ユーザー予定 → 詳細モーダル）
 
 ### 月ビュー
 
@@ -759,11 +779,12 @@ AIPO 準拠: `AjaxScheduleMonthlySelectData` に相当。
 - ヘッダー: `YYYY年MM月`
 - ナビゲーション: `◀` / `▶` で前月・翌月に移動、`今日` ボタンで当月に戻る
 - 各日セルに予定タイトルを最大2件表示し、超過分は「+N件」表示する（`MAX_EVENTS_PER_CELL = 2`）
-- 終日予定・期間予定は色帯で横断表示する（期間をまたぐ場合は連続した帯として表示）
+- 終日予定・期間予定は各日のセルに表示する（AIPO の連続帯は実装コストが高いため各セル個別表示で代替）
 - 当月外の日（前月末尾・翌月先頭）はグレーアウト表示
 - 当日はハイライト（背景色）表示
 - 土曜は青字、日曜・祝日は赤字で日付表示
-- 予定タイトルクリックで登録フォームを開く（週ビューと同じ、AIPO準拠）
+- 常に単一ユーザーの予定を表示する（AIPO 準拠。マルチユーザーは週ビューのみ）
+- 予定タイトルクリックで週ビューと同じ動作（AIPO準拠: 自分の予定 → 編集フォーム直接、他ユーザー予定 → 詳細モーダル）
 
 ### 一覧ビュー
 
@@ -773,8 +794,8 @@ AIPO 準拠: `ScheduleSearchSelectData`（一覧検索）に相当。
 - 表示件数: 30件。「もっと見る」ボタンで追加 30 件を読み込む（無限スクロールではなくボタン式）
 - 各行の表示項目: 開始日時（`YYYY/MM/DD HH:MM`）・終了日時（`HH:MM`）・タイトル・場所（場所がある場合のみ）
 - 終日予定は時刻部分を「終日」と表示する
-- 各行クリックで登録フォームを開く（AIPO準拠。他ユーザーの予定は詳細モーダル）
-- 「表示対象ユーザー」が複数の場合、誰の予定かをユーザー名（または色チップ）で示す（Phase B のマルチユーザービューに準拠）
+- 各行クリックで週ビューと同じ動作（AIPO準拠: 自分の予定 → 編集フォーム直接、他ユーザー予定 → 詳細モーダル）
+- 常に単一ユーザーの予定を表示する（AIPO 準拠。マルチユーザーは週ビューのみ）
 - 過去の予定は表示しない（本日以降のみ）
 - **キーワードフィルター**（AIPO準拠: `target_keyword`）: 一覧上部にテキスト入力欄を表示し、入力した文字列でタイトル・場所・メモを部分一致（`%keyword%`）検索する（AIPO `ScheduleUtils.getScheduleList` 準拠）。入力クリアで全件表示に戻る
 
@@ -792,13 +813,12 @@ AIPO 準拠: `ScheduleSearchSelectData`（一覧検索）に相当。
 
 #### 設備ピッカーモーダル
 
-ユーザーピッカー（`UserPickerModal`）と同構造のデュアルリストボックス UI を採用する（AIPO `CellScheduleFormFacilityData` 準拠）。
+2 パネル・行単位ボタン方式の UI を採用する（AIPO `CellScheduleFormFacilityData` 準拠）。
 
-- **左パネル（選択済み設備）**: 選択済み設備リスト / 「削除」ボタン
+- **左パネル（選択済み設備）**: 選択済み設備リスト。各行に「削除」ボタンを配置
 - **右パネル（候補設備）**: 
   - 設備グループ絞り込みドロップダウン（全グループ + 個別グループ）
-  - 設備リスト（設備名 + 空き状況バッジ）
-  - 「追加」ボタン
+  - 設備リスト（設備名 + 空き状況バッジ）。各行に「追加」ボタンを配置
 - 空き状況は予定フォームで選択中の日時（`startDate`〜`endDate`）に基づいてリアルタイム確認する
   - 空き: 通常表示
   - 使用中: バッジ「使用中」表示 + 選択不可（グレーアウト）
@@ -832,10 +852,9 @@ AIPO 準拠: `ScheduleSearchSelectData`（一覧検索）に相当。
 
 ```ts
 type ScheduleWidgetSettings = {
-  viewUserIds: number[]
-  viewUserNames: Record<string, string>
-  viewMode: 'week' | 'day' | 'month' | 'list'  // 追加: デフォルト 'week'
-  viewDate: string  // 追加: YYYY-MM-DD、デフォルト 当日
+  weekDayGroupId?: number | null  // 週・日ビューの選択グループ ID（null=自分のみ）
+  viewMode?: 'week' | 'day' | 'month' | 'list'  // デフォルト 'week'
+  viewDate?: string               // YYYY-MM-DD、デフォルト 当日
 }
 ```
 
@@ -865,7 +884,8 @@ getFacilitiesAction(): Promise<FacilityWithGroup[]>
 
 // 設備の空き確認（指定日時に予約済みの facility_id 配列を返す）
 // 呼び出し元で Set<number> に変換して使用する
-getFacilityAvailabilityAction(startDate: string, endDate: string): Promise<number[]>
+// excludeScheduleId: 編集中スケジュール自身を除外（設備再選択時の誤判定防止）
+getFacilityAvailabilityAction(startDate: string, endDate: string, excludeScheduleId?: number): Promise<number[]>
 
 // 編集フォーム初期化用: スケジュールの予約設備 ID 一覧を取得
 getScheduleFacilityIdsAction(scheduleId: number): Promise<number[]>
@@ -883,7 +903,8 @@ getListSchedules(loginUserId: number, userIds: number[], from: Date, limit: numb
 getFacilities(): Promise<FacilityWithGroup[]>
 
 // 設備空き確認（半開区間: start < endDate AND end > startDate）
-getBookedFacilityIds(startDate: Date, endDate: Date): Promise<number[]>
+// excludeScheduleId: 編集中スケジュール自身を除外（自分の設備を「使用中」と誤判定しない）
+getBookedFacilityIds(startDate: Date, endDate: Date, excludeScheduleId?: number): Promise<number[]>
 
 // 編集フォーム初期値用: type='F' のレコードから facility_id を取得
 getScheduleFacilityIds(scheduleId: number): Promise<number[]>
@@ -943,6 +964,7 @@ export type ScheduleInput = {
   isAllDay: boolean
   publicFlag: 'O' | 'P' | 'C'
   participantIds?: number[]
+  periodEndDate?: Date     // Phase C: 期間指定の終了日（isAllDay=true かつ期間指定の場合のみ）
   facilityIds?: number[]  // Phase D 追加
 }
 
@@ -970,19 +992,23 @@ export type RepeatScheduleInput = {
 - [ ] `◀` `▶` で前日・翌日に移動できる、`今日` ボタンで当日に戻る
 - [ ] 自分の予定ブロッククリックで編集フォームが直接開く（詳細モーダルを経由しない）
 - [ ] 他ユーザーの予定ブロッククリックで詳細モーダルが開く
-- [ ] 編集フォームの削除ボタンで予定を削除できる
-- [ ] マルチユーザービュー選択時、各ユーザーの予定が色分けして重ねて表示される
+- [ ] グループ未選択時: 自分の予定のみ単一列表示される（AIPO oneday-group デフォルト動作）
+- [ ] 1段グループセレクトでグループを選択するとグループ全員の予定がユーザー別列で並列表示される（AIPO oneday-group 準拠）
+- [ ] 週ビューのグループ設定が日ビューにも引き継がれる（週・日で共通フィルター）
 - [ ] モバイル（375px）でも正しく表示・操作できる
 
 ### 月ビュー
 
 - [ ] 選択月の全日がカレンダーグリッドに表示される
 - [ ] 各日セルに予定タイトルが最大2件表示され、超過分は「+N件」と表示される
-- [ ] 終日・期間予定が日をまたぐ色帯で表示される
+- [ ] 終日・期間予定が各日のセルに個別に表示される
 - [ ] `◀` `▶` で前月・翌月に移動できる、`今日` ボタンで当月に戻る
 - [ ] 当日セルがハイライト表示される
 - [ ] 土曜は青字、日曜・祝日は赤字で日付表示される
-- [ ] 自分の予定タイトルクリックで編集フォームが直接開く
+- [ ] 自分の予定タイトルクリックで編集フォームが直接開く（詳細モーダルを経由しない）
+- [ ] 他ユーザーの予定タイトルクリックで詳細モーダルが開く
+- [ ] 常に1人のユーザーの予定のみ表示される（AIPO 準拠: 非週ビューは単一ユーザー）
+- [ ] ヘッダーの「グループ選択」→「ユーザー選択」の2段ドロップダウンで別ユーザーの予定に切り替えられる
 - [ ] モバイル（375px）でも正しく表示・操作できる
 
 ### 一覧ビュー
@@ -992,7 +1018,10 @@ export type RepeatScheduleInput = {
 - [ ] 「もっと見る」ボタンで追加 30 件が読み込まれる
 - [ ] 各行に開始日時・終了時刻・タイトル・場所が表示される
 - [ ] 終日予定の時刻部分が「終日」と表示される
-- [ ] 自分の予定クリックで編集フォームが直接開く
+- [ ] 自分の予定クリックで編集フォームが直接開く（詳細モーダルを経由しない）
+- [ ] 他ユーザーの予定クリックで詳細モーダルが開く
+- [ ] 常に1人のユーザーの予定のみ表示される（AIPO 準拠: 非週ビューは単一ユーザー）
+- [ ] ヘッダーの「グループ選択」→「ユーザー選択」の2段ドロップダウンで別ユーザーの予定に切り替えられる
 - [ ] キーワード入力でタイトル・場所・メモを部分一致で絞り込み検索できる
 - [ ] キーワードをクリアすると全件表示に戻る
 - [ ] モバイル（375px）でも正しく表示・操作できる
