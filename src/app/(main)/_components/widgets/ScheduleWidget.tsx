@@ -26,14 +26,14 @@ import {
   getScheduleUsersAction,
 } from '../../actions'
 import type { ScheduleInput, RepeatScheduleInput, MultiUserScheduleEntry, ScheduleGroup, ScheduleUser } from '@/lib/schedule.types'
-import { MAX_USERS, HOUR_PX, MIN_BLOCK_PX, DOW_JA, USER_COLORS, PUBLIC_FLAG_COLORS } from '@/lib/schedule.constants'
+import { MAX_USERS, HOUR_PX, MIN_BLOCK_PX, DOW_JA, USER_COLORS, PUBLIC_FLAG_COLORS, USER_BLOCK_COLORS, PUBLIC_FLAG_BLOCK_CLASSES } from '@/lib/schedule.constants'
 import ScheduleFormModal from './ScheduleFormModal'
 import ScheduleDetailModal from './ScheduleDetailModal'
 import ScheduleDayView from './ScheduleDayView'
 import ScheduleMonthView from './ScheduleMonthView'
 import ScheduleListView from './ScheduleListView'
 import { Toast, Loading } from '../ui'
-import { toJstDateStr, toJstTimeStr, isTodayJst, toJstMinutesSinceMidnight } from '@/lib/jst'
+import { toJstDateStr, toJstTimeStr, isTodayJst, toJstMinutesSinceMidnight, makeDateJst } from '@/lib/jst'
 
 // ===========================================================
 // 日付ユーティリティ（ウィジェット固有）
@@ -91,7 +91,8 @@ function dayTextColor(dowIndex: number): string {
 type PositionedSchedule = MultiUserScheduleEntry & {
   colIndex: number  // 重複グループ内の横位置（0 始まり）
   colCount: number  // 重複グループの列数
-  colorClass: string // ユーザーごとのプリセット色クラス
+  colorClass: string      // 月ビュー・終日帯など全背景塗りつぶし用クラス
+  blockColorClass: string // 週・日ビューのブロック用（左端バー + 薄い背景）
 }
 
 /**
@@ -127,6 +128,15 @@ function positionSchedules(
     colorClass: isMultiUser
       ? (userColorMap.get(s.viewUserId) ?? USER_COLORS[0])
       : (PUBLIC_FLAG_COLORS[s.publicFlag as 'O' | 'P' | 'C'] ?? USER_COLORS[0]),
+    // 週・日ビューのブロック用スタイル（左端カラーバー + 薄い背景）。
+    // USER_COLORS と USER_BLOCK_COLORS はインデックスが対応しているため indexOf で色を引く。
+    blockColorClass: isMultiUser
+      ? (() => {
+          const colorVal = userColorMap.get(s.viewUserId) ?? USER_COLORS[0]
+          const idx = (USER_COLORS as readonly string[]).indexOf(colorVal)
+          return USER_BLOCK_COLORS[idx >= 0 ? idx : 0]
+        })()
+      : (PUBLIC_FLAG_BLOCK_CLASSES[s.publicFlag as 'O' | 'P' | 'C'] ?? USER_BLOCK_COLORS[0]),
   }))
 }
 
@@ -149,12 +159,10 @@ function ScheduleBlock({ schedule, onClick }: ScheduleBlockProps) {
   const widthPct = 100 / schedule.colCount
   const leftPct = (schedule.colIndex / schedule.colCount) * 100
 
-  const colorClass = schedule.colorClass
-
   return (
     <button
       type="button"
-      className={`absolute rounded px-0.5 py-0.5 text-left overflow-hidden hover:opacity-90 transition-opacity ${colorClass}`}
+      className={`absolute rounded px-0.5 py-0.5 text-left overflow-hidden hover:opacity-90 transition-opacity ${schedule.blockColorClass}`}
       style={{
         top: `${top}px`,
         height: `${height}px`,
@@ -201,6 +209,9 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   // 他ユーザー所有の予定詳細モーダル（閲覧専用）
   const [selectedSchedule, setSelectedSchedule] = useState<MultiUserScheduleEntry | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
+  // 空き時間クリックで予定追加する際の初期値（AIPO準拠: クリック位置の日時を初期値にする）
+  const [addFormInitialDate, setAddFormInitialDate] = useState<string | undefined>()
+  const [addFormInitialTime, setAddFormInitialTime] = useState<string | undefined>()
   const [editingSchedule, setEditingSchedule] = useState<MultiUserScheduleEntry | null>(null)
   // 繰り返し子の編集モード（'normal' | 'repeatOne' | 'repeatAll'）
   const [repeatEditMode, setRepeatEditMode] = useState<'normal' | 'repeatOne' | 'repeatAll'>('normal')
@@ -306,7 +317,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
         if (s?.viewMode) setViewMode(s.viewMode)
         if (s?.viewDate) {
           setViewDate(s.viewDate)
-          if (s.viewMode === 'week') setWeekStart(getSunday(new Date(s.viewDate + 'T00:00:00+09:00')))
+          if (s.viewMode === 'week') setWeekStart(getSunday(makeDateJst(s.viewDate)))
         }
         // 保存済みのグループフィルターを復元する（null = 自分のみ）
         setWeekDayGroupId(s?.weekDayGroupId ?? null)
@@ -442,6 +453,27 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
     }
     setListRefreshKey((k) => k + 1)
     setShowAddForm(false)
+    setAddFormInitialDate(undefined)
+    setAddFormInitialTime(undefined)
+  }
+
+  /**
+   * 週・日ビューの空き時間セルクリックで予定追加フォームを開く（AIPO準拠）。
+   * クリック位置 Y 座標と HOUR_PX から時刻を算出し、30分単位に丸める。
+   */
+  function handleEmptySlotClick(dateStr: string, e: React.MouseEvent<HTMLDivElement>) {
+    // スケジュールブロッククリックがバブルアップしてくる場合は無視する
+    if ((e.target as HTMLElement).closest('button')) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const relY = e.clientY - rect.top
+    const totalMinutes = Math.floor((relY / HOUR_PX) * 60)
+    const roundedMinutes = Math.round(totalMinutes / 30) * 30
+    const h = Math.min(Math.floor(roundedMinutes / 60), 23)
+    const m = roundedMinutes % 60
+    const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+    setAddFormInitialDate(dateStr)
+    setAddFormInitialTime(time)
+    setShowAddForm(true)
   }
 
   async function handleUpdate(input: ScheduleInput | RepeatScheduleInput) {
@@ -577,11 +609,13 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
 
         {/* 表示モード + 予定追加ボタン */}
         <div className="flex items-center gap-1">
-          {/* ビューモード切り替えボタン（ブロック=AIPO別ビューのため未実装・disabled） */}
+          {/* ビューモード切り替えボタン。
+              「ブロック」= AIPO schedule-calendar.vm 相当（時刻グリッド週間）→ viewMode='week'。
+              「週」= AIPO schedule-weekly-group.vm 相当（テーブル型週表示）→ 将来実装のため disabled。 */}
           {[
-            { label: 'ブロック', mode: null as ViewMode | null },
+            { label: 'ブロック', mode: 'week' as ViewMode | null },
             { label: '日', mode: 'day' as ViewMode | null },
-            { label: '週', mode: 'week' as ViewMode | null },
+            { label: '週', mode: null as ViewMode | null },
             { label: '月', mode: 'month' as ViewMode | null },
             { label: '一覧', mode: 'list' as ViewMode | null },
           ].map(({ label, mode }) => {
@@ -599,7 +633,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
                 type="button"
                 onClick={() => {
                   // 週ビューに戻る場合は viewDate をもとに weekStart を更新する
-                  if (mode === 'week') setWeekStart(getSunday(new Date(viewDate + 'T00:00:00+09:00')))
+                  if (mode === 'week') setWeekStart(getSunday(makeDateJst(viewDate)))
                   setViewMode(mode)
                 }}
                 className={`px-2 py-0.5 text-xs rounded border ${
@@ -750,9 +784,13 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
                 ))}
               </div>
 
-              {/* 各日カラム */}
+              {/* 各日カラム（空き時間クリックで予定追加: AIPO準拠） */}
               {weekDays.map((day, colIdx) => (
-                <div key={colIdx} className="flex-1 relative min-w-0 border-l border-gray-100">
+                <div
+                  key={colIdx}
+                  className="flex-1 relative min-w-0 border-l border-gray-100 cursor-pointer"
+                  onClick={(e) => handleEmptySlotClick(day, e)}
+                >
                   {/* 時間区切り線 */}
                   {Array.from({ length: 24 }, (_, h) => (
                     <div
@@ -786,6 +824,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
             userNames={userNames}
             holidays={holidays}
             onScheduleClick={handleScheduleClick}
+            onEmptySlotClick={handleEmptySlotClick}
           />
         )}
 
@@ -823,7 +862,13 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
         <ScheduleFormModal
           loginUserId={loginUserId ?? 0}
           loginUserName={loginUserName}
-          onClose={() => setShowAddForm(false)}
+          initialDate={addFormInitialDate}
+          initialStartTime={addFormInitialTime}
+          onClose={() => {
+            setShowAddForm(false)
+            setAddFormInitialDate(undefined)
+            setAddFormInitialTime(undefined)
+          }}
           onSave={handleAdd}
         />
       )}

@@ -6,7 +6,7 @@ import type { ScheduleEntry, ScheduleInput, RepeatScheduleInput, ScheduleUser, F
 import type { RepeatType } from '@/lib/repeat'
 import { decodeRepeatPattern } from '@/lib/repeat'
 import { subDays } from 'date-fns'
-import { toJstDateStr, toJstTimeStr } from '@/lib/jst'
+import { toJstDateStr, toJstTimeStr, makeDateJst } from '@/lib/jst'
 import { getScheduleParticipantIdsAction, getScheduleUsersAction, getScheduleFacilityIdsAction, getFacilitiesAction } from '../../actions'
 import UserPickerModal from './UserPickerModal'
 import FacilityPickerModal from './FacilityPickerModal'
@@ -28,6 +28,16 @@ type Props = {
    *   'repeatAll' = 全ての予定を変更（繰り返し種別・終了条件は変更不可）
    */
   editMode?: EditMode
+  /**
+   * 空き時間クリックで予定追加する際に渡す初期日付（YYYY-MM-DD）。
+   * schedule が未指定の新規追加時のみ有効。
+   */
+  initialDate?: string
+  /**
+   * 空き時間クリックで予定追加する際に渡す初期開始時刻（HH:MM）。
+   * schedule が未指定の新規追加時のみ有効。
+   */
+  initialStartTime?: string
   onClose: () => void
   onSave: (input: ScheduleInput | RepeatScheduleInput) => Promise<void>
   /**
@@ -42,6 +52,8 @@ export default function ScheduleFormModal({
   loginUserId = 0,
   loginUserName = '',
   editMode = 'normal',
+  initialDate,
+  initialStartTime,
   onClose,
   onSave,
   onDelete,
@@ -49,18 +61,27 @@ export default function ScheduleFormModal({
   const isEdit = schedule !== undefined
   const isRepeatAllMode = editMode === 'repeatAll'
 
-  // 既存予定から初期値を設定
+  // 既存予定から初期値を設定。空き時間クリック時は initialDate / initialStartTime を優先する。
   const [name, setName] = useState(schedule?.name ?? '')
   const [isAllDay, setIsAllDay] = useState(schedule?.isAllDay ?? false)
   const [dateStr, setDateStr] = useState(
-    schedule ? toJstDateStr(schedule.startDate) : ''
+    schedule ? toJstDateStr(schedule.startDate) : (initialDate ?? '')
   )
   const [startTime, setStartTime] = useState(
-    schedule && !schedule.isAllDay ? toJstTimeStr(schedule.startDate) : ''
+    schedule && !schedule.isAllDay ? toJstTimeStr(schedule.startDate) : (initialStartTime ?? '')
   )
-  const [endTime, setEndTime] = useState(
-    schedule && !schedule.isAllDay ? toJstTimeStr(schedule.endDate) : ''
-  )
+  const [endTime, setEndTime] = useState(() => {
+    if (schedule && !schedule.isAllDay) return toJstTimeStr(schedule.endDate)
+    if (initialStartTime) {
+      // 開始時刻の1時間後を初期終了時刻にする（Oripo独自の簡化）。
+      // 23:00/23:30 クリック時は日跨ぎになるため空欄にしてユーザーに入力させる。
+      const [h, m] = initialStartTime.split(':').map(Number)
+      if (h >= 23) return ''
+      const endH = h + 1
+      return `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+    }
+    return ''
+  })
   const [place, setPlace] = useState(schedule?.place ?? '')
   const [note, setNote] = useState(schedule?.note ?? '')
   const [publicFlag, setPublicFlag] = useState<'O' | 'P' | 'C'>(schedule?.publicFlag ?? 'O')
@@ -216,8 +237,8 @@ export default function ScheduleFormModal({
       if (isRepeatAllMode) {
         // 全ての予定を変更: 時刻のみ変更（日付は参照日として使用）
         const baseDate = schedule ? toJstDateStr(schedule.startDate) : (dateStr || '2000-01-01')
-        const startDate = new Date(`${baseDate}T${startTime}:00+09:00`)
-        const endDate = new Date(`${baseDate}T${endTime}:00+09:00`)
+        const startDate = makeDateJst(baseDate, startTime)
+        const endDate = makeDateJst(baseDate, endTime)
         const input: ScheduleInput = {
           name: name.trim(),
           note: note.trim() || undefined,
@@ -232,8 +253,8 @@ export default function ScheduleFormModal({
         await onSave(input)
       } else if (isPeriod) {
         // 期間で指定
-        const startDate = new Date(dateStr + 'T00:00:00+09:00')
-        const periodEndDate = new Date(periodEndDateStr + 'T00:00:00+09:00')
+        const startDate = makeDateJst(dateStr)
+        const periodEndDate = makeDateJst(periodEndDateStr)
         const input: ScheduleInput = {
           name: name.trim(),
           note: note.trim() || undefined,
@@ -249,13 +270,13 @@ export default function ScheduleFormModal({
         await onSave(input)
       } else if (repeatType !== 'none') {
         // 繰り返し予定
-        const startDate = new Date(`${dateStr}T${startTime}:00+09:00`)
-        const endDate = new Date(`${dateStr}T${endTime}:00+09:00`)
+        const startDate = makeDateJst(dateStr, startTime)
+        const endDate = makeDateJst(dateStr, endTime)
         const limitStartDate = hasLimit && limitStartDateStr
-          ? new Date(limitStartDateStr + 'T00:00:00+09:00')
+          ? makeDateJst(limitStartDateStr)
           : null
         const limitEndDate = hasLimit && limitDateStr
-          ? new Date(limitDateStr + 'T00:00:00+09:00')
+          ? makeDateJst(limitDateStr)
           : null
         const input: RepeatScheduleInput = {
           name: name.trim(),
@@ -276,11 +297,11 @@ export default function ScheduleFormModal({
         // 通常予定
         let startDate: Date, endDate: Date
         if (isAllDay) {
-          startDate = new Date(dateStr + 'T00:00:00+09:00')
+          startDate = makeDateJst(dateStr)
           endDate = startDate
         } else {
-          startDate = new Date(`${dateStr}T${startTime}:00+09:00`)
-          endDate = new Date(`${dateStr}T${endTime}:00+09:00`)
+          startDate = makeDateJst(dateStr, startTime)
+          endDate = makeDateJst(dateStr, endTime)
         }
         const input: ScheduleInput = {
           name: name.trim(),
@@ -761,12 +782,12 @@ export default function ScheduleFormModal({
           // 日時が入力済みの場合のみ空き確認を行う（終日・期間予定では日付のみのため確認しない）
           startDate={
             !isAllDay && !isPeriod && dateStr && startTime
-              ? new Date(`${dateStr}T${startTime}:00+09:00`)
+              ? makeDateJst(dateStr, startTime)
               : undefined
           }
           endDate={
             !isAllDay && !isPeriod && dateStr && endTime
-              ? new Date(`${dateStr}T${endTime}:00+09:00`)
+              ? makeDateJst(dateStr, endTime)
               : undefined
           }
           onConfirm={(ids) => {
