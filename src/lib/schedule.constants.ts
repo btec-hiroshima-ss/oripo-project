@@ -15,6 +15,22 @@ export const MIN_BLOCK_PX = 20
  */
 export const DOW_JA = ['月', '火', '水', '木', '金', '土', '日']
 
+/** 一覧ビューの1ページあたり表示件数（仕様書 Phase D 準拠） */
+export const LIST_VIEW_PAGE_SIZE = 30
+
+/** 月ビューの1セル内に表示する最大予定件数（超過分は "+N件" で折りたたむ） */
+export const MAX_EVENTS_PER_CELL = 2
+
+/**
+ * 単独ユーザービューで使用する公開区分ごとの色クラス。
+ * 月ビュー・日ビュー・週ビューで共通して使用する。
+ */
+export const PUBLIC_FLAG_COLORS: Record<'O' | 'P' | 'C', string> = {
+  O: 'bg-brand text-white',
+  P: 'bg-gray-400 text-white',
+  C: 'bg-gray-600 text-white',
+}
+
 /**
  * マルチユーザービューで使用するプリセットカラー。
  * 自分はブランドカラー（インデックス 0）、追加ユーザーはインデックス 1 以降を順に割り当てる。

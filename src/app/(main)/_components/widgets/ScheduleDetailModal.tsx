@@ -85,6 +85,10 @@ export default function ScheduleDetailModal({ schedule, onClose, onEdit, onDelet
               {detail.participantNames.length > 0 && (
                 <Row label="参加ユーザー" value={detail.participantNames.join('、')} />
               )}
+              {/* 予約設備: 1件以上ある場合のみ表示（Phase D） */}
+              {detail.facilityNames.length > 0 && (
+                <Row label="予約設備" value={detail.facilityNames.join('、')} />
+              )}
               <Row label="登録者" value={`${detail.creatorName}（${formatJstDatetime(detail.creatorDateJst)}）`} />
               <Row label="更新者" value={`${detail.updaterName}（${formatJstDatetime(detail.updaterDateJst)}）`} />
             </>

@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useMemo, useTransition } from 'react'
 import { X, RefreshCw, Calendar } from 'lucide-react'
-import type { ScheduleEntry, ScheduleInput, RepeatScheduleInput, ScheduleUser } from '@/lib/schedule.types'
+import type { ScheduleEntry, ScheduleInput, RepeatScheduleInput, ScheduleUser, FacilityWithGroup } from '@/lib/schedule.types'
 import type { RepeatType } from '@/lib/repeat'
 import { decodeRepeatPattern } from '@/lib/repeat'
 import { subDays } from 'date-fns'
 import { toJstDateStr, toJstTimeStr } from '@/lib/jst'
-import { getScheduleParticipantIdsAction, getScheduleUsersAction } from '../../actions'
+import { getScheduleParticipantIdsAction, getScheduleUsersAction, getScheduleFacilityIdsAction, getFacilitiesAction } from '../../actions'
 import UserPickerModal from './UserPickerModal'
+import FacilityPickerModal from './FacilityPickerModal'
 
 // 繰り返し曜日ラベル（日〜土）
 const DOW_LABELS = ['日', '月', '火', '水', '木', '金', '土']
@@ -85,6 +86,11 @@ export default function ScheduleFormModal({
   const [allUsers, setAllUsers] = useState<ScheduleUser[]>([])
   const [showUserPicker, setShowUserPicker] = useState(false)
 
+  // 設備選択
+  const [facilityIds, setFacilityIds] = useState<Set<number>>(new Set())
+  const [allFacilities, setAllFacilities] = useState<FacilityWithGroup[]>([])
+  const [showFacilityPicker, setShowFacilityPicker] = useState(false)
+
   const userNameMap = useMemo(() => new Map(allUsers.map((u) => [u.userId, u.fullName])), [allUsers])
 
   const participantDisplayText = useMemo(() => {
@@ -96,12 +102,21 @@ export default function ScheduleFormModal({
     return names.join('、') || loginUserName
   }, [loginUserId, loginUserName, participantIds, userNameMap])
 
-  // 編集時: 既存参加者を初期ロード
+  const facilityNameMap = useMemo(() => new Map(allFacilities.map((f) => [f.facilityId, f.facilityName])), [allFacilities])
+  const facilityDisplayText = useMemo(() => {
+    return Array.from(facilityIds).map((id) => facilityNameMap.get(id) ?? '').filter(Boolean).join('、') || 'なし'
+  }, [facilityIds, facilityNameMap])
+
+  // 編集時: 既存参加者・設備を初期ロード
   useEffect(() => {
     getScheduleUsersAction().then(setAllUsers).catch(() => {})
+    getFacilitiesAction().then(setAllFacilities).catch(() => {})
     if (isEdit && schedule) {
       getScheduleParticipantIdsAction(schedule.scheduleId)
         .then((ids) => setParticipantIds(new Set(ids)))
+        .catch(() => {})
+      getScheduleFacilityIdsAction(schedule.scheduleId)
+        .then((ids) => setFacilityIds(new Set(ids)))
         .catch(() => {})
     }
   }, [isEdit, schedule?.scheduleId])
@@ -202,6 +217,7 @@ export default function ScheduleFormModal({
           isAllDay: false,
           publicFlag,
           participantIds: participantIds.size > 0 ? Array.from(participantIds) : undefined,
+          facilityIds: facilityIds.size > 0 ? Array.from(facilityIds) : undefined,
         }
         await onSave(input)
       } else if (isPeriod) {
@@ -218,6 +234,7 @@ export default function ScheduleFormModal({
           publicFlag,
           participantIds: participantIds.size > 0 ? Array.from(participantIds) : undefined,
           periodEndDate,
+          facilityIds: facilityIds.size > 0 ? Array.from(facilityIds) : undefined,
         }
         await onSave(input)
       } else if (repeatType !== 'none') {
@@ -242,6 +259,7 @@ export default function ScheduleFormModal({
           weekDays: repeatType === 'weekly' ? weekDays : undefined,
           limitStartDate,
           limitEndDate,
+          facilityIds: facilityIds.size > 0 ? Array.from(facilityIds) : undefined,
         }
         await onSave(input)
       } else {
@@ -263,6 +281,7 @@ export default function ScheduleFormModal({
           isAllDay,
           publicFlag,
           participantIds: participantIds.size > 0 ? Array.from(participantIds) : undefined,
+          facilityIds: facilityIds.size > 0 ? Array.from(facilityIds) : undefined,
         }
         await onSave(input)
       }
@@ -565,6 +584,21 @@ export default function ScheduleFormModal({
             </div>
           </div>
 
+          {/* 設備選択（Phase D） */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">設備</label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-gray-800">{facilityDisplayText}</span>
+              <button
+                type="button"
+                onClick={() => setShowFacilityPicker(true)}
+                className="text-xs text-brand border border-brand/50 rounded px-2 py-1 hover:bg-brand/5 shrink-0"
+              >
+                設備選択
+              </button>
+            </div>
+          </div>
+
           {/* 場所 */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">場所</label>
@@ -636,6 +670,31 @@ export default function ScheduleFormModal({
             setShowUserPicker(false)
           }}
           onClose={() => setShowUserPicker(false)}
+        />
+      )}
+
+      {/* 設備ピッカー（Phase D）*/}
+      {showFacilityPicker && (
+        <FacilityPickerModal
+          facilities={allFacilities}
+          selectedIds={facilityIds}
+          scheduleId={schedule?.scheduleId}
+          // 日時が入力済みの場合のみ空き確認を行う（終日・期間予定では日付のみのため確認しない）
+          startDate={
+            !isAllDay && !isPeriod && dateStr && startTime
+              ? new Date(`${dateStr}T${startTime}:00+09:00`)
+              : undefined
+          }
+          endDate={
+            !isAllDay && !isPeriod && dateStr && endTime
+              ? new Date(`${dateStr}T${endTime}:00+09:00`)
+              : undefined
+          }
+          onConfirm={(ids) => {
+            setFacilityIds(ids)
+            setShowFacilityPicker(false)
+          }}
+          onClose={() => setShowFacilityPicker(false)}
         />
       )}
     </div>

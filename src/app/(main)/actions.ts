@@ -30,6 +30,7 @@ import {
   deleteSchedule,
   getWeekSchedulesMulti,
   getScheduleUsers,
+  getMyGroups,
   getGroupList,
   getGroupMembers,
   getScheduleParticipantIds,
@@ -39,6 +40,10 @@ import {
   updateRepeatAll,
   deleteRepeatOne,
   deleteRepeatAll,
+  getListSchedules,
+  getFacilities,
+  getBookedFacilityIds,
+  getScheduleFacilityIds,
 } from '@/lib/schedule'
 import type {
   ScheduleEntry,
@@ -48,6 +53,7 @@ import type {
   ScheduleUser,
   ScheduleGroup,
   MultiUserScheduleEntry,
+  FacilityWithGroup,
 } from '@/lib/schedule.types'
 import { fetchHolidays } from '@/lib/holidays'
 
@@ -226,6 +232,12 @@ export async function getScheduleUsersAction(): Promise<ScheduleUser[]> {
   return getScheduleUsers()
 }
 
+// 週・日グループビュー用: ログインユーザーが所属するグループのみ（AIPO getMyGroups 相当）
+export async function getMyGroupsAction(userId: number): Promise<ScheduleGroup[]> {
+  await requireAuth()
+  return getMyGroups(userId)
+}
+
 // ユーザーピッカー用グループ一覧（システムグループ除外）
 export async function getGroupListAction(): Promise<ScheduleGroup[]> {
   await requireAuth()
@@ -258,6 +270,72 @@ export async function saveWidgetSettingsAction(
 ): Promise<void> {
   await requireAuth()
   await saveWidgetSettings(widgetId, settings)
+}
+
+// ===========================================================
+// Phase D: 日/月/一覧ビュー・設備予約
+// ===========================================================
+
+// 日ビュー: 指定日の予定を取得する。getWeekSchedulesMulti を1日範囲で呼び出す。
+export async function getDaySchedulesAction(
+  date: string,
+  userIds: number[]
+): Promise<MultiUserScheduleEntry[]> {
+  const { userId } = await requireAuth()
+  const from = new Date(date + 'T00:00:00+09:00')
+  const to = new Date(from.getTime() + 24 * 60 * 60 * 1000)
+  return getWeekSchedulesMulti(userId, userIds, from, to)
+}
+
+// 月ビュー: 指定月の全予定を取得する。getWeekSchedulesMulti を月範囲で呼び出す。
+// month: "YYYY-MM"（JST）
+export async function getMonthSchedulesAction(
+  month: string,
+  userIds: number[]
+): Promise<MultiUserScheduleEntry[]> {
+  const { userId } = await requireAuth()
+  const [y, m] = month.split('-').map(Number)
+  // 月の1日00:00 JST から翌月1日00:00 JST まで
+  const from = new Date(`${month}-01T00:00:00+09:00`)
+  const nextMonth = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
+  const to = new Date(`${nextMonth}-01T00:00:00+09:00`)
+  return getWeekSchedulesMulti(userId, userIds, from, to)
+}
+
+// 一覧ビュー: 指定日以降の予定を開始日時昇順で取得する。
+// from: "YYYY-MM-DD"（JST）、offset: ページオフセット（30件単位）
+export async function getListSchedulesAction(
+  from: string,
+  userIds: number[],
+  limit: number,
+  offset: number,
+): Promise<MultiUserScheduleEntry[]> {
+  const { userId } = await requireAuth()
+  const fromDate = new Date(from + 'T00:00:00+09:00')
+  return getListSchedules(userId, userIds, fromDate, limit, offset)
+}
+
+// 設備一覧取得（設備ピッカー用）
+export async function getFacilitiesAction(): Promise<FacilityWithGroup[]> {
+  await requireAuth()
+  return getFacilities()
+}
+
+// 設備空き確認: 指定日時に予約済みの設備 ID セットを返す
+// startDate / endDate: "YYYY-MM-DDTHH:MM:SS+09:00" 形式（JST ISO 文字列）
+export async function getFacilityAvailabilityAction(
+  startDate: string,
+  endDate: string,
+  excludeScheduleId?: number,
+): Promise<number[]> {
+  await requireAuth()
+  return getBookedFacilityIds(new Date(startDate), new Date(endDate), excludeScheduleId)
+}
+
+// 編集フォーム初期値用: スケジュールの現在の予約設備 ID リストを取得する
+export async function getScheduleFacilityIdsAction(scheduleId: number): Promise<number[]> {
+  await requireAuth()
+  return getScheduleFacilityIds(scheduleId)
 }
 
 // モバイル表示用ウィジェット設定の読み書き。

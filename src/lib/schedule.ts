@@ -11,6 +11,7 @@ import type {
   ScheduleUser,
   ScheduleGroup,
   MultiUserScheduleEntry,
+  FacilityWithGroup,
 } from './schedule.types'
 import {
   calcOccurrenceDates,
@@ -135,6 +136,15 @@ export async function getScheduleDetail(scheduleId: number): Promise<ScheduleDet
     .select([sql<string>`u.last_name || ' ' || u.first_name`.as('name')])
     .execute()
 
+  // 予約設備名一覧（type='F' の全件）
+  const facilities = await db
+    .selectFrom('eip_t_schedule_map as sm')
+    .innerJoin('eip_m_facility as f', 'f.facility_id', 'sm.user_id')
+    .where('sm.schedule_id', '=', scheduleId)
+    .where('sm.type', '=', 'F')
+    .select(['f.facility_name'])
+    .execute()
+
   // Server Action 経由で Date を返すと JSON シリアライズで文字列になりクライアント側で
   // getTime() が呼べなくなる。JST 文字列のまま返してコンポーネント側でパースする。
   return {
@@ -143,6 +153,7 @@ export async function getScheduleDetail(scheduleId: number): Promise<ScheduleDet
     updaterName: row.updater_name,
     updaterDateJst: row.update_date_text,
     participantNames: participants.map((p) => p.name),
+    facilityNames: facilities.map((f) => f.facility_name ?? ''),
   }
 }
 
@@ -189,6 +200,8 @@ export async function addSchedule(userId: number, input: ScheduleInput): Promise
 
   // 参加者登録: 作成者（O=オーナー）+ 指定参加者（T=承認済み）
   await insertScheduleParticipants(scheduleId, userId, input.participantIds ?? [])
+  // 設備予約登録
+  await insertScheduleFacilities(scheduleId, input.facilityIds ?? [])
 
   logger.info({ event: 'schedule.create', userId, scheduleId }, 'スケジュール追加')
 
@@ -245,6 +258,27 @@ export async function insertScheduleParticipants(
   }
 }
 
+/**
+ * 設備を eip_t_schedule_map に登録するヘルパー。
+ * type='F', user_id=facility_id。status='O' は AIPO の実データに基づく固定値。
+ */
+async function insertScheduleFacilities(scheduleId: number, facilityIds: number[]): Promise<void> {
+  if (facilityIds.length === 0) return
+  const mapIds = await nextNSeqIds('pk_eip_t_schedule_map', facilityIds.length)
+  await db.insertInto('eip_t_schedule_map').values(
+    facilityIds.map((fid, i) => ({
+      id: mapIds[i],
+      schedule_id: scheduleId,
+      user_id: fid,
+      // type='F': AIPO で設備を区別するフラグ（'U'=ユーザー参加者）
+      type: 'F' as const,
+      // status='O': AIPO の実DBレコードに基づく固定値（設備予約は常に O）
+      status: 'O',
+      common_category_id: 1,
+    }))
+  ).execute()
+}
+
 export async function updateSchedule(
   scheduleId: number,
   userId: number,
@@ -281,9 +315,10 @@ export async function updateSchedule(
     .where('owner_id', '=', userId)
     .execute()
 
-  // 参加者を全削除して再登録（AIPO 準拠のシンプルな全更新）
+  // 参加者・設備を全削除して再登録（AIPO 準拠のシンプルな全更新）
   await db.deleteFrom('eip_t_schedule_map').where('schedule_id', '=', scheduleId).execute()
   await insertScheduleParticipants(scheduleId, userId, input.participantIds ?? [])
+  await insertScheduleFacilities(scheduleId, input.facilityIds ?? [])
 
   logger.info({ event: 'schedule.update', userId, scheduleId }, 'スケジュール更新')
 
@@ -436,6 +471,28 @@ export async function getScheduleUsers(): Promise<ScheduleUser[]> {
     .execute()
 
   return rows.map((r) => ({ userId: r.user_id, fullName: r.full_name }))
+}
+
+/**
+ * ログインユーザーが所属するグループのみを取得する。
+ * AIPO の ALEipUtils.getMyGroups() 相当。
+ * 週・日グループビューのフィルターに使用する（月・一覧は getGroupList を使う）。
+ */
+export async function getMyGroups(userId: number): Promise<ScheduleGroup[]> {
+  const rows = await db
+    .selectFrom('turbine_group as g')
+    .innerJoin('turbine_user_group_role as ugr', 'ugr.group_id', 'g.group_id')
+    .select(['g.group_id', 'g.group_alias_name'])
+    .where('ugr.user_id', '=', userId)
+    .where('g.group_id', 'not in', [1, 2, 3])
+    .where('g.group_alias_name', 'is not', null)
+    .orderBy('g.group_alias_name', 'asc')
+    .execute()
+
+  return rows.map((r) => ({
+    groupId: r.group_id,
+    groupName: r.group_alias_name ?? '',
+  }))
 }
 
 /**
@@ -611,6 +668,26 @@ export async function addRepeatSchedule(userId: number, input: RepeatScheduleInp
     )
   ).execute()
 
+  // 設備予約を全子レコードに一括登録
+  const facilityIds = input.facilityIds ?? []
+  if (facilityIds.length > 0) {
+    const facilityMapCount = childCount * facilityIds.length
+    const facilityMapIds = await nextNSeqIds('pk_eip_t_schedule_map', facilityMapCount)
+    let fMapIdx = 0
+    await db.insertInto('eip_t_schedule_map').values(
+      childIds.flatMap((childId) =>
+        facilityIds.map((fid) => ({
+          id: facilityMapIds[fMapIdx++],
+          schedule_id: childId,
+          user_id: fid,
+          type: 'F' as const,
+          status: 'O',
+          common_category_id: 1,
+        }))
+      )
+    ).execute()
+  }
+
   logger.info({ event: 'schedule.repeat.create', userId, parentId, count: childCount }, '繰り返しスケジュール追加')
 }
 
@@ -646,6 +723,7 @@ export async function updateRepeatOne(
 
   await db.deleteFrom('eip_t_schedule_map').where('schedule_id', '=', scheduleId).execute()
   await insertScheduleParticipants(scheduleId, userId, input.participantIds ?? [])
+  await insertScheduleFacilities(scheduleId, input.facilityIds ?? [])
 
   logger.info({ event: 'schedule.repeat.updateOne', userId, scheduleId }, '繰り返しスケジュール単件更新')
 }
@@ -696,8 +774,10 @@ export async function updateRepeatAll(
     .where('owner_id', '=', userId)
     .execute()
 
-  // 参加者の更新: 全子レコードの map を一括置き換え
-  if (input.participantIds !== undefined) {
+  // 参加者・設備の更新: タイプ別に個別削除→再挿入する
+  // participantIds と facilityIds を一括削除すると、片方だけ更新する際に
+  // もう片方が消えるデータ消失が起きるため、type='U' / type='F' を分けて操作する
+  if (input.participantIds !== undefined || input.facilityIds !== undefined) {
     const children = await db.selectFrom('eip_t_schedule')
       .select('schedule_id')
       .where('parent_id', '=', parentId)
@@ -705,23 +785,52 @@ export async function updateRepeatAll(
 
     const childIds = children.map((c) => c.schedule_id)
     if (childIds.length > 0) {
-      await db.deleteFrom('eip_t_schedule_map').where('schedule_id', 'in', childIds).execute()
+      if (input.participantIds !== undefined) {
+        await db.deleteFrom('eip_t_schedule_map')
+          .where('schedule_id', 'in', childIds)
+          .where('type', '=', 'U')
+          .execute()
 
-      const allParticipantIds = Array.from(new Set([userId, ...input.participantIds]))
-      const mapIds = await nextNSeqIds('pk_eip_t_schedule_map', childIds.length * allParticipantIds.length)
-      let mapIdx = 0
-      await db.insertInto('eip_t_schedule_map').values(
-        childIds.flatMap((childId) =>
-          allParticipantIds.map((uid) => ({
-            id: mapIds[mapIdx++],
-            schedule_id: childId,
-            user_id: uid,
-            type: 'U' as const,
-            status: uid === userId ? 'O' : 'T',
-            common_category_id: 1,
-          }))
-        )
-      ).execute()
+        const allParticipantIds = Array.from(new Set([userId, ...input.participantIds]))
+        const mapIds = await nextNSeqIds('pk_eip_t_schedule_map', childIds.length * allParticipantIds.length)
+        let mapIdx = 0
+        await db.insertInto('eip_t_schedule_map').values(
+          childIds.flatMap((childId) =>
+            allParticipantIds.map((uid) => ({
+              id: mapIds[mapIdx++],
+              schedule_id: childId,
+              user_id: uid,
+              type: 'U' as const,
+              status: uid === userId ? 'O' : 'T',
+              common_category_id: 1,
+            }))
+          )
+        ).execute()
+      }
+
+      if (input.facilityIds !== undefined) {
+        await db.deleteFrom('eip_t_schedule_map')
+          .where('schedule_id', 'in', childIds)
+          .where('type', '=', 'F')
+          .execute()
+
+        if (input.facilityIds.length > 0) {
+          const facilityMapIds = await nextNSeqIds('pk_eip_t_schedule_map', childIds.length * input.facilityIds.length)
+          let fIdx = 0
+          await db.insertInto('eip_t_schedule_map').values(
+            childIds.flatMap((childId) =>
+              (input.facilityIds ?? []).map((fid) => ({
+                id: facilityMapIds[fIdx++],
+                schedule_id: childId,
+                user_id: fid,
+                type: 'F' as const,
+                status: 'O',
+                common_category_id: 1,
+              }))
+            )
+          ).execute()
+        }
+      }
     }
   }
 
@@ -740,6 +849,154 @@ export async function deleteRepeatOne(scheduleId: number, userId: number): Promi
     .execute()
 
   logger.info({ event: 'schedule.repeat.deleteOne', userId, scheduleId }, '繰り返しスケジュール単件削除')
+}
+
+// ===========================================================
+// Phase D: 日/月/一覧ビュー・設備予約
+// ===========================================================
+
+/**
+ * 一覧ビュー用: 指定日以降の予定を開始日時昇順で取得する。
+ * getWeekSchedulesMulti は日付範囲フィルタ用途のため、一覧ビューは ORDER BY + LIMIT で別途実装する。
+ */
+export async function getListSchedules(
+  loginUserId: number,
+  userIds: number[],
+  from: Date,
+  limit: number,
+  offset: number,
+): Promise<MultiUserScheduleEntry[]> {
+  if (userIds.length === 0) return []
+
+  const fromStr = toJstStr(from)
+
+  const rows = await db
+    .selectFrom('eip_t_schedule as s')
+    .innerJoin('eip_t_schedule_map as sm', 'sm.schedule_id', 's.schedule_id')
+    .innerJoin('turbine_user as u', 'u.user_id', 'sm.user_id')
+    .where('sm.user_id', 'in', userIds)
+    .where('sm.type', '=', 'U')
+    .where('sm.status', 'not in', ['D', 'C'])
+    .where((eb) =>
+      eb.or([
+        eb('sm.user_id', '=', loginUserId),
+        eb('s.public_flag', '!=', 'C'),
+      ])
+    )
+    // 一覧ビュー: 指定日以降が開始する予定（end_date ではなく start_date 基準）
+    .where(sql`s.start_date::text`, '>=', fromStr)
+    .select([
+      's.schedule_id',
+      's.name',
+      's.note',
+      's.place',
+      sql<string>`s.start_date::text`.as('start_date_text'),
+      sql<string>`s.end_date::text`.as('end_date_text'),
+      's.public_flag',
+      's.repeat_pattern',
+      's.parent_id',
+      's.owner_id',
+      'sm.user_id as view_user_id',
+      sql<string>`u.last_name || ' ' || u.first_name`.as('view_user_name'),
+    ])
+    .orderBy(sql`s.start_date::text`, 'asc')
+    .limit(limit)
+    .offset(offset)
+    .execute()
+
+  return rows.map((row) => {
+    const isOtherUser = row.view_user_id !== loginUserId
+    const maskedName = isOtherUser && row.public_flag === 'P' ? '非公開' : (row.name ?? '')
+    const maskedNote = isOtherUser && row.public_flag === 'P' ? null : (row.note ?? null)
+    const maskedPlace = isOtherUser && row.public_flag === 'P' ? null : (row.place ?? null)
+
+    return {
+      scheduleId: row.schedule_id,
+      name: maskedName,
+      note: maskedNote,
+      place: maskedPlace,
+      startDate: parseJst(row.start_date_text),
+      endDate: parseJst(row.end_date_text),
+      publicFlag: (row.public_flag ?? 'O') as 'O' | 'P' | 'C',
+      repeatPattern: row.repeat_pattern ?? 'N',
+      isAllDay: row.repeat_pattern === 'S',
+      parentId: row.parent_id ?? 0,
+      isOwner: row.owner_id === loginUserId,
+      ownerId: row.owner_id ?? 0,
+      viewUserId: row.view_user_id,
+      viewUserName: row.view_user_name,
+    }
+  })
+}
+
+/**
+ * 設備一覧をグループ情報付きで取得する（設備ピッカー用）。
+ * sort 昇順で返す。グループ未所属の設備は groupName=null。
+ */
+export async function getFacilities(): Promise<FacilityWithGroup[]> {
+  const rows = await db
+    .selectFrom('eip_m_facility as f')
+    .leftJoin('eip_m_facility_group_map as gm', 'gm.facility_id', 'f.facility_id')
+    .leftJoin('eip_m_facility_group as g', 'g.group_id', 'gm.group_id')
+    .select([
+      'f.facility_id',
+      'f.facility_name',
+      'g.group_name',
+      'f.sort',
+    ])
+    .orderBy('f.sort', 'asc')
+    .execute()
+
+  return rows.map((r) => ({
+    facilityId: r.facility_id,
+    facilityName: r.facility_name ?? '',
+    groupName: r.group_name ?? null,
+    sort: r.sort ?? 0,
+  }))
+}
+
+/**
+ * 指定日時に予約済みの設備 ID セットを返す（空き確認用）。
+ * 開始時刻 < endDate かつ 終了時刻 > startDate で重複判定（半開区間）。
+ */
+export async function getBookedFacilityIds(
+  startDate: Date,
+  endDate: Date,
+  // 編集中のスケジュール自身を除外することで「自分の設備が使用中」と誤判定されないようにする
+  excludeScheduleId?: number,
+): Promise<number[]> {
+  const startStr = toJstStr(startDate)
+  const endStr = toJstStr(endDate)
+
+  let query = db
+    .selectFrom('eip_t_schedule_map as sm')
+    .innerJoin('eip_t_schedule as s', 's.schedule_id', 'sm.schedule_id')
+    .where('sm.type', '=', 'F')
+    // 時刻が重複する予定を検索（exclusive end の半開区間）
+    .where(sql`s.start_date::text`, '<', endStr)
+    .where(sql`s.end_date::text`, '>', startStr)
+    .select(['sm.user_id as facility_id'])
+
+  if (excludeScheduleId !== undefined) {
+    query = query.where('s.schedule_id', '!=', excludeScheduleId)
+  }
+
+  const rows = await query.execute()
+  return rows.map((r) => r.facility_id)
+}
+
+/**
+ * 編集フォーム初期値用: スケジュールの現在の予約設備 ID リストを取得する。
+ */
+export async function getScheduleFacilityIds(scheduleId: number): Promise<number[]> {
+  const rows = await db
+    .selectFrom('eip_t_schedule_map')
+    .select('user_id')
+    .where('schedule_id', '=', scheduleId)
+    .where('type', '=', 'F')
+    .execute()
+
+  return rows.map((r) => r.user_id)
 }
 
 /**
