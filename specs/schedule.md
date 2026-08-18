@@ -418,7 +418,7 @@ getWeekSchedulesMulti(userIds: number[], from: Date, to: Date): Promise<MultiUse
 ```ts
 type ScheduleWidgetSettings = {
   weekDayGroupId?: number | null  // 週・日ビューの選択グループ ID（null=自分のみ）
-  viewMode?: 'week' | 'day' | 'month' | 'list'  // デフォルト 'week'
+  viewMode?: 'week' | 'weekly' | 'day' | 'month' | 'list'  // デフォルト 'week'
   viewDate?: string               // YYYY-MM-DD、デフォルト 当日
 }
 ```
@@ -847,7 +847,7 @@ AIPO 準拠: `ScheduleSearchSelectData`（一覧検索）に相当。
 ```ts
 type ScheduleWidgetSettings = {
   weekDayGroupId?: number | null  // 週・日ビューの選択グループ ID（null=自分のみ）
-  viewMode?: 'week' | 'day' | 'month' | 'list'  // デフォルト 'week'
+  viewMode?: 'week' | 'weekly' | 'day' | 'month' | 'list'  // デフォルト 'week'
   viewDate?: string               // YYYY-MM-DD、デフォルト 当日
 }
 ```
@@ -886,7 +886,7 @@ getScheduleFacilityIdsAction(scheduleId: number): Promise<number[]>
 
 // 週・日ビュー用グループセレクト: ログインユーザーが所属するグループ一覧を取得
 // 全グループではなく自分が所属するグループのみ（AIPO getMyGroups 相当）
-getMyGroupsAction(userId: number): Promise<ScheduleGroup[]>
+getMyGroupsAction(): Promise<ScheduleGroup[]>  // userId はサーバー側で requireAuth() から取得（クライアントから渡さない）
 ```
 
 ### DB クエリ追加（`src/lib/schedule.ts`）
@@ -1052,8 +1052,12 @@ export type RepeatScheduleInput = {
 
 - ブロックボタンをクリックすると `viewMode='week'`（現在の週ビュー：週間グループカレンダー）に切り替わる
 - AIPO の `schedule-calendar.vm`（`tab='calendar'`）に相当するビューが「ブロック」である
-  - AIPO では「ブロック」が AJAX 時刻ブロックカレンダー（`schedule-calendar.vm`）、「週」がテーブル型週表示（`schedule-weekly-group.vm`）にマッピングされる
-- 「週」ボタンは引き続き同じ `viewMode='week'` を使用する（AIPO `schedule-weekly-group.vm` 相当の週テーブルビューは将来の別フェーズで対応）
+  - AIPO では「ブロック」が AJAX 時刻ブロックカレンダー（`schedule-calendar.vm`）、「週」がテーブル型週表示（`schedule-weekly.vm`）にマッピングされる
+- 「週」ボタン（`viewMode='weekly'`）: AIPO `schedule-weekly.vm` 相当のテーブル型週表示（Phase E で実装）
+  - 7列（日〜土）のグリッドで各セルに予定名・開始時刻を一覧表示する
+  - `ScheduleWeeklyTableView` コンポーネントで実装
+  - グループフィルターは週・日ビューと共通の1段セレクトを使用する
+  - セルクリックで予定追加フォームを開く（時刻は指定しない）
 - `settings.viewMode='week'` を復元した際は「ブロック」ボタンをアクティブ状態にする（ブロックがデフォルト）
 
 ### スケジュールブロックのデザイン改善
@@ -1111,7 +1115,10 @@ export function makeDateJst(dateStr: string, timeStr?: string): Date {
 
 ### TwoColumnPickerModal コンポーネント Props
 
-`FacilityPickerModal` と `UserPickerModal` は操作パターンが異なる（設備: 単一クリック即追加／ユーザー: ハイライット選択→まとめて追加）ため、`selectionMode` でモード分岐する。ハイライット状態は `TwoColumnPickerModal` 内部で管理する。
+`FacilityPickerModal` と `UserPickerModal` はどちらも `selectionMode="immediate"` を使用する（AIPO 仕様確認済み: 両者とも単一クリック即追加で統一）。
+- **仕様変更**: 当初 `UserPickerModal` は `highlight` モード（ハイライット→まとめて追加）を想定していたが、AIPO 実装確認の結果 `FacilityPickerModal` と同じ即時追加方式に統一した。
+- `locked` アイテム（自分自身など）は削除不可で「（自分）」ラベルを表示する。
+- `highlight` モードのコードは `TwoColumnPickerModal` 内に残存しており、将来的な拡張に対応可能。
 
 ```ts
 export type PickerItem = {
@@ -1119,7 +1126,7 @@ export type PickerItem = {
   label: string
   badge?: string       // 「使用中」等のバッジテキスト
   disabled?: boolean   // immediate モードで追加不可
-  locked?: boolean     // highlight モードで削除不可（自分自身など）
+  locked?: boolean     // 削除不可（自分自身など）: immediate では「削除」ボタンを非表示にし「（自分）」ラベルを表示する
 }
 
 type TwoColumnPickerModalProps = {
@@ -1173,3 +1180,16 @@ type TwoColumnPickerModalProps = {
 - [ ] `TwoColumnPickerModal` コンポーネントが作成されている
 - [ ] `FacilityPickerModal` と `UserPickerModal` が `TwoColumnPickerModal` を使用している
 - [ ] 既存の設備選択・ユーザー選択の動作が変わらない
+- [ ] `UserPickerModal` が `selectionMode="immediate"` を使用している（クリックで即追加・削除リンクで即削除）
+
+### 週テーブルビュー（`viewMode='weekly'`）
+
+- [ ] 「週」ボタンをクリックすると `viewMode='weekly'` に切り替わり、テーブル型週表示が表示される
+- [ ] 7列（日〜土）のグリッドで各日の予定が列挙表示される
+- [ ] 各予定に開始時刻（終日予定を除く）と予定名が表示される
+- [ ] 前週・次週ナビゲーション、今日ボタンが機能する
+- [ ] グループフィルター（1段セレクト）が表示される
+- [ ] 日付セルをクリックすると予定追加フォームが開く
+- [ ] 予定をクリックすると詳細モーダル or 編集フォームが開く（週ビューと同じ挙動）
+- [ ] 祝日は日曜と同様に赤色で表示される
+- [ ] 今日のセルが強調表示（背景オレンジ）される

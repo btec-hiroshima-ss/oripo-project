@@ -56,6 +56,7 @@ import type {
   FacilityWithGroup,
 } from '@/lib/schedule.types'
 import { fetchHolidays } from '@/lib/holidays'
+import { makeDateJst } from '@/lib/jst'
 
 export async function addPageAction(pageName: string) {
   const { userId } = await requireAuth()
@@ -140,7 +141,7 @@ export async function getActivityAction(
 export async function getWeekSchedulesAction(weekStart: string): Promise<ScheduleEntry[]> {
   const { userId } = await requireAuth()
   // weekStart を JST 00:00 として解釈し、7日間の範囲を計算する
-  const from = new Date(weekStart + 'T00:00:00+09:00')
+  const from = makeDateJst(weekStart)
   const to = new Date(from.getTime() + 7 * 24 * 60 * 60 * 1000)
   return getWeekSchedules(userId, from, to)
 }
@@ -221,7 +222,7 @@ export async function getWeekSchedulesMultiAction(
   weekStart: string
 ): Promise<MultiUserScheduleEntry[]> {
   const { userId } = await requireAuth()
-  const from = new Date(weekStart + 'T00:00:00+09:00')
+  const from = makeDateJst(weekStart)
   const to = new Date(from.getTime() + 7 * 24 * 60 * 60 * 1000)
   return getWeekSchedulesMulti(userId, userIds, from, to)
 }
@@ -233,8 +234,9 @@ export async function getScheduleUsersAction(): Promise<ScheduleUser[]> {
 }
 
 // 週・日グループビュー用: ログインユーザーが所属するグループのみ（AIPO getMyGroups 相当）
-export async function getMyGroupsAction(userId: number): Promise<ScheduleGroup[]> {
-  await requireAuth()
+// クライアントから userId を受け取らず requireAuth() から取得することで任意ユーザー情報取得を防ぐ
+export async function getMyGroupsAction(): Promise<ScheduleGroup[]> {
+  const { userId } = await requireAuth()
   return getMyGroups(userId)
 }
 
@@ -282,7 +284,7 @@ export async function getDaySchedulesAction(
   userIds: number[]
 ): Promise<MultiUserScheduleEntry[]> {
   const { userId } = await requireAuth()
-  const from = new Date(date + 'T00:00:00+09:00')
+  const from = makeDateJst(date)
   const to = new Date(from.getTime() + 24 * 60 * 60 * 1000)
   return getWeekSchedulesMulti(userId, userIds, from, to)
 }
@@ -296,9 +298,9 @@ export async function getMonthSchedulesAction(
   const { userId } = await requireAuth()
   const [y, m] = month.split('-').map(Number)
   // 月の1日00:00 JST から翌月1日00:00 JST まで
-  const from = new Date(`${month}-01T00:00:00+09:00`)
+  const from = makeDateJst(`${month}-01`)
   const nextMonth = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
-  const to = new Date(`${nextMonth}-01T00:00:00+09:00`)
+  const to = makeDateJst(`${nextMonth}-01`)
   return getWeekSchedulesMulti(userId, userIds, from, to)
 }
 
@@ -312,7 +314,7 @@ export async function getListSchedulesAction(
   keyword?: string,
 ): Promise<MultiUserScheduleEntry[]> {
   const { userId } = await requireAuth()
-  const fromDate = new Date(from + 'T00:00:00+09:00')
+  const fromDate = makeDateJst(from)
   return getListSchedules(userId, userIds, fromDate, limit, offset, keyword)
 }
 

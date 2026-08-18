@@ -85,12 +85,12 @@ export default function UserPickerModal({ selectedIds, lockedIds = new Set(), on
       leftLabel="参加ユーザーリスト"
       selectedItems={selectedItems}
       availableItems={availableItems}
-      selectionMode="highlight"
-      onAdd={(ids) => setTempSelected((prev) => { const next = new Set(prev); ids.forEach((id) => next.add(id)); return next })}
-      onRemove={(ids) => setTempSelected((prev) => {
-        const next = new Set(prev)
-        ids.forEach((id) => { if (!lockedIds.has(id)) next.delete(id) })
-        return next
+      // immediate モード: クリックで即追加・削除リンクで即削除（AIPOと同仕様）
+      selectionMode="immediate"
+      onAdd={([id]) => setTempSelected((prev) => { const next = new Set(prev); next.add(id); return next })}
+      onRemove={([id]) => setTempSelected((prev) => {
+        if (lockedIds.has(id)) return prev
+        const next = new Set(prev); next.delete(id); return next
       })}
       // 選択中人数: 左パネルヘッダーに表示（TwoColumnPickerModal 共通フッターに収まらないため）
       leftHeaderExtra={<span className="text-xs text-gray-400">{tempSelected.size} 人選択中</span>}

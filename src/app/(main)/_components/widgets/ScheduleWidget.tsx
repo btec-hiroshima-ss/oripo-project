@@ -32,6 +32,7 @@ import ScheduleDetailModal from './ScheduleDetailModal'
 import ScheduleDayView from './ScheduleDayView'
 import ScheduleMonthView from './ScheduleMonthView'
 import ScheduleListView from './ScheduleListView'
+import ScheduleWeeklyTableView from './ScheduleWeeklyTableView'
 import { Toast, Loading } from '../ui'
 import { toJstDateStr, toJstTimeStr, isTodayJst, toJstMinutesSinceMidnight, makeDateJst } from '@/lib/jst'
 
@@ -187,7 +188,7 @@ function ScheduleBlock({ schedule, onClick }: ScheduleBlockProps) {
 // ScheduleWidget メインコンポーネント
 // ===========================================================
 
-type ViewMode = 'week' | 'day' | 'month' | 'list'
+type ViewMode = 'week' | 'weekly' | 'day' | 'month' | 'list'
 
 type ScheduleWidgetSettings = {
   // AIPO 準拠: 週・日グループビューのグループフィルター（null = 自分のみ）
@@ -256,7 +257,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
     : weekDayGroupUsers.map((u) => u.userId)
 
   // 週・日ビューでグループメンバーが複数いる場合にマルチカラー表示を有効にする
-  const isMultiUser = (viewMode === 'week' || viewMode === 'day') && weekDayUserIds.length > 1
+  const isMultiUser = (viewMode === 'week' || viewMode === 'weekly' || viewMode === 'day') && weekDayUserIds.length > 1
 
   // viewUserIds の順番に対応するプリセット色マップ
   const userColorMap = new Map<number, string>(
@@ -305,7 +306,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
           getGroupListAction(),
           getScheduleUsersAction(),
           // ログインユーザーが所属するグループのみ取得（AIPO getMyGroups 相当）
-          getMyGroupsAction(userId),
+          getMyGroupsAction(),
         ])
 
         setNonWeekGroups(allGroups)
@@ -317,7 +318,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
         if (s?.viewMode) setViewMode(s.viewMode)
         if (s?.viewDate) {
           setViewDate(s.viewDate)
-          if (s.viewMode === 'week') setWeekStart(getSunday(makeDateJst(s.viewDate)))
+          if (s.viewMode === 'week' || s.viewMode === 'weekly') setWeekStart(getSunday(makeDateJst(s.viewDate)))
         }
         // 保存済みのグループフィルターを復元する（null = 自分のみ）
         setWeekDayGroupId(s?.weekDayGroupId ?? null)
@@ -359,7 +360,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   // viewMode / weekStart / viewDate / weekDayGroupId / weekDayGroupUsers / nonWeekTargetUserId が
   // 変わったときにスケジュールを再取得する
   useEffect(() => {
-    const ids = (viewMode === 'week' || viewMode === 'day')
+    const ids = (viewMode === 'week' || viewMode === 'weekly' || viewMode === 'day')
       ? weekDayUserIds
       : nonWeekTargetUserId !== null ? [nonWeekTargetUserId] : []
     fetchSchedules(viewMode, weekStart, viewDate, ids)
@@ -433,7 +434,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
 
   // 追加・更新・削除後の再フェッチで使う実効ユーザー ID リスト
   function getEffectiveUserIds(): number[] {
-    return (viewMode === 'week' || viewMode === 'day')
+    return (viewMode === 'week' || viewMode === 'weekly' || viewMode === 'day')
       ? weekDayUserIds
       : nonWeekTargetUserId !== null ? [nonWeekTargetUserId] : []
   }
@@ -552,8 +553,8 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
               onClick={() => {
                 const today = toJstDateStr(new Date())
                 setViewDate(today)
-                // 週ビューのみ weekStart も今週に戻す
-                if (viewMode === 'week') setWeekStart(getSunday(new Date()))
+                // 週系ビューは weekStart も今週に戻す
+                if (viewMode === 'week' || viewMode === 'weekly') setWeekStart(getSunday(new Date()))
               }}
               className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600"
             >
@@ -561,7 +562,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
             </button>
             <button
               onClick={() => {
-                if (viewMode === 'week') {
+                if (viewMode === 'week' || viewMode === 'weekly') {
                   // viewDate を weekStart と同期させて設定保存・ビュー切替時の継続性を保つ
                   const newStart = addDays(weekStart, -7)
                   setWeekStart(newStart)
@@ -579,7 +580,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
             </button>
             <button
               onClick={() => {
-                if (viewMode === 'week') {
+                if (viewMode === 'week' || viewMode === 'weekly') {
                   const newStart = addDays(weekStart, 7)
                   setWeekStart(newStart)
                   setViewDate(newStart)
@@ -595,7 +596,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
               <ChevronRight className="w-4 h-4" />
             </button>
             <span className="text-xs text-gray-600 hidden sm:inline">
-              {viewMode === 'week'
+              {(viewMode === 'week' || viewMode === 'weekly')
                 ? formatJapaneseDate(weekStart)
                 : viewMode === 'day'
                   ? formatJapaneseDate(viewDate)
@@ -611,29 +612,22 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
         <div className="flex items-center gap-1">
           {/* ビューモード切り替えボタン。
               「ブロック」= AIPO schedule-calendar.vm 相当（時刻グリッド週間）→ viewMode='week'。
-              「週」= AIPO schedule-weekly-group.vm 相当（テーブル型週表示）→ 将来実装のため disabled。 */}
+              「週」= AIPO schedule-weekly.vm 相当（テーブル型週表示）→ viewMode='weekly'。 */}
           {[
-            { label: 'ブロック', mode: 'week' as ViewMode | null },
-            { label: '日', mode: 'day' as ViewMode | null },
-            { label: '週', mode: null as ViewMode | null },
-            { label: '月', mode: 'month' as ViewMode | null },
-            { label: '一覧', mode: 'list' as ViewMode | null },
+            { label: 'ブロック', mode: 'week' as ViewMode },
+            { label: '日', mode: 'day' as ViewMode },
+            { label: '週', mode: 'weekly' as ViewMode },
+            { label: '月', mode: 'month' as ViewMode },
+            { label: '一覧', mode: 'list' as ViewMode },
           ].map(({ label, mode }) => {
-            if (mode === null) {
-              return (
-                <span key={label} className="px-2 py-0.5 text-xs rounded border text-gray-300 border-gray-200 cursor-not-allowed">
-                  {label}
-                </span>
-              )
-            }
             const isActive = mode === viewMode
             return (
               <button
                 key={label}
                 type="button"
                 onClick={() => {
-                  // 週ビューに戻る場合は viewDate をもとに weekStart を更新する
-                  if (mode === 'week') setWeekStart(getSunday(makeDateJst(viewDate)))
+                  // 週系ビューに切り替える場合は viewDate をもとに weekStart を更新する
+                  if (mode === 'week' || mode === 'weekly') setWeekStart(getSunday(makeDateJst(viewDate)))
                   setViewMode(mode)
                 }}
                 className={`px-2 py-0.5 text-xs rounded border ${
@@ -657,7 +651,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
       {/* 週・日グループビュー用フィルター（AIPO weekly-group/oneday-group 準拠）:
           1段グループセレクトでグループを選択するとグループ全員を別列で並列表示する。
           空文字（自分のみ）がデフォルトで、ログインユーザーの予定のみ表示する。 */}
-      {(viewMode === 'week' || viewMode === 'day') && (
+      {(viewMode === 'week' || viewMode === 'weekly' || viewMode === 'day') && (
         <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 bg-gray-50">
           <select
             value={weekDayGroupId ?? ''}
@@ -825,6 +819,22 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
             holidays={holidays}
             onScheduleClick={handleScheduleClick}
             onEmptySlotClick={handleEmptySlotClick}
+          />
+        )}
+
+        {/* 週ビュー（テーブル型）: AIPO schedule-weekly.vm 相当 */}
+        {viewMode === 'weekly' && (
+          <ScheduleWeeklyTableView
+            weekStart={weekStart}
+            schedules={schedules}
+            userColorMap={userColorMap}
+            isMultiUser={isMultiUser}
+            holidays={holidays}
+            onScheduleClick={handleScheduleClick}
+            onEmptySlotClick={(dateStr, e) => {
+              setAddFormInitialDate(dateStr)
+              setShowAddForm(true)
+            }}
           />
         )}
 
