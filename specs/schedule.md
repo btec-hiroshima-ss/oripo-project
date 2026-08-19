@@ -902,6 +902,8 @@ getFacilities(): Promise<FacilityWithGroup[]>
 
 // 設備空き確認（半開区間: start < endDate AND end > startDate）
 // excludeScheduleId: 編集中スケジュール自身を除外（自分の設備を「使用中」と誤判定しない）
+// 繰り返し予定の親レコード（repeat_pattern!='N' かつ parent_id=0）は end_date がシリーズ全体の
+// 終端（数年先）になるため除外する。AIPO は parent_id=0 を「親なし」として使用している。
 getBookedFacilityIds(startDate: Date, endDate: Date, excludeScheduleId?: number): Promise<number[]>
 
 // 編集フォーム初期値用: type='F' のレコードから facility_id を取得

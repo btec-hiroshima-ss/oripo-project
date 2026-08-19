@@ -1306,6 +1306,19 @@ describe('getBookedFacilityIds', () => {
     // schedule_id != 99 の条件が追加されること
     expect(mockDb.where).toHaveBeenCalledWith('s.schedule_id', '!=', 99)
   })
+
+  it('繰り返し予定の親レコードを除外するため type・繰り返し除外・時刻の計4条件を設定する', async () => {
+    // AIPO の繰り返し親レコードは end_date がシリーズ全体の終端（数年先）になるため
+    // parent_id=0 かつ repeat_pattern!='N' のレコードを除外しないと常に「使用中」と誤判定される
+    mockDb.execute.mockResolvedValueOnce([])
+    const start = new Date('2026-08-18T10:00:00+09:00')
+    const end = new Date('2026-08-18T11:00:00+09:00')
+    await getBookedFacilityIds(start, end)
+
+    // type='F'、繰り返し親除外（sql）、start_date比較（sql）、end_date比較（sql）の計4条件
+    expect(mockDb.where).toHaveBeenCalledTimes(4)
+    expect(mockDb.where).toHaveBeenCalledWith('sm.type', '=', 'F')
+  })
 })
 
 // ===========================================================

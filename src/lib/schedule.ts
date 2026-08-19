@@ -989,6 +989,10 @@ export async function getBookedFacilityIds(
     .selectFrom('eip_t_schedule_map as sm')
     .innerJoin('eip_t_schedule as s', 's.schedule_id', 'sm.schedule_id')
     .where('sm.type', '=', 'F')
+    // 繰り返し予定の親レコードは end_date がシリーズ全体の終端（数年先）になるため除外する。
+    // AIPO は parent_id=0 を「親なし」として使用するため、
+    // root 親（repeat_pattern != 'N' かつ parent_id = 0）のみを除外する。
+    .where(sql`(s.repeat_pattern = 'N' OR s.parent_id != 0)`)
     // 時刻が重複する予定を検索（exclusive end の半開区間）
     .where(sql`s.start_date::text`, '<', endStr)
     .where(sql`s.end_date::text`, '>', startStr)
