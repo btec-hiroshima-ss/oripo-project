@@ -2,6 +2,7 @@
 
 import type { MultiUserScheduleEntry } from '@/lib/schedule.types'
 import { USER_COLORS, PUBLIC_FLAG_COLORS, MAX_EVENTS_PER_CELL } from '@/lib/schedule.constants'
+import { getDaysInMonth, getDay, parseISO } from 'date-fns'
 import { toJstDateStr, isTodayJst, toJstTimeStr } from '@/lib/jst'
 
 type Props = {
@@ -25,7 +26,7 @@ export default function ScheduleMonthView({
   const [y, m] = monthStart.split('-').map(Number)
 
   // 月の全日付を生成する（1日〜末日）
-  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate()
+  const daysInMonth = getDaysInMonth(parseISO(monthStart))
   const allDays: string[] = Array.from({ length: daysInMonth }, (_, i) => {
     const day = String(i + 1).padStart(2, '0')
     const month = String(m).padStart(2, '0')
@@ -34,7 +35,7 @@ export default function ScheduleMonthView({
 
   // 日曜始まりで7列のカレンダーグリッドを作る（AIPO仕様に準拠）
   // 先頭のオフセット（月の1日が何曜日か、日曜=0,月曜=1,...,土曜=6）
-  const firstDow = new Date(Date.UTC(y, m - 1, 1)).getUTCDay() // 0=日,1=月,...
+  const firstDow = getDay(parseISO(monthStart)) // 0=日,1=月,...
   const startOffset = firstDow
 
   // グリッドセルの配列（先頭は前月の空セル）

@@ -34,6 +34,7 @@ import ScheduleMonthView from './ScheduleMonthView'
 import ScheduleListView from './ScheduleListView'
 import ScheduleWeeklyTableView from './ScheduleWeeklyTableView'
 import { Toast, Loading } from '../ui'
+import { addDays, addMonths, getDay, parseISO, format } from 'date-fns'
 import { toJstDateStr, toJstTimeStr, isTodayJst, toJstMinutesSinceMidnight, makeDateJst } from '@/lib/jst'
 
 // ===========================================================
@@ -41,42 +42,33 @@ import { toJstDateStr, toJstTimeStr, isTodayJst, toJstMinutesSinceMidnight, make
 // ===========================================================
 
 /** "YYYY-MM-DD" に days を加算した "YYYY-MM-DD" を返す */
-function addDays(dateStr: string, days: number): string {
-  const [y, m, d] = dateStr.split('-').map(Number)
-  const result = new Date(Date.UTC(y, m - 1, d + days))
-  const yr = result.getUTCFullYear()
-  const mo = String(result.getUTCMonth() + 1).padStart(2, '0')
-  const dy = String(result.getUTCDate()).padStart(2, '0')
-  return `${yr}-${mo}-${dy}`
+function addDaysStr(dateStr: string, days: number): string {
+  return format(addDays(parseISO(dateStr), days), 'yyyy-MM-dd')
 }
 
 /** 指定 Date の週の日曜日を "YYYY-MM-DD"（JST）で返す（AIPO準拠: 週は日曜始まり） */
 function getSunday(date: Date): string {
-  const dateStr = toJstDateStr(date)
-  const [y, m, d] = dateStr.split('-').map(Number)
-  // UTC 基準で曜日を算出（日付のみで時刻なし）
-  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay() // 0=日, 1=月, ..., 6=土
-  return addDays(dateStr, -dow) // 日曜=0 はそのまま、月曜=1 は1日戻す、...
+  // toJstDateStr で JST 日付を確定してから曜日算出（タイムゾーン境界をまたがないよう）
+  const jstDateStr = toJstDateStr(date)
+  const dow = getDay(parseISO(jstDateStr))
+  return format(addDays(parseISO(jstDateStr), -dow), 'yyyy-MM-dd')
 }
 
 /** weekStart から 7 日分の "YYYY-MM-DD" 配列を返す */
 function getWeekDays(weekStart: string): string[] {
-  return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  return Array.from({ length: 7 }, (_, i) => addDaysStr(weekStart, i))
 }
 
 /** "YYYY-MM-DD" → "YYYY年M月D日（曜日）" */
 function formatJapaneseDate(dateStr: string): string {
   const [y, m, d] = dateStr.split('-').map(Number)
-  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay()
   const DOW_ALL = ['日', '月', '火', '水', '木', '金', '土']
-  return `${y}年${m}月${d}日（${DOW_ALL[dow]}）`
+  return `${y}年${m}月${d}日（${DOW_ALL[getDay(parseISO(dateStr))]}）`
 }
 
 /** "YYYY-MM-DD" に months を加算した "YYYY-MM-01" を返す（月ビューの月送り用） */
 function addMonth(dateStr: string, months: number): string {
-  const [y, m] = dateStr.split('-').map(Number)
-  const result = new Date(Date.UTC(y, m - 1 + months, 1))
-  return `${result.getUTCFullYear()}-${String(result.getUTCMonth() + 1).padStart(2, '0')}-01`
+  return format(addMonths(parseISO(dateStr.slice(0, 7) + '-01'), months), 'yyyy-MM-dd')
 }
 
 /**
@@ -564,11 +556,11 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
               onClick={() => {
                 if (viewMode === 'week' || viewMode === 'weekly') {
                   // viewDate を weekStart と同期させて設定保存・ビュー切替時の継続性を保つ
-                  const newStart = addDays(weekStart, -7)
+                  const newStart = addDaysStr(weekStart, -7)
                   setWeekStart(newStart)
                   setViewDate(newStart)
                 } else if (viewMode === 'day') {
-                  setViewDate(addDays(viewDate, -1))
+                  setViewDate(addDaysStr(viewDate, -1))
                 } else if (viewMode === 'month') {
                   setViewDate(addMonth(viewDate, -1))
                 }
@@ -581,11 +573,11 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
             <button
               onClick={() => {
                 if (viewMode === 'week' || viewMode === 'weekly') {
-                  const newStart = addDays(weekStart, 7)
+                  const newStart = addDaysStr(weekStart, 7)
                   setWeekStart(newStart)
                   setViewDate(newStart)
                 } else if (viewMode === 'day') {
-                  setViewDate(addDays(viewDate, 1))
+                  setViewDate(addDaysStr(viewDate, 1))
                 } else if (viewMode === 'month') {
                   setViewDate(addMonth(viewDate, 1))
                 }

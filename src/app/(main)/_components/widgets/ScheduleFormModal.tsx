@@ -5,7 +5,7 @@ import { X, RefreshCw, Calendar } from 'lucide-react'
 import type { ScheduleEntry, ScheduleInput, RepeatScheduleInput, ScheduleUser, FacilityWithGroup } from '@/lib/schedule.types'
 import type { RepeatType } from '@/lib/repeat'
 import { decodeRepeatPattern } from '@/lib/repeat'
-import { subDays } from 'date-fns'
+import { subDays, getDay, parseISO } from 'date-fns'
 import { toJstDateStr, toJstTimeStr, makeDateJst } from '@/lib/jst'
 import { getScheduleParticipantIdsAction, getScheduleUsersAction, getScheduleFacilityIdsAction, getFacilitiesAction } from '../../actions'
 import UserPickerModal from './UserPickerModal'
@@ -156,8 +156,7 @@ export default function ScheduleFormModal({
   // 毎週タブ選択時: 開始日の曜日をデフォルトチェックする（仕様: 「デフォルトは開始日の曜日にチェック」）
   useEffect(() => {
     if (repeatType === 'weekly' && !weekDays.some(Boolean) && dateStr) {
-      const [y, m, d] = dateStr.split('-').map(Number)
-      const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay()
+      const dow = getDay(parseISO(dateStr))
       const next = new Array(7).fill(false)
       next[dow] = true
       setWeekDays(next)

@@ -2,6 +2,7 @@
 
 import type { MultiUserScheduleEntry } from '@/lib/schedule.types'
 import { HOUR_PX, MIN_BLOCK_PX, USER_COLORS, PUBLIC_FLAG_COLORS, USER_BLOCK_COLORS, PUBLIC_FLAG_BLOCK_CLASSES } from '@/lib/schedule.constants'
+import { getDay, parseISO } from 'date-fns'
 import { toJstDateStr, toJstTimeStr, isTodayJst, toJstMinutesSinceMidnight } from '@/lib/jst'
 
 type PositionedSchedule = MultiUserScheduleEntry & {
@@ -78,7 +79,7 @@ export default function ScheduleDayView({
   onEmptySlotClick,
 }: Props) {
   const [y, m, d] = viewDate.split('-').map(Number)
-  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay()
+  const dow = getDay(parseISO(viewDate))
   const DOW_ALL = ['日', '月', '火', '水', '木', '金', '土']
 
   const holiday = holidays[viewDate] ?? null
