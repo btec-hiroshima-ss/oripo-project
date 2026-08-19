@@ -1,8 +1,9 @@
 'use client'
 
+import { addDays } from 'date-fns'
 import type { MultiUserScheduleEntry } from '@/lib/schedule.types'
 import { USER_COLORS, PUBLIC_FLAG_COLORS } from '@/lib/schedule.constants'
-import { toJstDateStr, toJstTimeStr, isTodayJst } from '@/lib/jst'
+import { makeDateJst, toJstDateStr, toJstTimeStr, isTodayJst } from '@/lib/jst'
 
 // AIPO の schedule-weekly.vm 相当（テーブル型週表示）
 // 7日間を列として並べ、各セルに予定名・時刻を列挙する
@@ -20,10 +21,8 @@ type Props = {
 
 const DOW_LABEL = ['日', '月', '火', '水', '木', '金', '土']
 
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(`${dateStr}T00:00:00+09:00`)
-  d.setUTCDate(d.getUTCDate() + days)
-  return toJstDateStr(d)
+function addDaysStr(dateStr: string, days: number): string {
+  return toJstDateStr(addDays(makeDateJst(dateStr), days))
 }
 
 export default function ScheduleWeeklyTableView({
@@ -35,7 +34,7 @@ export default function ScheduleWeeklyTableView({
   onScheduleClick,
   onEmptySlotClick,
 }: Props) {
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDaysStr(weekStart, i))
 
   // 日別の予定マップ（時刻順ソート済み）
   const schedulesByDay = new Map<string, MultiUserScheduleEntry[]>()

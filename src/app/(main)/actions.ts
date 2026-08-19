@@ -55,6 +55,7 @@ import type {
   MultiUserScheduleEntry,
   FacilityWithGroup,
 } from '@/lib/schedule.types'
+import { addDays, addWeeks } from 'date-fns'
 import { fetchHolidays } from '@/lib/holidays'
 import { makeDateJst } from '@/lib/jst'
 
@@ -142,7 +143,7 @@ export async function getWeekSchedulesAction(weekStart: string): Promise<Schedul
   const { userId } = await requireAuth()
   // weekStart を JST 00:00 として解釈し、7日間の範囲を計算する
   const from = makeDateJst(weekStart)
-  const to = new Date(from.getTime() + 7 * 24 * 60 * 60 * 1000)
+  const to = addWeeks(from, 1)
   return getWeekSchedules(userId, from, to)
 }
 
@@ -223,7 +224,7 @@ export async function getWeekSchedulesMultiAction(
 ): Promise<MultiUserScheduleEntry[]> {
   const { userId } = await requireAuth()
   const from = makeDateJst(weekStart)
-  const to = new Date(from.getTime() + 7 * 24 * 60 * 60 * 1000)
+  const to = addWeeks(from, 1)
   return getWeekSchedulesMulti(userId, userIds, from, to)
 }
 
@@ -285,7 +286,7 @@ export async function getDaySchedulesAction(
 ): Promise<MultiUserScheduleEntry[]> {
   const { userId } = await requireAuth()
   const from = makeDateJst(date)
-  const to = new Date(from.getTime() + 24 * 60 * 60 * 1000)
+  const to = addDays(from, 1)
   return getWeekSchedulesMulti(userId, userIds, from, to)
 }
 

@@ -1,4 +1,4 @@
-import { addDays } from 'date-fns'
+import { addDays, format } from 'date-fns'
 import { toZonedTime } from 'date-fns-tz'
 import { sql } from 'kysely'
 import { db } from './db'
@@ -31,8 +31,7 @@ export function parseJst(str: string): Date {
 
 /** UTC Date → "YYYY-MM-DD HH:MM:SS"（JST）。DB への書き込みや比較に使用する。 */
 export function toJstStr(date: Date): string {
-  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000)
-  return jst.toISOString().slice(0, 19).replace('T', ' ')
+  return format(toZonedTime(date, 'Asia/Tokyo'), 'yyyy-MM-dd HH:mm:ss')
 }
 
 // AIPO 独自シーケンスから次の PK を取得する。
