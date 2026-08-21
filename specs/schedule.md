@@ -418,7 +418,7 @@ getWeekSchedulesMulti(userIds: number[], from: Date, to: Date): Promise<MultiUse
 ```ts
 type ScheduleWidgetSettings = {
   weekDayGroupId?: number | null  // 週・日ビューの選択グループ ID（null=自分のみ）
-  viewMode?: 'week' | 'weekly' | 'day' | 'month' | 'list'  // デフォルト 'week'
+  viewMode?: 'block' | 'weekly' | 'day' | 'month' | 'list'  // デフォルト 'block'
   viewDate?: string               // YYYY-MM-DD、デフォルト 当日
 }
 ```
@@ -847,7 +847,7 @@ AIPO 準拠: `ScheduleSearchSelectData`（一覧検索）に相当。
 ```ts
 type ScheduleWidgetSettings = {
   weekDayGroupId?: number | null  // 週・日ビューの選択グループ ID（null=自分のみ）
-  viewMode?: 'week' | 'weekly' | 'day' | 'month' | 'list'  // デフォルト 'week'
+  viewMode?: 'block' | 'weekly' | 'day' | 'month' | 'list'  // デフォルト 'block'
   viewDate?: string               // YYYY-MM-DD、デフォルト 当日
 }
 ```
@@ -1054,7 +1054,7 @@ export type RepeatScheduleInput = {
 
 現在 `disabled` 状態の「ブロック」ボタンを有効化する。
 
-- ブロックボタンをクリックすると `viewMode='week'`（現在の週ビュー：週間グループカレンダー）に切り替わる
+- ブロックボタンをクリックすると `viewMode='block'`（週間グループカレンダー）に切り替わる
 - AIPO の `schedule-calendar.vm`（`tab='calendar'`）に相当するビューが「ブロック」である
   - AIPO では「ブロック」が AJAX 時刻ブロックカレンダー（`schedule-calendar.vm`）、「週」がテーブル型週表示（`schedule-weekly.vm`）にマッピングされる
 - 「週」ボタン（`viewMode='weekly'`）: AIPO `schedule-weekly.vm` 相当のテーブル型週表示（Phase E で実装）
@@ -1062,7 +1062,7 @@ export type RepeatScheduleInput = {
   - `ScheduleWeeklyTableView` コンポーネントで実装
   - グループフィルターは週・日ビューと共通の1段セレクトを使用する
   - セルクリックで予定追加フォームを開く（時刻は指定しない）
-- `settings.viewMode='week'` を復元した際は「ブロック」ボタンをアクティブ状態にする（ブロックがデフォルト）
+- `settings.viewMode='block'` を復元した際は「ブロック」ボタンをアクティブ状態にする（ブロックがデフォルト）
 
 ### スケジュールブロックのデザイン改善
 

@@ -138,7 +138,7 @@ export async function getActivityAction(
 
 // スケジュールウィジェット用。
 
-// weekStart: "YYYY-MM-DD"（JST 月曜日）。週の月曜〜翌週月曜 00:00 JST 範囲で取得する。
+// weekStart: "YYYY-MM-DD"（JST 日曜日）。週の日曜〜翌週日曜 00:00 JST 範囲で取得する。
 export async function getWeekSchedulesAction(weekStart: string): Promise<ScheduleEntry[]> {
   const { userId } = await requireAuth()
   // weekStart を JST 00:00 として解釈し、7日間の範囲を計算する
