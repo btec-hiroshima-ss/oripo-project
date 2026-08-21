@@ -1,8 +1,8 @@
 'use client'
 
 import type { MultiUserScheduleEntry } from '@/lib/schedule.types'
-import { USER_COLORS, PUBLIC_FLAG_COLORS, MAX_EVENTS_PER_CELL } from '@/lib/schedule.constants'
 import { getDaysInMonth, getDay, parseISO } from 'date-fns'
+import { USER_COLORS, PUBLIC_FLAG_COLORS, MAX_EVENTS_PER_CELL, dayTextColorClass } from '@/lib/schedule.constants'
 import { toJstDateStr, isTodayJst, toJstTimeStr } from '@/lib/jst'
 
 type Props = {
@@ -101,11 +101,7 @@ export default function ScheduleMonthView({
           const isToday = isTodayJst(dateStr)
 
           // 日=赤字、土=青字、祝=赤字
-          const dateColorClass = holiday
-            ? 'text-red-600'
-            : colIdx === 0 ? 'text-red-600'
-            : colIdx === 6 ? 'text-blue-600'
-            : 'text-gray-700'
+          const dateColorClass = dayTextColorClass(colIdx, !!holiday)
 
           const daySchedules = schedulesByDay.get(dateStr) ?? []
           // 開始時刻昇順でソート

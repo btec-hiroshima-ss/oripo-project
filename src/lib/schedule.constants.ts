@@ -18,6 +18,16 @@ export const DOW_JA = ['日', '月', '火', '水', '木', '金', '土']
 /** 一覧ビューの1ページあたり表示件数（仕様書 Phase D 準拠） */
 export const LIST_VIEW_PAGE_SIZE = 30
 
+/**
+ * 曜日インデックス（0=日, 6=土）と祝日フラグに応じたテキストカラークラスを返す。
+ * 日・祝=赤、土=青、平日=グレーで統一する（週・日・月ビュー共通）。
+ */
+export function dayTextColorClass(dowIndex: number, isHoliday = false): string {
+  if (isHoliday || dowIndex === 0) return 'text-red-600'
+  if (dowIndex === 6) return 'text-blue-600'
+  return 'text-gray-700'
+}
+
 /** 月ビューの1セル内に表示する最大予定件数（超過分は "+N件" で折りたたむ） */
 export const MAX_EVENTS_PER_CELL = 2
 

@@ -2,7 +2,7 @@
 
 import { addDays } from 'date-fns'
 import type { MultiUserScheduleEntry } from '@/lib/schedule.types'
-import { USER_COLORS, PUBLIC_FLAG_COLORS } from '@/lib/schedule.constants'
+import { USER_COLORS, PUBLIC_FLAG_COLORS, dayTextColorClass } from '@/lib/schedule.constants'
 import { makeDateJst, toJstDateStr, toJstTimeStr, isTodayJst } from '@/lib/jst'
 
 // AIPO の schedule-weekly.vm 相当（テーブル型週表示）
@@ -60,11 +60,7 @@ export default function ScheduleWeeklyTableView({
           const [, , d] = day.split('-')
           const holiday = holidays[day] ?? null
           const isToday = isTodayJst(day)
-          const colorClass = holiday
-            ? 'text-red-600'
-            : i === 6 ? 'text-blue-600'
-            : i === 0 ? 'text-red-600'
-            : 'text-gray-700'
+          const colorClass = dayTextColorClass(i, !!holiday)
           return (
             <div
               key={day}

@@ -26,7 +26,7 @@ import {
   getScheduleUsersAction,
 } from '../../actions'
 import type { ScheduleInput, RepeatScheduleInput, MultiUserScheduleEntry, ScheduleGroup, ScheduleUser } from '@/lib/schedule.types'
-import { MAX_USERS, HOUR_PX, MIN_BLOCK_PX, DOW_JA, USER_COLORS, PUBLIC_FLAG_COLORS, USER_BLOCK_COLORS, PUBLIC_FLAG_BLOCK_CLASSES } from '@/lib/schedule.constants'
+import { MAX_USERS, HOUR_PX, MIN_BLOCK_PX, DOW_JA, USER_COLORS, PUBLIC_FLAG_COLORS, USER_BLOCK_COLORS, PUBLIC_FLAG_BLOCK_CLASSES, dayTextColorClass } from '@/lib/schedule.constants'
 import ScheduleFormModal from './ScheduleFormModal'
 import ScheduleDetailModal from './ScheduleDetailModal'
 import ScheduleDayView from './ScheduleDayView'
@@ -71,15 +71,6 @@ function addMonth(dateStr: string, months: number): string {
   return format(addMonths(parseISO(dateStr.slice(0, 7) + '-01'), months), 'yyyy-MM-dd')
 }
 
-/**
- * 週ビュー列インデックスに対応するテキストカラークラス（日曜始まり: 0=日、6=土）
- * 月ビューと同じ配色（日=赤、土=青）を維持する
- */
-function dayTextColor(dowIndex: number): string {
-  if (dowIndex === 0) return 'text-red-600'  // 日
-  if (dowIndex === 6) return 'text-blue-600' // 土
-  return 'text-gray-700'
-}
 
 type PositionedSchedule = MultiUserScheduleEntry & {
   colIndex: number  // 重複グループ内の横位置（0 始まり）
@@ -180,7 +171,7 @@ function ScheduleBlock({ schedule, onClick }: ScheduleBlockProps) {
 // ScheduleWidget メインコンポーネント
 // ===========================================================
 
-type ViewMode = 'week' | 'weekly' | 'day' | 'month' | 'list'
+type ViewMode = 'block' | 'weekly' | 'day' | 'month' | 'list'
 
 type ScheduleWidgetSettings = {
   // AIPO 準拠: 週・日グループビューのグループフィルター（null = 自分のみ）
@@ -196,7 +187,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   const [weekStart, setWeekStart] = useState<string>(() => getSunday(new Date()))
   // 日/月ビューの基準日（YYYY-MM-DD JST）。週ビューの weekStart とは独立して管理する。
   const [viewDate, setViewDate] = useState<string>(() => toJstDateStr(new Date()))
-  const [viewMode, setViewMode] = useState<ViewMode>('week')
+  const [viewMode, setViewMode] = useState<ViewMode>('block')
   const [schedules, setSchedules] = useState<MultiUserScheduleEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
   // 他ユーザー所有の予定詳細モーダル（閲覧専用）
@@ -249,7 +240,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
     : weekDayGroupUsers.map((u) => u.userId)
 
   // 週・日ビューでグループメンバーが複数いる場合にマルチカラー表示を有効にする
-  const isMultiUser = (viewMode === 'week' || viewMode === 'weekly' || viewMode === 'day') && weekDayUserIds.length > 1
+  const isMultiUser = (viewMode === 'block' || viewMode === 'weekly' || viewMode === 'day') && weekDayUserIds.length > 1
 
   // viewUserIds の順番に対応するプリセット色マップ
   const userColorMap = new Map<number, string>(
@@ -310,7 +301,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
         if (s?.viewMode) setViewMode(s.viewMode)
         if (s?.viewDate) {
           setViewDate(s.viewDate)
-          if (s.viewMode === 'week' || s.viewMode === 'weekly') setWeekStart(getSunday(makeDateJst(s.viewDate)))
+          if (s.viewMode === 'block' || s.viewMode === 'weekly') setWeekStart(getSunday(makeDateJst(s.viewDate)))
         }
         // 保存済みのグループフィルターを復元する（null = 自分のみ）
         setWeekDayGroupId(s?.weekDayGroupId ?? null)
@@ -352,7 +343,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   // viewMode / weekStart / viewDate / weekDayGroupId / weekDayGroupUsers / nonWeekTargetUserId が
   // 変わったときにスケジュールを再取得する
   useEffect(() => {
-    const ids = (viewMode === 'week' || viewMode === 'weekly' || viewMode === 'day')
+    const ids = (viewMode === 'block' || viewMode === 'weekly' || viewMode === 'day')
       ? weekDayUserIds
       : nonWeekTargetUserId !== null ? [nonWeekTargetUserId] : []
     fetchSchedules(viewMode, weekStart, viewDate, ids)
@@ -426,7 +417,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
 
   // 追加・更新・削除後の再フェッチで使う実効ユーザー ID リスト
   function getEffectiveUserIds(): number[] {
-    return (viewMode === 'week' || viewMode === 'weekly' || viewMode === 'day')
+    return (viewMode === 'block' || viewMode === 'weekly' || viewMode === 'day')
       ? weekDayUserIds
       : nonWeekTargetUserId !== null ? [nonWeekTargetUserId] : []
   }
@@ -546,7 +537,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
                 const today = toJstDateStr(new Date())
                 setViewDate(today)
                 // 週系ビューは weekStart も今週に戻す
-                if (viewMode === 'week' || viewMode === 'weekly') setWeekStart(getSunday(new Date()))
+                if (viewMode === 'block' || viewMode === 'weekly') setWeekStart(getSunday(new Date()))
               }}
               className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600"
             >
@@ -554,7 +545,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
             </button>
             <button
               onClick={() => {
-                if (viewMode === 'week' || viewMode === 'weekly') {
+                if (viewMode === 'block' || viewMode === 'weekly') {
                   // viewDate を weekStart と同期させて設定保存・ビュー切替時の継続性を保つ
                   const newStart = addDaysStr(weekStart, -7)
                   setWeekStart(newStart)
@@ -572,7 +563,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
             </button>
             <button
               onClick={() => {
-                if (viewMode === 'week' || viewMode === 'weekly') {
+                if (viewMode === 'block' || viewMode === 'weekly') {
                   const newStart = addDaysStr(weekStart, 7)
                   setWeekStart(newStart)
                   setViewDate(newStart)
@@ -588,7 +579,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
               <ChevronRight className="w-4 h-4" />
             </button>
             <span className="text-xs text-gray-600 hidden sm:inline">
-              {(viewMode === 'week' || viewMode === 'weekly')
+              {(viewMode === 'block' || viewMode === 'weekly')
                 ? formatJapaneseDate(weekStart)
                 : viewMode === 'day'
                   ? formatJapaneseDate(viewDate)
@@ -603,10 +594,10 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
         {/* 表示モード + 予定追加ボタン */}
         <div className="flex items-center gap-1">
           {/* ビューモード切り替えボタン。
-              「ブロック」= AIPO schedule-calendar.vm 相当（時刻グリッド週間）→ viewMode='week'。
+              「ブロック」= AIPO schedule-calendar.vm 相当（時刻グリッド週間）→ viewMode='block'。
               「週」= AIPO schedule-weekly.vm 相当（テーブル型週表示）→ viewMode='weekly'。 */}
           {[
-            { label: 'ブロック', mode: 'week' as ViewMode },
+            { label: 'ブロック', mode: 'block' as ViewMode },
             { label: '日', mode: 'day' as ViewMode },
             { label: '週', mode: 'weekly' as ViewMode },
             { label: '月', mode: 'month' as ViewMode },
@@ -619,7 +610,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
                 type="button"
                 onClick={() => {
                   // 週系ビューに切り替える場合は viewDate をもとに weekStart を更新する
-                  if (mode === 'week' || mode === 'weekly') setWeekStart(getSunday(makeDateJst(viewDate)))
+                  if (mode === 'block' || mode === 'weekly') setWeekStart(getSunday(makeDateJst(viewDate)))
                   setViewMode(mode)
                 }}
                 className={`px-2 py-0.5 text-xs rounded border ${
@@ -643,7 +634,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
       {/* 週・日グループビュー用フィルター（AIPO weekly-group/oneday-group 準拠）:
           1段グループセレクトでグループを選択するとグループ全員を別列で並列表示する。
           空文字（自分のみ）がデフォルトで、ログインユーザーの予定のみ表示する。 */}
-      {(viewMode === 'week' || viewMode === 'weekly' || viewMode === 'day') && (
+      {(viewMode === 'block' || viewMode === 'weekly' || viewMode === 'day') && (
         <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 bg-gray-50">
           <select
             value={weekDayGroupId ?? ''}
@@ -695,7 +686,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
       <div ref={calendarRef} className="overflow-auto h-[calc(100vh-160px)] relative">
 
         {/* 週ビュー（時刻グリッド） */}
-        {viewMode === 'week' && (
+        {viewMode === 'block' && (
           // min-width: 時刻軸 40px + 7列 × 最小 64px = 488px（モバイル横スクロール）
           <div className="min-w-[490px]">
             {/* 曜日・日付ヘッダー（sticky top-0） */}
@@ -706,7 +697,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
                 const [, , d] = day.split('-').map(Number)
                 const holiday = holidays[day] ?? null
                 // 祝日は赤表示（土曜より優先）
-                const colorClass = holiday ? 'text-red-600' : dayTextColor(i)
+                const colorClass = dayTextColorClass(i, !!holiday)
                 const today = isTodayJst(day)
                 return (
                   <div
