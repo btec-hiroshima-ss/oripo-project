@@ -376,7 +376,8 @@ AIPO のスケジュール追加フォームに準拠したレイアウトを採
 ## API（Phase B 追加分）
 
 ```ts
-// グループ一覧取得（システムグループ除外、alias_name あり）
+// グループ一覧取得（部署（owner_id=1）＋ログインユーザーが作成したマイグループのみ）
+// AIPO 準拠: schedule-form-select-group.vm 相当。userId はサーバー側で requireAuth() から取得。
 getGroupListAction(): Promise<ScheduleGroup[]>
 
 // グループメンバー取得（アクティブユーザーのみ）

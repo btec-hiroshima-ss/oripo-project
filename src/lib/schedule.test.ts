@@ -650,23 +650,24 @@ describe('getScheduleUsers', () => {
 
 // ===========================================================
 describe('getGroupList', () => {
-  it('グループ一覧を ScheduleGroup 型に変換して返す', async () => {
+  it('部署（owner_id=1）とマイグループ（owner_id=userId）を ScheduleGroup 型に変換して返す', async () => {
     mockDb.execute.mockResolvedValueOnce([
-      { group_id: 10, group_alias_name: '営業部' },
-      { group_id: 20, group_alias_name: '開発部' },
+      { group_id: 10, group_alias_name: '営業部', owner_id: 1 },
+      { group_id: 20, group_alias_name: '開発部', owner_id: 1 },
+      { group_id: 30, group_alias_name: 'マイグループA', owner_id: 999 },
     ])
 
-    const result = await getGroupList()
+    const result = await getGroupList(999)
 
-    expect(result).toHaveLength(2)
+    expect(result).toHaveLength(3)
     expect(result[0]).toEqual({ groupId: 10, groupName: '営業部' })
-    expect(result[1]).toEqual({ groupId: 20, groupName: '開発部' })
+    expect(result[2]).toEqual({ groupId: 30, groupName: 'マイグループA' })
   })
 
   it('システムグループ（group_id=1,2,3）を除外する条件を設定する', async () => {
     mockDb.execute.mockResolvedValueOnce([])
 
-    await getGroupList()
+    await getGroupList(999)
 
     expect(mockDb.where).toHaveBeenCalledWith('group_id', 'not in', [1, 2, 3])
   })
@@ -698,7 +699,8 @@ describe('getGroupMembers', () => {
 
 // ===========================================================
 describe('getMyGroups', () => {
-  it('ログインユーザーが所属するグループ一覧を ScheduleGroup 型に変換して返す', async () => {
+  it('ログインユーザーが作成したマイグループ一覧を ScheduleGroup 型に変換して返す', async () => {
+    // AIPO 準拠: owner_id = userId のグループのみ（自分が作成したマイグループ）
     mockDb.execute.mockResolvedValueOnce([
       { group_id: 10, group_alias_name: 'レスコ チーム' },
       { group_id: 20, group_alias_name: 'SE主要' },
@@ -709,8 +711,8 @@ describe('getMyGroups', () => {
     expect(result).toHaveLength(2)
     expect(result[0]).toEqual({ groupId: 10, groupName: 'レスコ チーム' })
     expect(result[1]).toEqual({ groupId: 20, groupName: 'SE主要' })
-    // ログインユーザーの所属条件が設定されているか
-    expect(mockDb.where).toHaveBeenCalledWith('ugr.user_id', '=', 42)
+    // owner_id = userId の条件が設定されているか（AIPO 準拠）
+    expect(mockDb.where).toHaveBeenCalledWith('owner_id', '=', 42)
   })
 
   it('システムグループ（group_id=1,2,3）を除外する条件を設定する', async () => {
@@ -718,7 +720,7 @@ describe('getMyGroups', () => {
 
     await getMyGroups(1)
 
-    expect(mockDb.where).toHaveBeenCalledWith('g.group_id', 'not in', [1, 2, 3])
+    expect(mockDb.where).toHaveBeenCalledWith('group_id', 'not in', [1, 2, 3])
   })
 
   it('alias_name が null のグループを除外する条件を設定する', async () => {
@@ -726,7 +728,7 @@ describe('getMyGroups', () => {
 
     await getMyGroups(1)
 
-    expect(mockDb.where).toHaveBeenCalledWith('g.group_alias_name', 'is not', null)
+    expect(mockDb.where).toHaveBeenCalledWith('group_alias_name', 'is not', null)
   })
 
   it('グループが0件の場合は空配列を返す', async () => {

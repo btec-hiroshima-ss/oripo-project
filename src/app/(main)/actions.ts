@@ -241,10 +241,11 @@ export async function getMyGroupsAction(): Promise<ScheduleGroup[]> {
   return getMyGroups(userId)
 }
 
-// ユーザーピッカー用グループ一覧（システムグループ除外）
+// ユーザーピッカー用グループ一覧（部署 + マイグループ）
+// AIPO 準拠: 部署（owner_id=1）とログインユーザーが作成したマイグループのみ返す
 export async function getGroupListAction(): Promise<ScheduleGroup[]> {
-  await requireAuth()
-  return getGroupList()
+  const { userId } = await requireAuth()
+  return getGroupList(userId)
 }
 
 // グループメンバー一覧（ピッカーのグループ展開時に取得）
