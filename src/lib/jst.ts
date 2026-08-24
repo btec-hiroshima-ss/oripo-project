@@ -44,6 +44,15 @@ export function toJstMinutesSinceMidnight(date: Date): number {
 }
 
 /**
+ * 日付文字列 "YYYY-MM-DD" と時刻文字列 "HH:MM" から JST の Date を返す。
+ * timeStr 省略時は 00:00 JST（その日の深夜0時）。
+ * ScheduleFormModal での new Date(`${d}T${t}:00+09:00`) パターンを集約するため追加。
+ */
+export function makeDateJst(dateStr: string, timeStr?: string): Date {
+  return new Date(`${dateStr}T${timeStr ?? '00:00'}:00+09:00`)
+}
+
+/**
  * JST 文字列 "YYYY-MM-DD [HH:MM:SS]" → "YYYY年M月D日" または "YYYY年M月D日 H時MM分"
  * Server Action の返り値（ScheduleDetail.creatorDateJst 等）は Date が JSON 経由で
  * 文字列になるため、JST 文字列のまま受け取り整形する。

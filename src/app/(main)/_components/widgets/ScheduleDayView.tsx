@@ -1,13 +1,15 @@
 'use client'
 
 import type { MultiUserScheduleEntry } from '@/lib/schedule.types'
-import { HOUR_PX, MIN_BLOCK_PX, USER_COLORS, PUBLIC_FLAG_COLORS } from '@/lib/schedule.constants'
+import { HOUR_PX, MIN_BLOCK_PX, USER_COLORS, PUBLIC_FLAG_COLORS, USER_BLOCK_COLORS, PUBLIC_FLAG_BLOCK_CLASSES, dayTextColorClass } from '@/lib/schedule.constants'
+import { getDay, parseISO } from 'date-fns'
 import { toJstDateStr, toJstTimeStr, isTodayJst, toJstMinutesSinceMidnight } from '@/lib/jst'
 
 type PositionedSchedule = MultiUserScheduleEntry & {
   colIndex: number
   colCount: number
-  colorClass: string
+  colorClass: string      // 終日帯など全背景塗りつぶし用クラス
+  blockColorClass: string // 時刻グリッドのブロック用（左端バー + 薄い背景）
 }
 
 /** 同日の予定に横並び位置と色クラスを割り当てる（週ビューの positionSchedules と同ロジック） */
@@ -38,6 +40,14 @@ function positionSchedules(
     colorClass: isMultiUser
       ? (userColorMap.get(s.viewUserId) ?? USER_COLORS[0])
       : (PUBLIC_FLAG_COLORS[s.publicFlag as 'O' | 'P' | 'C'] ?? USER_COLORS[0]),
+    // 時刻グリッドのブロック用スタイル（左端カラーバー + 薄い背景）
+    blockColorClass: isMultiUser
+      ? (() => {
+          const colorVal = userColorMap.get(s.viewUserId) ?? USER_COLORS[0]
+          const idx = (USER_COLORS as readonly string[]).indexOf(colorVal)
+          return USER_BLOCK_COLORS[idx >= 0 ? idx : 0]
+        })()
+      : (PUBLIC_FLAG_BLOCK_CLASSES[s.publicFlag as 'O' | 'P' | 'C'] ?? USER_BLOCK_COLORS[0]),
   }))
 }
 
@@ -53,6 +63,8 @@ type Props = {
   userNames: Map<number, string>
   holidays: Record<string, string>
   onScheduleClick: (schedule: MultiUserScheduleEntry) => void
+  /** 空き時間クリックで予定追加（AIPO準拠）: クリック日と時刻を渡す */
+  onEmptySlotClick?: (dateStr: string, e: React.MouseEvent<HTMLDivElement>) => void
 }
 
 export default function ScheduleDayView({
@@ -64,17 +76,14 @@ export default function ScheduleDayView({
   userNames,
   holidays,
   onScheduleClick,
+  onEmptySlotClick,
 }: Props) {
   const [y, m, d] = viewDate.split('-').map(Number)
-  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay()
+  const dow = getDay(parseISO(viewDate))
   const DOW_ALL = ['日', '月', '火', '水', '木', '金', '土']
 
   const holiday = holidays[viewDate] ?? null
-  const colorClass = holiday
-    ? 'text-red-600'
-    : dow === 6 ? 'text-blue-600'
-    : dow === 0 ? 'text-red-600'
-    : 'text-gray-700'
+  const colorClass = dayTextColorClass(dow, !!holiday)
 
   const allDaySchedules = schedules.filter((s) => s.isAllDay)
   const timedSchedules = schedules.filter((s) => !s.isAllDay)
@@ -157,7 +166,11 @@ export default function ScheduleDayView({
             const userTimed = timedSchedules.filter((s) => s.viewUserId === uid)
             const positioned = positionSchedules(userTimed, userColorMap, true)
             return (
-              <div key={uid} className="flex-1 relative min-w-0 border-l border-gray-100">
+              <div
+                key={uid}
+                className="flex-1 relative min-w-0 border-l border-gray-100 cursor-pointer"
+                onClick={(e) => onEmptySlotClick?.(viewDate, e)}
+              >
                 {Array.from({ length: 24 }, (_, h) => (
                   <div
                     key={h}
@@ -176,7 +189,7 @@ export default function ScheduleDayView({
                     <button
                       key={`${ps.scheduleId}-${ps.viewUserId}`}
                       type="button"
-                      className={`absolute rounded px-0.5 py-0.5 text-left overflow-hidden hover:opacity-90 transition-opacity ${ps.colorClass}`}
+                      className={`absolute rounded px-0.5 py-0.5 text-left overflow-hidden hover:opacity-90 transition-opacity ${ps.blockColorClass}`}
                       style={{
                         top: `${top}px`,
                         height: `${height}px`,
@@ -263,7 +276,10 @@ export default function ScheduleDayView({
           ))}
         </div>
 
-        <div className="flex-1 relative min-w-0 border-l border-gray-100">
+        <div
+          className="flex-1 relative min-w-0 border-l border-gray-100 cursor-pointer"
+          onClick={(e) => onEmptySlotClick?.(viewDate, e)}
+        >
           {Array.from({ length: 24 }, (_, h) => (
             <div
               key={h}
@@ -282,7 +298,7 @@ export default function ScheduleDayView({
               <button
                 key={`${ps.scheduleId}-${ps.viewUserId}`}
                 type="button"
-                className={`absolute rounded px-0.5 py-0.5 text-left overflow-hidden hover:opacity-90 transition-opacity ${ps.colorClass}`}
+                className={`absolute rounded px-0.5 py-0.5 text-left overflow-hidden hover:opacity-90 transition-opacity ${ps.blockColorClass}`}
                 style={{
                   top: `${top}px`,
                   height: `${height}px`,

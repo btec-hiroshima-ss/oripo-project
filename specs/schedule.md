@@ -418,7 +418,7 @@ getWeekSchedulesMulti(userIds: number[], from: Date, to: Date): Promise<MultiUse
 ```ts
 type ScheduleWidgetSettings = {
   weekDayGroupId?: number | null  // 週・日ビューの選択グループ ID（null=自分のみ）
-  viewMode?: 'week' | 'day' | 'month' | 'list'  // デフォルト 'week'
+  viewMode?: 'block' | 'weekly' | 'day' | 'month' | 'list'  // デフォルト 'block'
   viewDate?: string               // YYYY-MM-DD、デフォルト 当日
 }
 ```
@@ -847,7 +847,7 @@ AIPO 準拠: `ScheduleSearchSelectData`（一覧検索）に相当。
 ```ts
 type ScheduleWidgetSettings = {
   weekDayGroupId?: number | null  // 週・日ビューの選択グループ ID（null=自分のみ）
-  viewMode?: 'week' | 'day' | 'month' | 'list'  // デフォルト 'week'
+  viewMode?: 'block' | 'weekly' | 'day' | 'month' | 'list'  // デフォルト 'block'
   viewDate?: string               // YYYY-MM-DD、デフォルト 当日
 }
 ```
@@ -886,7 +886,7 @@ getScheduleFacilityIdsAction(scheduleId: number): Promise<number[]>
 
 // 週・日ビュー用グループセレクト: ログインユーザーが所属するグループ一覧を取得
 // 全グループではなく自分が所属するグループのみ（AIPO getMyGroups 相当）
-getMyGroupsAction(userId: number): Promise<ScheduleGroup[]>
+getMyGroupsAction(): Promise<ScheduleGroup[]>  // userId はサーバー側で requireAuth() から取得（クライアントから渡さない）
 ```
 
 ### DB クエリ追加（`src/lib/schedule.ts`）
@@ -902,6 +902,10 @@ getFacilities(): Promise<FacilityWithGroup[]>
 
 // 設備空き確認（半開区間: start < endDate AND end > startDate）
 // excludeScheduleId: 編集中スケジュール自身を除外（自分の設備を「使用中」と誤判定しない）
+// 繰り返し予定の親レコード（repeat_pattern!='N' かつ parent_id=0）は end_date がシリーズ全体の
+// 終端（数年先）になるため除外する。AIPO は parent_id=0 を「親なし」として使用している。
+// 【既知の制限】繰り返し予定のパターン通りの発生（子レコードが存在しない仮想発生）は検出不可。
+// ただし AIPO 自体に設備の空き確認機能がないため、これは AIPO より高機能な状態であり許容する。
 getBookedFacilityIds(startDate: Date, endDate: Date, excludeScheduleId?: number): Promise<number[]>
 
 // 編集フォーム初期値用: type='F' のレコードから facility_id を取得
@@ -1035,3 +1039,161 @@ export type RepeatScheduleInput = {
 - [ ] 編集時、既存の予約設備がピッカーの初期選択状態で表示される
 - [ ] 設備なしで保存した予定は詳細モーダルに「予約設備」欄が表示されない
 - [ ] モバイル（375px）でも設備ピッカーが正しく操作できる
+
+---
+
+## モックアップ（Phase E）
+
+- ブロックビューのスケジュールブロックデザイン（左端カラーバー）: `specs/images/ホーム.png` を参照
+
+---
+
+## 機能要件（Phase E）
+
+### ブロックビューの有効化
+
+現在 `disabled` 状態の「ブロック」ボタンを有効化する。
+
+- ブロックボタンをクリックすると `viewMode='block'`（週間グループカレンダー）に切り替わる
+- AIPO の `schedule-calendar.vm`（`tab='calendar'`）に相当するビューが「ブロック」である
+  - AIPO では「ブロック」が AJAX 時刻ブロックカレンダー（`schedule-calendar.vm`）、「週」がテーブル型週表示（`schedule-weekly.vm`）にマッピングされる
+- 「週」ボタン（`viewMode='weekly'`）: AIPO `schedule-weekly.vm` 相当のテーブル型週表示（Phase E で実装）
+  - 7列（日〜土）のグリッドで各セルに予定名・開始時刻を一覧表示する
+  - `ScheduleWeeklyTableView` コンポーネントで実装
+  - グループフィルターは週・日ビューと共通の1段セレクトを使用する
+  - セルクリックで予定追加フォームを開く（時刻は指定しない）
+- `settings.viewMode='block'` を復元した際は「ブロック」ボタンをアクティブ状態にする（ブロックがデフォルト）
+
+### スケジュールブロックのデザイン改善
+
+モックアップ（`specs/images/ホーム.png`）準拠。現在の実装では予定ブロックが背景色で一面塗りだが、モックアップでは薄い背景色 + 左端の縦カラーバーの組み合わせになっている。
+
+- 週・日ビューの `ScheduleBlock` に左端縦カラーバー（`border-l-2` 相当）を追加する
+- ブロック背景色は現在の solid から薄い色（`/15` 透過）に変更する
+- カラーバー色は現在の背景色（solid）をそのまま適用する
+- テキストは `text-gray-900`（濃いグレー）で視認性を確保する
+
+### 空き時間クリックで予定追加
+
+AIPO の週ビュー・日ビューでは、スケジュールが登録されていない時間帯をクリック（またはドラッグ）するとその時刻で予定登録フォームが開く。
+
+- 週ビュー: 各日カラムの空き時間帯をクリックすると、クリックした日時を初期値として予定追加フォームが開く
+- 日ビュー（`ScheduleDayView`）: 空き時間帯をクリックすると同様に予定追加フォームが開く
+- クリック位置から時刻を算出（`HOUR_PX` を使用して `top` から分単位で計算、30分単位に丸める）
+- 予定追加フォームの初期値: `date=クリック日`, `startTime=クリック時刻`, `endTime=startTime+1時間`
+  - **Oripo 独自の簡化**: AIPO はドラッグ範囲で `startTime`/`endTime` を決定し、クリック時は `endTime=startTime+30分` になるが、Oripo ではドラッグ選択を省略しクリック単操作で `endTime=startTime+1時間` 固定とする
+
+### JST 変換ユーティリティ追加
+
+`ScheduleFormModal.tsx` に `new Date(\`${dateStr}T${time}:00+09:00\`)` パターンが多数散在している。
+`src/lib/jst.ts` に共通関数 `makeDateJst` を追加して集約する。
+
+```ts
+// 'YYYY-MM-DD' + 'HH:MM' → JST を UTC で表現した Date
+// timeStr を省略した場合は 00:00 JST（その日の深夜0時）
+export function makeDateJst(dateStr: string, timeStr?: string): Date {
+  return new Date(`${dateStr}T${timeStr ?? '00:00'}:00+09:00`)
+}
+```
+
+### 設備・ユーザーピッカーの共通コンポーネント化
+
+`FacilityPickerModal.tsx` と `UserPickerModal.tsx` はモーダルシェル（ヘッダー・2カラムコンテナ・フッター）の UI 構造を共有しているため、ここだけを共通コンポーネント `TwoColumnPickerModal` に抽出する。
+
+- 共通コンポーネント `TwoColumnPickerModal` を `src/app/(main)/_components/widgets/TwoColumnPickerModal.tsx` に作成する
+- `PickerItem[]`（アイテムデータ）と `selectionMode` を渡すデータ駆動型で実装する
+  - `immediate` モード（設備): 各行に「追加」リンク・左パネルに「削除」リンク
+  - `highlight` モード（ユーザー): クリックでハイライット→「追加」ボタンで確定、ハイライット状態はコンポーネント内部で管理
+- ローディング表示（`isLoading`）・検索・グループ絞り込みも共通化
+- `FacilityPickerModal` と `UserPickerModal` はデータを組み立てて渡すだけになる
+
+---
+
+## API（Phase E 追加分）
+
+なし（既存 Action で対応可能）
+
+---
+
+## データモデル（Phase E）
+
+### TwoColumnPickerModal コンポーネント Props
+
+`FacilityPickerModal` と `UserPickerModal` はどちらも `selectionMode="immediate"` を使用する（AIPO 仕様確認済み: 両者とも単一クリック即追加で統一）。
+- **仕様変更**: 当初 `UserPickerModal` は `highlight` モード（ハイライット→まとめて追加）を想定していたが、AIPO 実装確認の結果 `FacilityPickerModal` と同じ即時追加方式に統一した。
+- `locked` アイテム（自分自身など）は削除不可で「（自分）」ラベルを表示する。
+- `highlight` モードのコードは `TwoColumnPickerModal` 内に残存しており、将来的な拡張に対応可能。
+
+```ts
+export type PickerItem = {
+  id: number
+  label: string
+  badge?: string       // 「使用中」等のバッジテキスト
+  disabled?: boolean   // immediate モードで追加不可
+  locked?: boolean     // 削除不可（自分自身など）: immediate では「削除」ボタンを非表示にし「（自分）」ラベルを表示する
+}
+
+type TwoColumnPickerModalProps = {
+  title: string
+  leftLabel: string
+  selectedItems: PickerItem[]
+  availableItems: PickerItem[]
+  selectionMode: 'immediate' | 'highlight'
+  onAdd: (ids: number[]) => void
+  onRemove: (ids: number[]) => void
+  leftHeaderExtra?: React.ReactNode   // 「N 人選択中」等
+  searchValue?: string
+  onSearchChange?: (v: string) => void
+  searchPlaceholder?: string
+  filterOptions?: Array<{ value: string; label: string }>
+  filterValue?: string
+  onFilterChange?: (v: string) => void
+  isLoading?: boolean
+  onConfirm: () => void
+  onClose: () => void
+}
+```
+
+---
+
+## 受け入れ条件（Phase E）
+
+### ブロックビュー有効化
+
+- [ ] 「ブロック」ボタンをクリックするとアクティブ状態になり週間グループカレンダーが表示される
+- [ ] 「ブロック」ボタンは `disabled`（灰色・クリック不可）ではなくボタンとして機能する
+
+### スケジュールブロックのデザイン
+
+- [ ] 週ビュー・日ビューの予定ブロックに左端縦カラーバーが表示される
+- [ ] ブロックの背景色が薄く（半透明）表示され、テキストが読みやすい
+
+### 空き時間クリックで予定追加
+
+- [ ] 週ビューの空き時間帯をクリックするとクリック位置の日時（30分単位）で予定追加フォームが開く
+- [ ] 日ビューの空き時間帯をクリックするとクリック位置の時刻（30分単位）で予定追加フォームが開く
+- [ ] 空き時間クリックで開いたフォームに正しい日付・開始時刻が初期値として入力されている
+
+### JST 変換ユーティリティ
+
+- [ ] `jst.ts` に `makeDateJst(dateStr, timeStr?)` 関数が追加されている
+- [ ] `ScheduleFormModal.tsx` のテンプレートリテラル変換が `makeDateJst` に置き換えられている
+
+### 設備・ユーザーピッカー共通コンポーネント
+
+- [ ] `TwoColumnPickerModal` コンポーネントが作成されている
+- [ ] `FacilityPickerModal` と `UserPickerModal` が `TwoColumnPickerModal` を使用している
+- [ ] 既存の設備選択・ユーザー選択の動作が変わらない
+- [ ] `UserPickerModal` が `selectionMode="immediate"` を使用している（クリックで即追加・削除リンクで即削除）
+
+### 週テーブルビュー（`viewMode='weekly'`）
+
+- [ ] 「週」ボタンをクリックすると `viewMode='weekly'` に切り替わり、テーブル型週表示が表示される
+- [ ] 7列（日〜土）のグリッドで各日の予定が列挙表示される
+- [ ] 各予定に開始時刻（終日予定を除く）と予定名が表示される
+- [ ] 前週・次週ナビゲーション、今日ボタンが機能する
+- [ ] グループフィルター（1段セレクト）が表示される
+- [ ] 日付セルをクリックすると予定追加フォームが開く
+- [ ] 予定をクリックすると詳細モーダル or 編集フォームが開く（週ビューと同じ挙動）
+- [ ] 祝日は日曜と同様に赤色で表示される
+- [ ] 今日のセルが強調表示（背景オレンジ）される
