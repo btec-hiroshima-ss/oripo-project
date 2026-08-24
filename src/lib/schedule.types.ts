@@ -1,3 +1,5 @@
+import type { RepeatType } from './repeat'
+
 export type ScheduleEntry = {
   scheduleId: number
   name: string
@@ -26,6 +28,21 @@ export type ScheduleDetail = {
   updaterDateJst: string
   /** 参加ユーザー名の配列（owner 含む） */
   participantNames: string[]
+  /** Phase D: 予約設備名の配列（予約なしの場合は空配列） */
+  facilityNames: string[]
+}
+
+// ===========================================================
+// Phase D: 設備予約
+// ===========================================================
+
+/** 設備ピッカー表示用。グループ名を含む設備情報 */
+export type FacilityWithGroup = {
+  facilityId: number
+  facilityName: string
+  /** eip_m_facility_group.group_name。グループ未所属の場合は null */
+  groupName: string | null
+  sort: number
 }
 
 export type ScheduleInput = {
@@ -38,6 +55,44 @@ export type ScheduleInput = {
   publicFlag: 'O' | 'P' | 'C'
   /** Phase B: 参加ユーザー ID リスト。指定なしの場合は作成者のみを登録する */
   participantIds?: number[]
+  /**
+   * 期間で指定（Phase C）: isAllDay=true かつ複数日にまたがる場合に指定する。
+   * この日（含む）の翌日00:00 JST を exclusive end として DB に格納する。
+   * 未指定の場合は通常の終日予定（start_date=end_date）として扱う。
+   */
+  periodEndDate?: Date
+  /** Phase D: 予約設備 ID リスト（eip_t_schedule_map type='F' で登録される） */
+  facilityIds?: number[]
+}
+
+// ===========================================================
+// Phase C: 繰り返し予定
+// ===========================================================
+
+/** 繰り返し予定の作成・全件更新時の入力型 */
+export type RepeatScheduleInput = {
+  name: string
+  note?: string
+  place?: string
+  /** 最初の出現日の開始時刻 */
+  startDate: Date
+  /** 最初の出現日の終了時刻（startDate との差分が各繰り返し回の長さ） */
+  endDate: Date
+  publicFlag: 'O' | 'P' | 'C'
+  participantIds?: number[]
+  repeatType: RepeatType
+  /** 毎週の場合の曜日フラグ [日, 月, 火, 水, 木, 金, 土] */
+  weekDays?: boolean[]
+  /**
+   * 繰り返し期間の開始日（AIPO の limit_start_date 準拠）。
+   * 指定した場合、その日付以降の出現日から子レコードを生成する。
+   * 未指定の場合は startDate を使用する。
+   */
+  limitStartDate?: Date | null
+  /** null = 2年分展開（無期限） */
+  limitEndDate?: Date | null
+  /** Phase D: 予約設備 ID リスト（eip_t_schedule_map type='F' で登録される） */
+  facilityIds?: number[]
 }
 
 // ===========================================================

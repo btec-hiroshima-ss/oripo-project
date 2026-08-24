@@ -6,15 +6,10 @@ import type { ScheduleEntry, ScheduleDetail } from '@/lib/schedule.types'
 import { getScheduleDetailAction } from '../../actions'
 import { toJstDateJa, toJstTimeStr, formatJstDatetime } from '@/lib/jst'
 
-type DeleteScope = 'single' | 'all' | 'participants'
-
+// 詳細モーダルは他ユーザーの予定閲覧専用。自分の予定はクリック時に直接編集フォームが開く（AIPO準拠）。
 type Props = {
   schedule: ScheduleEntry
   onClose: () => void
-  onEdit: () => void
-  /** 削除スコープを受け取る。"single"=この予定のみ、"all"=完全に削除、"participants"=参加ユーザー全員の予定を削除 */
-  onDelete: (scope: DeleteScope) => void
-  onCopy: () => void
 }
 
 const PUBLIC_FLAG_LABEL: Record<'O' | 'P' | 'C', string> = {
@@ -23,19 +18,8 @@ const PUBLIC_FLAG_LABEL: Record<'O' | 'P' | 'C', string> = {
   C: '完全に隠す',
 }
 
-const DELETE_OPTIONS: { value: DeleteScope; label: string }[] = [
-  { value: 'single', label: 'この予定のみを削除します' },
-  { value: 'all', label: 'この予定を完全に削除します' },
-  { value: 'participants', label: '参加ユーザー全員の予定を削除します' },
-]
-
-export default function ScheduleDetailModal({ schedule, onClose, onEdit, onDelete, onCopy }: Props) {
+export default function ScheduleDetailModal({ schedule, onClose }: Props) {
   const [detail, setDetail] = useState<ScheduleDetail | null>(null)
-  const [deleteScope, setDeleteScope] = useState<DeleteScope>('single')
-
-  // 繰り返し子レコードは Phase C まで編集・削除不可
-  const isRepeatChild = schedule.parentId > 0
-  const canEdit = schedule.isOwner && !isRepeatChild
 
   useEffect(() => {
     getScheduleDetailAction(schedule.scheduleId).then(setDetail).catch(() => {})
@@ -83,75 +67,22 @@ export default function ScheduleDetailModal({ schedule, onClose, onEdit, onDelet
               {detail.participantNames.length > 0 && (
                 <Row label="参加ユーザー" value={detail.participantNames.join('、')} />
               )}
+              {/* 予約設備: 1件以上ある場合のみ表示（Phase D） */}
+              {detail.facilityNames.length > 0 && (
+                <Row label="予約設備" value={detail.facilityNames.join('、')} />
+              )}
               <Row label="登録者" value={`${detail.creatorName}（${formatJstDatetime(detail.creatorDateJst)}）`} />
               <Row label="更新者" value={`${detail.updaterName}（${formatJstDatetime(detail.updaterDateJst)}）`} />
             </>
           )}
 
-          {/* 繰り返し予定の案内（Phase C で編集対応） */}
-          {isRepeatChild && (
-            <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
-              繰り返し予定です（編集は Phase C で対応予定）
-            </p>
-          )}
-
-          {/* 削除する場合の条件（owner のみ表示） */}
-          {canEdit && (
-            <div className="pt-2">
-              <p className="text-xs text-gray-500 mb-2">削除する場合の条件</p>
-              <div className="space-y-1.5">
-                {DELETE_OPTIONS.map((opt) => (
-                  <label
-                    key={opt.value}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs cursor-pointer ${
-                      deleteScope === opt.value
-                        ? 'border-brand bg-orange-50 text-brand'
-                        : 'border-gray-200 text-gray-700'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="deleteScope"
-                      value={opt.value}
-                      checked={deleteScope === opt.value}
-                      onChange={() => setDeleteScope(opt.value)}
-                      className="accent-brand"
-                    />
-                    {opt.label}
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* フッターボタン */}
-        <div className="px-5 pb-5 flex gap-2 flex-wrap">
-          {canEdit ? (
-            <>
-              <button
-                onClick={onEdit}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
-              >
-                編集する
-              </button>
-              <button
-                onClick={() => onDelete(deleteScope)}
-                className="px-3 py-2 text-sm text-white bg-red-500 rounded-lg hover:bg-red-600"
-              >
-                削除する
-              </button>
-              <button
-                onClick={onCopy}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
-              >
-                コピーして登録する
-              </button>
-            </>
-          ) : null}
+        {/* フッターボタン（閲覧専用: 閉じるのみ） */}
+        <div className="px-5 pb-5 flex gap-2">
           <button
             onClick={onClose}
-            className={`px-3 py-2 text-sm font-medium text-white bg-brand rounded-lg hover:bg-brand-dark ${canEdit ? '' : 'flex-1'}`}
+            className="flex-1 px-3 py-2 text-sm font-medium text-white bg-brand rounded-lg hover:bg-brand-dark"
           >
             閉じる
           </button>

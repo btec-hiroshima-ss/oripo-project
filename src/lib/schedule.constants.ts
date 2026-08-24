@@ -10,10 +10,76 @@ export const HOUR_PX = 60
 export const MIN_BLOCK_PX = 20
 
 /**
- * 週カレンダーの曜日ラベル（月曜始まり順）。
- * jst.ts の DOW_JA（日曜始まり、getDay() 対応）とは順序が異なる。
+ * 週カレンダーの曜日ラベル（日曜始まり順、AIPO準拠）。
+ * インデックス 0=日 〜 6=土 で、getWeekDays の先頭（日曜）から並ぶ。
  */
-export const DOW_JA = ['月', '火', '水', '木', '金', '土', '日']
+export const DOW_JA = ['日', '月', '火', '水', '木', '金', '土']
+
+/** 一覧ビューの1ページあたり表示件数（仕様書 Phase D 準拠） */
+export const LIST_VIEW_PAGE_SIZE = 30
+
+/**
+ * 曜日インデックス（0=日, 6=土）と祝日フラグに応じたテキストカラークラスを返す。
+ * 日・祝=赤、土=青、平日=グレーで統一する（週・日・月ビュー共通）。
+ */
+export function dayTextColorClass(dowIndex: number, isHoliday = false): string {
+  if (isHoliday || dowIndex === 0) return 'text-red-600'
+  if (dowIndex === 6) return 'text-blue-600'
+  return 'text-gray-700'
+}
+
+/** 月ビューの1セル内に表示する最大予定件数（超過分は "+N件" で折りたたむ） */
+export const MAX_EVENTS_PER_CELL = 2
+
+/**
+ * 単独ユーザービューで使用する公開区分ごとの色クラス。
+ * 月ビュー・日ビュー・週ビューで共通して使用する。
+ */
+export const PUBLIC_FLAG_COLORS: Record<'O' | 'P' | 'C', string> = {
+  O: 'bg-brand text-white',
+  P: 'bg-gray-400 text-white',
+  C: 'bg-gray-600 text-white',
+}
+
+/**
+ * 週・日ビューの ScheduleBlock 用スタイル（左端カラーバー + 薄い背景）。
+ * モックアップ（specs/images/ホーム.png）準拠。
+ * PUBLIC_FLAG_COLORS と対応する公開区分ごとに定義する。
+ * Tailwind のパージ対策として全クラス名を静的に列挙する。
+ */
+export const PUBLIC_FLAG_BLOCK_CLASSES: Record<'O' | 'P' | 'C', string> = {
+  O: 'border-l-2 border-brand bg-brand/15 text-gray-900',
+  P: 'border-l-2 border-gray-400 bg-gray-400/15 text-gray-900',
+  C: 'border-l-2 border-gray-600 bg-gray-600/15 text-gray-900',
+}
+
+/**
+ * マルチユーザービューの ScheduleBlock 用スタイル（左端カラーバー + 薄い背景）。
+ * USER_COLORS と対応するユーザー順で定義する。
+ * Tailwind のパージ対策として全クラス名を静的に列挙する。
+ */
+export const USER_BLOCK_COLORS = [
+  'border-l-2 border-brand bg-brand/15 text-gray-900',       // 0: 自分（オレンジ）
+  'border-l-2 border-blue-500 bg-blue-500/15 text-gray-900', // 1
+  'border-l-2 border-green-500 bg-green-500/15 text-gray-900', // 2
+  'border-l-2 border-purple-500 bg-purple-500/15 text-gray-900', // 3
+  'border-l-2 border-teal-500 bg-teal-500/15 text-gray-900', // 4
+  'border-l-2 border-pink-500 bg-pink-500/15 text-gray-900', // 5
+  'border-l-2 border-amber-500 bg-amber-500/15 text-gray-900', // 6
+  'border-l-2 border-indigo-500 bg-indigo-500/15 text-gray-900', // 7
+  'border-l-2 border-red-400 bg-red-400/15 text-gray-900',   // 8
+  'border-l-2 border-cyan-500 bg-cyan-500/15 text-gray-900', // 9
+  'border-l-2 border-lime-500 bg-lime-500/15 text-gray-900', // 10
+  'border-l-2 border-orange-400 bg-orange-400/15 text-gray-900', // 11
+  'border-l-2 border-violet-500 bg-violet-500/15 text-gray-900', // 12
+  'border-l-2 border-rose-400 bg-rose-400/15 text-gray-900', // 13
+  'border-l-2 border-emerald-500 bg-emerald-500/15 text-gray-900', // 14
+  'border-l-2 border-fuchsia-500 bg-fuchsia-500/15 text-gray-900', // 15
+  'border-l-2 border-sky-500 bg-sky-500/15 text-gray-900',   // 16
+  'border-l-2 border-yellow-500 bg-yellow-500/15 text-gray-900', // 17
+  'border-l-2 border-slate-500 bg-slate-500/15 text-gray-900', // 18
+  'border-l-2 border-blue-700 bg-blue-700/15 text-gray-900', // 19
+] as const
 
 /**
  * マルチユーザービューで使用するプリセットカラー。

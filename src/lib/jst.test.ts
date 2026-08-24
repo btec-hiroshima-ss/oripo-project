@@ -6,6 +6,7 @@ import {
   isTodayJst,
   toJstMinutesSinceMidnight,
   formatJstDatetime,
+  makeDateJst,
 } from './jst'
 
 // 受け入れ条件ベースのテスト:
@@ -96,6 +97,26 @@ describe('toJstMinutesSinceMidnight', () => {
 
   test('UTC 15:00 → JST 00:00 (翌日) = 0分', () => {
     expect(toJstMinutesSinceMidnight(new Date('2026-07-22T15:00:00Z'))).toBe(0)
+  })
+})
+
+describe('makeDateJst', () => {
+  test('"YYYY-MM-DD" と "HH:MM" から JST の Date を返す', () => {
+    // 2026-07-22 10:00 JST = 2026-07-22 01:00:00 UTC
+    const result = makeDateJst('2026-07-22', '10:00')
+    expect(result.toISOString()).toBe('2026-07-22T01:00:00.000Z')
+  })
+
+  test('timeStr を省略すると 00:00 JST（その日の深夜0時）になる', () => {
+    // 2026-07-22 00:00 JST = 2026-07-21 15:00:00 UTC
+    const result = makeDateJst('2026-07-22')
+    expect(result.toISOString()).toBe('2026-07-21T15:00:00.000Z')
+  })
+
+  test('日付をまたぐ深夜 00:30 JST が正しく変換される', () => {
+    // 2026-07-22 00:30 JST = 2026-07-21 15:30:00 UTC
+    const result = makeDateJst('2026-07-22', '00:30')
+    expect(result.toISOString()).toBe('2026-07-21T15:30:00.000Z')
   })
 })
 
