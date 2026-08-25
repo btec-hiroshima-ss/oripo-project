@@ -1,6 +1,6 @@
 import { addDays, format } from 'date-fns'
 import { toZonedTime } from 'date-fns-tz'
-import { sql } from 'kysely'
+import { sql, type SqlBool } from 'kysely'
 import { db } from './db'
 import { logger } from './logger'
 import type {
@@ -999,7 +999,7 @@ export async function getBookedFacilityIds(
     // 繰り返し予定の親レコードは end_date がシリーズ全体の終端（数年先）になるため除外する。
     // AIPO は parent_id=0 を「親なし」として使用するため、
     // root 親（repeat_pattern != 'N' かつ parent_id = 0）のみを除外する。
-    .where(sql`(s.repeat_pattern = 'N' OR s.parent_id != 0)`)
+    .where(sql<SqlBool>`(s.repeat_pattern = 'N' OR s.parent_id != 0)`)
     // 時刻が重複する予定を検索（exclusive end の半開区間）
     .where(sql`s.start_date::text`, '<', endStr)
     .where(sql`s.end_date::text`, '>', startStr)
