@@ -104,7 +104,9 @@ Quick Tunnel の URL は **tunnel コンテナが起動し直すたびに変わ�
 | `docker compose -f docker-compose.prod.yml down` → `up -d`、`restart tunnel` | **変わる** |
 | `docker-compose.prod.yml` の `tunnel` の設定・イメージを変更してデプロイ | **変わる** |
 
-URL を変えたくないときは、`app` だけを操作する（例: `docker compose -f docker-compose.prod.yml up -d --force-recreate app`）。
+URL を変えたくないときは、`app` だけを操作する（例: `docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate app`）。
+`depends_on` は起動順を決めるだけで、`app` を作り直しても `tunnel` は作り直されない（Docker Compose v5.5 で確認、2026-10-01）。念のため `--no-deps` を付ける。
+デプロイ後に URL が変わっていないかは `./scripts/tunnel-url.sh` で確認できる。
 
 ### 制約（Cloudflare の Quick Tunnel の仕様）
 
@@ -114,6 +116,8 @@ URL を変えたくないときは、`app` だけを操作する（例: `docker 
 - URL がランダムで、再起動のたびに変わる
 
 社内向けの暫定運用としては許容するが、上記のため正式運用は名前付き Tunnel（独自ドメイン）で行う。
+
+---
 
 ## 動作確認
 
