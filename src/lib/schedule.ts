@@ -35,6 +35,12 @@ const DUMMY_MAP_STATUS = 'D'
 const NON_REPEAT_PATTERNS = ['N', 'S']
 // 一覧ビュー（一覧モード）の表示日数（AIPO ScheduleListContainer.SCHEDULE_LIST_DATE_LIMIT 準拠）
 export const LIST_VIEW_DAYS = 7
+// 終了日なしの繰り返しの空き確認でダミーを取得する範囲の上限（上限なしを表す。日付の文字列比較で使う）
+const NO_UPPER_DATE = '9999-12-31'
+
+// 繰り返しの親が「終了日なし」（repeat_pattern の末尾が 'N'）かを判定する SQL 式。
+// 終了日なしの親は end_date が最初の出現の終了時刻のため、end_date で範囲を絞り込めない
+const isUnlimitedRepeatSql = sql<SqlBool>`right(s.repeat_pattern, 1) = 'N'`
 
 // DB は Asia/Tokyo のタイムゾーンで "timestamp without time zone" カラムに JST を格納している。
 // Node.js の pg クライアントは timezone 情報なしの timestamp を UTC として扱うためズレが生じる。
@@ -65,7 +71,7 @@ async function nextSeqId(seqName: string): Promise<number> {
 
 /**
  * AIPO 独自シーケンスから N 件の PK を一括取得する。
- * 繰り返し予定の子レコード一括 INSERT 前に使用する。
+ * 設備・参加者・ダミーの map を一括 INSERT する前に使用する。
  * generate_series で1クエリにまとめることで N+1 を回避する。
  */
 async function nextNSeqIds(seqName: string, count: number): Promise<number[]> {
@@ -506,7 +512,7 @@ export async function getWeekSchedulesMulti(
     .where(sql`s.start_date::text`, '<', toStr)
     .where((eb) =>
       eb.or([
-        eb(sql`right(s.repeat_pattern, 1)`, '=', 'N'),
+        isUnlimitedRepeatSql,
         eb(sql`s.end_date::text`, '>=', fromStr),
       ])
     )
@@ -739,8 +745,9 @@ export async function addRepeatSchedule(userId: number, input: RepeatScheduleInp
     input.repeatType,
     hasLimit,
     input.weekDays,
-    // 毎月は開始日の日付を毎月の日付にする
-    input.repeatType === 'monthly' ? Number(limitStartStr.slice(8, 10)) : undefined,
+    // 毎月は「開始日」の日付を毎月の日付にする（Phase C 仕様。繰り返し開始日ではない）。
+    // 設備ピッカー（ScheduleFormModal）も開始日の日付で空き確認するため揃える
+    input.repeatType === 'monthly' ? Number(toJstDateStr(input.startDate).slice(8, 10)) : undefined,
   )
 
   const firstDate = findFirstPatternDate(repeatPattern, limitStartStr)
@@ -926,7 +933,12 @@ export async function getListSchedules(
 ): Promise<MultiUserScheduleEntry[]> {
   const to = addDays(from, LIST_VIEW_DAYS)
   const entries = await getWeekSchedulesMulti(loginUserId, userIds, from, to)
-  return entries.sort((a, b) => a.startDate.getTime() - b.startDate.getTime())
+  // getWeekSchedulesMulti は長さ 0 の終日予定を初日に出すため end >= from で取得している。
+  // 期間予定の end_date は「最終日の翌日 00:00」（排他的終端）のため、そのままでは前日に終わった期間予定が
+  // 表示開始日の予定として出てしまう。終了が表示開始日ちょうどの予定は、長さ 0 のもの（開始も表示開始日以降）以外を除く
+  return entries
+    .filter((e) => e.endDate > from || e.startDate >= from)
+    .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())
 }
 
 /**
@@ -957,6 +969,9 @@ export async function searchSchedules(
       ])
     )
     .orderBy(sql`s.start_date::text`, 'desc')
+    // 開始日時が同じ行の順序を固定し、ページングで行が重複・欠落しないようにする
+    .orderBy('s.schedule_id', 'desc')
+    .orderBy('sm.user_id', 'asc')
     .limit(limit)
     .offset(offset)
     .execute()
@@ -1038,7 +1053,7 @@ export async function getBookedFacilityIds(
     .where('s.repeat_pattern', 'not in', NON_REPEAT_PATTERNS)
     .where((eb) =>
       eb.or([
-        eb(sql`right(s.repeat_pattern, 1)`, '=', 'N'),
+        isUnlimitedRepeatSql,
         eb(sql`s.end_date::text`, '>=', rangeStartStr),
       ])
     )
@@ -1057,9 +1072,14 @@ export async function getBookedFacilityIds(
   const bookings = [...normalRows.map(toBooking), ...parentRows.map(toBooking)]
 
   // ダミーの取得範囲: 繰り返しの親が出現し得る範囲。終了日なしの対象どうしは repeat.ts の確認期間まで見る
-  const parentIds = Array.from(new Set(parentRows.map((r) => r.schedule_id)))
+  // 編集中の繰り返し自身（excludeScheduleId）のダミーも取得する。対象自身の個別削除・個別変更した日を
+  // 空き確認から外すため（親に設備が無く parentRows に含まれない場合もあるので明示的に加える）
+  const parentIds = Array.from(new Set([
+    ...parentRows.map((r) => r.schedule_id),
+    ...(excludeScheduleId !== undefined ? [excludeScheduleId] : []),
+  ]))
   const dummyFrom = rangeStartStr.slice(0, 10)
-  const dummyTo = rangeEndStr ? rangeEndStr.slice(0, 10) : '9999-12-31'
+  const dummyTo = rangeEndStr ? rangeEndStr.slice(0, 10) : NO_UPPER_DATE
   const dummyKeys = await fetchDummyKeys(parentIds, dummyFrom, dummyTo)
 
   return findBookedFacilityIds(

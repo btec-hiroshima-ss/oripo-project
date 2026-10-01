@@ -23,16 +23,6 @@ export const UNLIMITED_OVERLAP_WINDOW_DAYS = 3 * 366
 const FIRST_OCCURRENCE_SEARCH_DAYS = 366
 
 /**
- * UTC Date から JST 深夜0時の UTC Date を返す。
- * DB の start_date::date_trunc('day', ...) と同じ基準点として使用する。
- */
-export function getJstMidnightUtc(utcDate: Date): Date {
-  const jstMs = utcDate.getTime() + JST_OFFSET_MS
-  const jstMidnightMs = Math.floor(jstMs / DAY_MS) * DAY_MS
-  return new Date(jstMidnightMs - JST_OFFSET_MS)
-}
-
-/**
  * UTC Date の JST 深夜0時からの経過ミリ秒を返す。
  * "HH:MM 形式の時刻部分" を抽出する用途。
  * date_trunc('day', ...) + この値 = 新しい時刻という計算に使う。
@@ -298,6 +288,12 @@ export function findBookedFacilityIds(
   const targetRangeOn = (dateStr: string): { startDate: Date; endDate: Date } | null => {
     if (!targetRepeat) return { startDate: target.startDate, endDate: target.endDate }
     if (!isRepeatMatch(dateStr, targetRepeat.pattern, targetRepeat.start, targetRepeat.end)) return null
+    // 「全ての予定を変更」（既存の繰り返し自身が対象）では、対象自身のダミーがある日（個別削除・個別変更した日）は
+    // 出現しないため確認しない。確認すると、個別変更レコードが親から引き継いだ設備や、
+    // 個別削除して他の人に譲った日の予約まで「使用中」になってしまう
+    if (exclude.scheduleId !== undefined && exclude.date === undefined && dummyKeys.has(dummyKey(exclude.scheduleId, dateStr))) {
+      return null
+    }
     return occurrenceRange(dateStr, targetRepeat.start, targetRepeat.end)
   }
 

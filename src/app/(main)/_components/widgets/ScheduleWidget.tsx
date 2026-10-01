@@ -467,7 +467,10 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   async function handleUpdate(input: ScheduleInput | RepeatScheduleInput) {
     if (!editingSchedule) return
     const effectiveIds = getEffectiveUserIds()
-    // Phase F: 繰り返しの出現は scheduleId = 親 ID。「この予定のみ」は親 ID + 出現日で指定する
+    // Phase F: 繰り返しの出現は scheduleId = 親 ID。「この予定のみ」は親 ID + 出現日で指定する。
+    // 出現日が無い状態で repeatOne になることは UI の流れ上ないが、通常予定の更新に落ちると親を
+    // 'N' に書き換えてしまうため、ここで止める
+    if (repeatEditMode === 'repeatOne' && !editingSchedule.occurrenceDate) return
     if (repeatEditMode === 'repeatOne' && editingSchedule.occurrenceDate) {
       await updateRepeatOneAction(editingSchedule.scheduleId, editingSchedule.occurrenceDate, input as ScheduleInput)
       fetchSchedules(viewMode, weekStart, viewDate, effectiveIds)
@@ -499,7 +502,9 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
     if (!target) return
     const { scheduleId, occurrenceDate } = target
 
-    // Phase F: 繰り返しの出現は scheduleId = 親 ID。同じ親の出現は scheduleId が共通なので occurrenceDate で区別する
+    // Phase F: 繰り返しの出現は scheduleId = 親 ID。同じ親の出現は scheduleId が共通なので occurrenceDate で区別する。
+    // 出現日が無いまま通常削除に落ちると、ダミーを残したまま親を消してしまうため止める
+    if (scope === 'repeatOne' && !occurrenceDate) return
     if (scope === 'repeatOne' && occurrenceDate) {
       await deleteRepeatOneAction(scheduleId, occurrenceDate)
       setSchedules((prev) => prev.filter((s) => !(s.scheduleId === scheduleId && s.occurrenceDate === occurrenceDate)))

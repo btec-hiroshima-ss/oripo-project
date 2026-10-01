@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import {
   encodeRepeatPattern,
   decodeRepeatPattern,
-  getJstMidnightUtc,
   getJstTimeOffsetMs,
   msToIntervalStr,
   addDaysToDateStr,
@@ -73,16 +72,6 @@ describe('decodeRepeatPattern', () => {
   })
   it('S → 繰り返しなし（終日）', () => {
     expect(decodeRepeatPattern('S').repeatType).toBe('none')
-  })
-})
-
-describe('getJstMidnightUtc', () => {
-  it('JST 10:00 の UTC Date から JST 深夜0時の UTC Date を返す', () => {
-    // 2026-07-15 10:00 JST = 2026-07-15 01:00 UTC
-    const input = jst('2026-07-15T10:00:00')
-    // JST midnight = 2026-07-15 00:00 JST = 2026-07-14 15:00 UTC
-    const expected = new Date('2026-07-14T15:00:00.000Z')
-    expect(getJstMidnightUtc(input)).toEqual(expected)
   })
 })
 
@@ -308,6 +297,24 @@ describe('findBookedFacilityIds', () => {
     })
     expect(findBookedFacilityIds(target('W0100000N'), [unlimited], new Set())).toEqual([3])
     expect(findBookedFacilityIds(target('W0010000N'), [unlimited], new Set())).toEqual([])
+  })
+
+  it('全ての予定を変更: 対象自身のダミーがある日（個別変更・個別削除）は確認しない', () => {
+    // 対象 = 既存の毎週木曜の繰り返し（親 ID 20）を「全ての予定を変更」。10/8 は個別変更済みで、
+    // 個別変更レコード（通常予定 ID 21）が親から設備 2 を引き継いでいる
+    const modified: FacilityBooking = {
+      scheduleId: 21, facilityId: 2, repeatPattern: 'N',
+      startDate: jst('2026-10-08T13:00:00'), endDate: jst('2026-10-08T14:00:00'),
+    }
+    const target = {
+      startDate: jst('2026-10-08T13:00:00'),
+      endDate: jst('2026-10-08T14:00:00'),
+      repeat: { pattern: 'W0000100L', limitStartDate: jst('2025-06-05T00:00:00'), limitEndDate: jst('2027-01-31T00:00:00') },
+    }
+    const dummies = new Set([dummyKey(20, '2026-10-08')])
+    expect(findBookedFacilityIds(target, [weekly, modified], dummies, { scheduleId: 20 })).toEqual([])
+    // ダミーが無ければ、同じ日時の個別変更レコードと重なるので使用中
+    expect(findBookedFacilityIds(target, [weekly, modified], new Set(), { scheduleId: 20 })).toEqual([2])
   })
 
   it('開始と終了が同じ時刻（長さ 0）の繰り返しは使用中にしない', () => {

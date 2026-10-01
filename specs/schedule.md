@@ -1279,7 +1279,7 @@ AIPO `ScheduleUtils.isView` に準拠し、指定日（JST の日付）が繰り
 
 - 開始と終了の時:分が同じ繰り返し（例: 00:00〜00:00 の「テレワーク」、実 DB で有効なもの 17 件）は、長さ 0 の出現になる。描画・設備の重なり判定は、長さ 0 の通常予定と同じ扱いにする（ブロックは既存の最小高さ `MIN_BLOCK_PX` で描画、`[start, end)` の重なり判定では他の予定と重ならない）
 
-### 表示期間内の予定の組み立て（`expandSchedulesInRange`）
+### 表示期間内の予定の組み立て（`getWeekSchedulesMulti`）
 
 週・日・月・ブロック・週テーブル・一覧（キーワードなし）の各ビューで共通に使う。
 
@@ -1332,6 +1332,7 @@ AIPO `ScheduleUtils.isView` に準拠し、指定日（JST の日付）が繰り
 
 - 個別変更レコードは通常予定として編集・削除する（選択ダイアログは出さない）
 - 個別変更レコードを削除しても**ダミーは残る**ため、その日の出現は空のまま（元の出現は復活しない）（AIPO: `deleteMemberAllRangeOneday` は `repeat_pattern='N'` ではダミーを作らず、`deleteSchedule` は子のダミーにしか触れない）
+- 「この予定のみ変更」のフォームでは終日トグルを表示しない（個別変更レコードは AIPO 準拠で `repeat_pattern='N'` 固定のため、終日として保存できない）
 - 個別変更レコードの編集フォームでは、通常予定の編集と同じく繰り返し設定・期間指定は変更できない（Phase A の通常予定編集フォームと同じ。AIPO は繰り返しに変更できるが、Oripo の通常予定の編集で繰り返しに変更する機能は無いため、本 Phase で追加しない）
 
 ### 全ての予定を変更（AIPO 準拠）
@@ -1340,6 +1341,7 @@ AIPO `ScheduleUtils.isView` に準拠し、指定日（JST の日付）が繰り
 - 時刻は、親の `start_date` / `end_date` の**時:分だけ**をフォームの値に置き換え、**日付部分（繰り返しの開始日・終了日）は変えない**
   - 理由: Oripo の編集フォームはクリックした出現の日付を初期値にするため、日付ごと保存すると繰り返しの開始日が出現日で上書きされ、それ以前の回が消えてしまう。AIPO はフォームの初期値が親の値のため日付ごと保存しても問題が起きない。Oripo は Phase C で繰り返し種別・終了条件を変更不可としており、開始日・終了日も変更しない扱いとする
 - 繰り返し種別・終了条件は Phase C と同様に変更不可
+- 設備ピッカーの空き確認では、対象自身のダミーがある日（個別削除・個別変更した日）の出現は確認しない（個別変更レコードが親から引き継いだ設備や、個別削除して譲った日の予約で、自分の設備が「使用中」にならないようにするため）
 - ダミー・個別変更レコードは**変更しない**（AIPO 準拠。個別に削除・変更した回はそのまま維持される）
 
 ### 全ての予定を削除（AIPO `deleteSchedule` 準拠）
@@ -1353,7 +1355,7 @@ AIPO では「一覧」（`ScheduleListSelectData`）と「キーワード検索
 
 **キーワードなし（一覧モード、AIPO `ScheduleListSelectData` / `ScheduleListContainer` / `schedule-search-list.vm` 準拠）**
 - 表示開始日（初期値: 今日）から **7 日間**の予定を、日付ごとに開始時刻の昇順で表示する
-- 繰り返し予定は `expandSchedulesInRange` で出現ごとに表示する
+- 繰り返し予定は `getWeekSchedulesMulti` で出現ごとに表示する（期間予定は排他的終端のため、表示開始日の 00:00 に終わる予定は表示しない）
 - 日付見出しは**予定がある日だけ**表示する。7 日間に予定が 1 件も無い場合は「予定はありません」と表示する
 - ヘッダーに表示開始日（`YYYY年M月D日（曜）`）と、日付ナビゲーション「今日」「前週」「前日」「翌日」「翌週」を表示する（AIPO の `prevWeek` / `prevDate` / `nextDate` / `nextWeek` 準拠）
 - 「もっと見る」ボタンは廃止する
@@ -1419,18 +1421,22 @@ getFacilityAvailabilityAction(startDate: string, endDate: string, excludeSchedul
 ```
 
 `addRepeatScheduleAction`・`updateRepeatAllAction`・`deleteRepeatAllAction`・`getWeekSchedulesMultiAction`・`getDaySchedulesAction`・`getMonthSchedulesAction` はシグネチャを変えず、内部処理を上記の方式に置き換える。
+`updateRepeatAllAction` の `participantIds` / `facilityIds` は、空配列なら親の map を空にする（`undefined` は変更しない）。フォームは「全ての予定を変更」では常に配列で送る。
 
 ### DB クエリ（`src/lib/schedule.ts`）
 
 ```ts
-// 表示期間内の予定を取得し、繰り返しを出現に展開して返す（各ビュー共通）
-expandSchedulesInRange(loginUserId: number, userIds: number[], from: Date, to: Date): Promise<MultiUserScheduleEntry[]>
+// 表示期間内の予定を取得し、繰り返しを出現に展開して返す（各ビュー共通。既存関数の内部処理を置き換え）
+getWeekSchedulesMulti(loginUserId: number, userIds: number[], from: Date, to: Date): Promise<MultiUserScheduleEntry[]>
+
+// 一覧モード: from から 7 日間（getWeekSchedulesMulti を利用）
+getListSchedules(loginUserId: number, userIds: number[], from: Date): Promise<MultiUserScheduleEntry[]>
 
 // キーワード検索（繰り返しは親 1 件）
 searchSchedules(loginUserId: number, userIds: number[], keyword: string, limit: number, offset: number): Promise<MultiUserScheduleEntry[]>
 
-// ダミーの作成（個別変更・個別削除で使用）
-insertDummySchedule(parentId: number, ownerId: number, occurrenceDate: string): Promise<void>
+// 内部関数（非 export）: ダミーの作成（個別変更・個別削除で使用）。親の参加ユーザー・設備などに status='D' の map を登録する
+insertDummySchedule(parentId: number, ownerId: number, occurrenceDate: string, userIds: number[], facilityIds: number[]): Promise<void>
 ```
 
 ### 出現計算ユーティリティ（`src/lib/repeat.ts`、DB に依存しない純粋関数）
@@ -1439,11 +1445,21 @@ insertDummySchedule(parentId: number, ownerId: number, occurrenceDate: string): 
 // 指定日（JST YYYY-MM-DD）が繰り返しの出現日か（AIPO isView 準拠、終了日なしは開始日以降のみ）
 isRepeatMatch(dateStr: string, pattern: string, parentStart: Date, parentEnd: Date): boolean
 
-// [from, to) の範囲の出現日（JST YYYY-MM-DD）一覧
-listOccurrenceDates(pattern: string, parentStart: Date, parentEnd: Date, from: Date, to: Date): string[]
-
 // 出現日に親の時:分を組み合わせた開始・終了日時
 occurrenceRange(dateStr: string, parentStart: Date, parentEnd: Date): { startDate: Date; endDate: Date }
+
+// 繰り返しの親を表示期間 [from, to) の出現に展開する（ダミーのある日は除外）
+expandRepeatEntries(parents, dummyKeys: Set<string>, from: Date, to: Date): 出現エントリ[]
+
+// 新規作成時: 範囲内でパターンに一致する日付 / 最初に一致する日付（親の start_date / end_date の決定に使う）
+listPatternDates(pattern: string, from: string, to: string): string[]
+findFirstPatternDate(pattern: string, from: string): string | null
+
+// 設備の空き確認の判定本体（既存予約と対象の出現の重なり）
+findBookedFacilityIds(target, bookings, dummyKeys, exclude): number[]
+
+// 検索結果・詳細モーダルで繰り返しの親を説明する文字列（例: 「毎週 木 15:50〜17:00」）
+describeRepeat(pattern: string, parentStart: Date, parentEnd: Date): string
 ```
 
 Phase C の `calcOccurrenceDates`（事前展開用）は不要になるため削除する。

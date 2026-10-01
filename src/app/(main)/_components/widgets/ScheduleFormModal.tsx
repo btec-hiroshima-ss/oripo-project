@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useTransition } from 'react'
 import { X, RefreshCw, Calendar } from 'lucide-react'
 import type { ScheduleEntry, ScheduleInput, RepeatScheduleInput, ScheduleUser, FacilityWithGroup } from '@/lib/schedule.types'
 import type { RepeatType } from '@/lib/repeat'
-import { decodeRepeatPattern, encodeRepeatPattern } from '@/lib/repeat'
+import { decodeRepeatPattern, encodeRepeatPattern, hasRepeatLimit } from '@/lib/repeat'
 import { subDays, getDay, parseISO } from 'date-fns'
 import { toJstDateStr, toJstTimeStr, makeDateJst } from '@/lib/jst'
 import { getScheduleParticipantIdsAction, getScheduleUsersAction, getScheduleFacilityIdsAction, getFacilitiesAction } from '../../actions'
@@ -242,11 +242,10 @@ export default function ScheduleFormModal({
    */
   const facilityRepeat = useMemo(() => {
     if (isRepeatAllMode && schedule?.repeatStartDate && schedule.repeatEndDate) {
-      const hasParentLimit = schedule.repeatPattern.at(-1) === 'L'
       return {
         pattern: schedule.repeatPattern,
         limitStartDate: schedule.repeatStartDate,
-        limitEndDate: hasParentLimit ? schedule.repeatEndDate : null,
+        limitEndDate: hasRepeatLimit(schedule.repeatPattern) ? schedule.repeatEndDate : null,
       }
     }
     if (!isEdit && repeatType !== 'none' && dateStr) {
@@ -282,8 +281,10 @@ export default function ScheduleFormModal({
           endDate,
           isAllDay: false,
           publicFlag,
-          participantIds: participantIds.size > 0 ? Array.from(participantIds) : undefined,
-          facilityIds: facilityIds.size > 0 ? Array.from(facilityIds) : undefined,
+          // 全ての予定を変更では親の map を入れ替えるため、空でも配列で送る（undefined は「変更しない」扱いになり、
+          // 参加者・設備をすべて外しても親に残ってしまう）
+          participantIds: Array.from(participantIds),
+          facilityIds: Array.from(facilityIds),
         }
         await onSave(input)
       } else if (isPeriod) {
@@ -467,8 +468,9 @@ export default function ScheduleFormModal({
             </>
           ) : (
             <>
-              {/* 終日トグル（期間で指定・繰り返し中は非表示） */}
-              {!isPeriod && repeatType === 'none' && (
+              {/* 終日トグル（期間で指定・繰り返し中は非表示）。
+                  「この予定のみ変更」でも非表示: 個別変更レコードは AIPO 準拠で repeat_pattern='N' 固定のため終日として保存できない */}
+              {!isPeriod && repeatType === 'none' && editMode !== 'repeatOne' && (
                 <div className="flex items-center gap-3">
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input

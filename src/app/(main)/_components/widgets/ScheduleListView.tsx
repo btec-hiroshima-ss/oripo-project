@@ -55,6 +55,9 @@ export default function ScheduleListView({
   // デバウンス後に実際の検索に使うキーワード。空文字なら一覧モード
   const [debouncedKeyword, setDebouncedKeyword] = useState('')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 最新のリクエスト番号。前日/翌日の連打やキーワードのクリア直後に、先に出した古いリクエストの応答が
+  // 後から返って新しい表示を上書きしないよう、最新以外の応答は捨てる
+  const requestIdRef = useRef(0)
 
   const isSearchMode = debouncedKeyword !== ''
 
@@ -66,14 +69,18 @@ export default function ScheduleListView({
 
   const fetchList = useCallback(async (nextOffset: number) => {
     if (viewUserIds.length === 0) return
+    const requestId = ++requestIdRef.current
     setIsLoading(true)
     try {
       if (debouncedKeyword === '') {
-        setSchedules(await getListSchedulesAction(viewStart, viewUserIds))
+        const items = await getListSchedulesAction(viewStart, viewUserIds)
+        if (requestId !== requestIdRef.current) return
+        setSchedules(items)
         setHasMore(false)
         return
       }
       const items = await searchSchedulesAction(viewUserIds, debouncedKeyword, LIST_VIEW_PAGE_SIZE + 1, nextOffset)
+      if (requestId !== requestIdRef.current) return
       // 1件余分に取得して hasMore を判定する
       const hasNextPage = items.length > LIST_VIEW_PAGE_SIZE
       const actual = items.slice(0, LIST_VIEW_PAGE_SIZE)
@@ -83,7 +90,7 @@ export default function ScheduleListView({
     } catch {
       // ネットワークエラー等は無視
     } finally {
-      setIsLoading(false)
+      if (requestId === requestIdRef.current) setIsLoading(false)
     }
   }, [viewUserIds, debouncedKeyword, viewStart])
 

@@ -493,6 +493,13 @@ describe('updateSchedule', () => {
 
 // ===========================================================
 describe('deleteSchedule', () => {
+  it('個別変更レコードを削除しても同じ親のダミーは削除しない（元の出現が戻らない。AIPO 準拠）', async () => {
+    await deleteSchedule(200, 42)
+    // 削除対象は指定した schedule_id だけで、parent_id による削除をしない
+    expect(mockDb.where).not.toHaveBeenCalledWith('parent_id', expect.anything(), expect.anything())
+    expect(mockDb.where).toHaveBeenCalledWith('schedule_id', '=', 200)
+  })
+
   it('eip_t_schedule_map と eip_t_schedule の両方を削除する', async () => {
     mockDb.execute.mockResolvedValueOnce([]).mockResolvedValueOnce([])
 
@@ -681,6 +688,25 @@ describe('getWeekSchedulesMulti', () => {
     expect(result).toHaveLength(1)
     expect(result[0].parentId).toBe(100)
     expect(result[0].occurrenceDate).toBeNull()
+  })
+
+  it('繰り返しの親のクエリにも、他ユーザーの完全非公開（C）を除外する条件が掛かる', async () => {
+    await getWeekSchedulesMulti(42, [42, 99], weekFrom, weekTo)
+    // 通常予定・繰り返しの親の両クエリで eb.or（自分の予定 or public_flag != 'C'）の where が呼ばれる
+    const orWhereCalls = mockDb.where.mock.calls.filter((c) => typeof c[0] === 'function')
+    expect(orWhereCalls.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('ダミーは表示ユーザーに関係なく「親 ID + 日付」で照合する（後から追加した参加者にも打ち消しが効く）', async () => {
+    // 参加者 99 は「全ての予定を変更」で後から追加され、ダミーの map を持っていない
+    mockDb.execute
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ ...weeklyParent, view_user_id: 99, view_user_name: '山田 花子' }])
+      .mockResolvedValueOnce([{ parent_id: 100, date_text: '2026-10-08' }])
+    const result = await getWeekSchedulesMulti(42, [99], weekFrom, weekTo)
+    expect(result).toHaveLength(0)
+    // ダミーの取得条件に表示ユーザー（sm.user_id）は使わない
+    expect(mockDb.where).toHaveBeenCalledWith('s.parent_id', 'in', [100])
   })
 
   it('繰り返しの親が無い場合はダミーを取得しない', async () => {
@@ -904,6 +930,24 @@ describe('addRepeatSchedule', () => {
     expect(parent.end_date).toBe('2026-10-05 11:00:00')
   })
 
+  it('毎月: 繰り返し開始日ではなく開始日の日付を毎月の日付にする', async () => {
+    mockSeq()
+    await addRepeatSchedule(42, {
+      name: '月次',
+      startDate: new Date('2026-10-05T10:00:00+09:00'),
+      endDate: new Date('2026-10-05T11:00:00+09:00'),
+      publicFlag: 'O',
+      repeatType: 'monthly',
+      limitStartDate: new Date('2026-10-10T00:00:00+09:00'),
+      limitEndDate: new Date('2027-01-31T00:00:00+09:00'),
+    })
+    const parent = mockDb.values.mock.calls[0][0]
+    expect(parent.repeat_pattern).toBe('M05L')
+    // 繰り返し開始日（10/10）以降で最初の 5 日
+    expect(parent.start_date).toBe('2026-11-05 10:00:00')
+    expect(parent.end_date).toBe('2027-01-05 11:00:00')
+  })
+
   it('期間内に出現日が無い場合はエラーにする', async () => {
     mockSeq()
     await expect(addRepeatSchedule(42, {
@@ -999,6 +1043,28 @@ describe('updateRepeatAll', () => {
     expect(mockDb.where).not.toHaveBeenCalledWith('type', '=', 'F')
   })
 
+  it('facilityIds 指定時: 親の設備の map だけを置き換える', async () => {
+    mockDb.execute.mockResolvedValueOnce([{ schedule_id: 100, edit_flag: 'T' }]).mockResolvedValue([{ seq_id: 900 }])
+    await updateRepeatAll(100, 42, { ...input, facilityIds: [5] })
+
+    expect(mockDb.where).toHaveBeenCalledWith('type', '=', 'F')
+    expect(mockDb.where).not.toHaveBeenCalledWith('type', '=', 'U')
+    const facilityMaps = mockDb.values.mock.calls.at(-1)?.[0]
+    expect(facilityMaps).toEqual([expect.objectContaining({ schedule_id: 100, user_id: 5, type: 'F' })])
+  })
+
+  it('空配列指定時: 親の参加者・設備の map を削除し、何も登録しない（オーナーのみ残す）', async () => {
+    mockDb.executeTakeFirstOrThrow.mockResolvedValue({ seq_id: 900 })
+    mockDb.execute.mockResolvedValueOnce([{ schedule_id: 100, edit_flag: 'T' }]).mockResolvedValue([])
+    await updateRepeatAll(100, 42, { ...input, participantIds: [], facilityIds: [] })
+
+    expect(mockDb.where).toHaveBeenCalledWith('type', '=', 'U')
+    expect(mockDb.where).toHaveBeenCalledWith('type', '=', 'F')
+    // 参加者はオーナー（作成者）だけが再登録される
+    const userMaps = mockDb.values.mock.calls.map((c) => c[0]).filter((v) => !Array.isArray(v))
+    expect(userMaps).toEqual([expect.objectContaining({ user_id: 42, type: 'U', status: 'O' })])
+  })
+
   it('owner でない場合はエラーにする', async () => {
     mockDb.execute.mockResolvedValueOnce([])
     await expect(updateRepeatAll(100, 99, input)).rejects.toThrow()
@@ -1082,6 +1148,21 @@ describe('getListSchedules', () => {
     expect(result.map((r) => r.scheduleId)).toEqual([1, 2])
   })
 
+  it('表示開始日の 00:00 に終わる期間予定（前日に終わったもの）は返さない', async () => {
+    mockDb.execute
+      .mockResolvedValueOnce([
+        // 9/28〜9/30 の期間予定（end_date は排他的終端 10/1 00:00）
+        { schedule_id: 3, name: '期間', note: null, place: null, start_date_text: '2026-09-28 00:00:00', end_date_text: '2026-10-01 00:00:00',
+          public_flag: 'O', repeat_pattern: 'S', parent_id: 0, owner_id: 42, view_user_id: 42, view_user_name: '田中 太郎' },
+        // 10/1 の終日予定（長さ 0）は表示する
+        { schedule_id: 4, name: '終日', note: null, place: null, start_date_text: '2026-10-01 00:00:00', end_date_text: '2026-10-01 00:00:00',
+          public_flag: 'O', repeat_pattern: 'S', parent_id: 0, owner_id: 42, view_user_id: 42, view_user_name: '田中 太郎' },
+      ])
+      .mockResolvedValue([])
+    const result = await getListSchedules(42, [42], new Date('2026-10-01T00:00:00+09:00'))
+    expect(result.map((r) => r.scheduleId)).toEqual([4])
+  })
+
   it('繰り返しの親は出現ごとに返す', async () => {
     mockDb.execute
       .mockResolvedValueOnce([])
@@ -1119,6 +1200,8 @@ describe('searchSchedules', () => {
     mockDb.execute.mockResolvedValueOnce([])
     await searchSchedules(42, [42], '会議', 31, 30)
     expect(mockDb.orderBy).toHaveBeenCalledWith(expect.anything(), 'desc')
+    // 開始日時が同じ行の順序を固定する（ページングで重複・欠落させない）
+    expect(mockDb.orderBy).toHaveBeenCalledWith('s.schedule_id', 'desc')
     expect(mockDb.limit).toHaveBeenCalledWith(31)
     expect(mockDb.offset).toHaveBeenCalledWith(30)
   })
@@ -1213,6 +1296,15 @@ describe('getBookedFacilityIds', () => {
       new Date('2026-10-08T16:00:00+09:00'), new Date('2026-10-08T16:30:00+09:00'), 20, '2026-10-08',
     )
     expect(result).toEqual([])
+  })
+
+  it('excludeScheduleId 指定時: 親に設備が無くてもその繰り返しのダミーを取得する', async () => {
+    mockDb.execute.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([])
+    await getBookedFacilityIds(
+      new Date('2026-10-08T16:00:00+09:00'), new Date('2026-10-08T16:30:00+09:00'), 20, undefined,
+      { pattern: 'W0000100L', limitStartDate: new Date('2025-06-05T00:00:00+09:00'), limitEndDate: new Date('2027-01-31T00:00:00+09:00') },
+    )
+    expect(mockDb.where).toHaveBeenCalledWith('s.parent_id', 'in', [20])
   })
 
   it('repeat 指定時: 新しく作る繰り返しのいずれかの出現と重なる設備を返す', async () => {
