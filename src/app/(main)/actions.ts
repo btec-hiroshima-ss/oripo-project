@@ -23,7 +23,6 @@ import type { UserListUser, UserListDetail } from '@/lib/user-list.types'
 import { getActivityList } from '@/lib/activity'
 import type { ActivityEntry } from '@/lib/activity.types'
 import {
-  getWeekSchedules,
   getScheduleDetail,
   addSchedule,
   updateSchedule,
@@ -41,6 +40,7 @@ import {
   deleteRepeatOne,
   deleteRepeatAll,
   getListSchedules,
+  searchSchedules,
   getFacilities,
   getBookedFacilityIds,
   getScheduleFacilityIds,
@@ -138,15 +138,6 @@ export async function getActivityAction(
 
 // スケジュールウィジェット用。
 
-// weekStart: "YYYY-MM-DD"（JST 日曜日）。週の日曜〜翌週日曜 00:00 JST 範囲で取得する。
-export async function getWeekSchedulesAction(weekStart: string): Promise<ScheduleEntry[]> {
-  const { userId } = await requireAuth()
-  // weekStart を JST 00:00 として解釈し、7日間の範囲を計算する
-  const from = makeDateJst(weekStart)
-  const to = addWeeks(from, 1)
-  return getWeekSchedules(userId, from, to)
-}
-
 export async function getScheduleDetailAction(scheduleId: number): Promise<ScheduleDetail> {
   await requireAuth()
   return getScheduleDetail(scheduleId)
@@ -179,9 +170,10 @@ export async function addRepeatScheduleAction(input: RepeatScheduleInput): Promi
   return addRepeatSchedule(userId, input)
 }
 
-export async function updateRepeatOneAction(scheduleId: number, input: ScheduleInput): Promise<void> {
+// Phase F: 出現は DB にレコードを持たないため「親 ID + 出現日（JST "YYYY-MM-DD"）」で指定する
+export async function updateRepeatOneAction(parentId: number, occurrenceDate: string, input: ScheduleInput): Promise<void> {
   const { userId } = await requireAuth()
-  return updateRepeatOne(scheduleId, userId, input)
+  return updateRepeatOne(parentId, occurrenceDate, userId, input)
 }
 
 export async function updateRepeatAllAction(parentId: number, input: ScheduleInput): Promise<void> {
@@ -189,9 +181,9 @@ export async function updateRepeatAllAction(parentId: number, input: ScheduleInp
   return updateRepeatAll(parentId, userId, input)
 }
 
-export async function deleteRepeatOneAction(scheduleId: number): Promise<void> {
+export async function deleteRepeatOneAction(parentId: number, occurrenceDate: string): Promise<void> {
   const { userId } = await requireAuth()
-  return deleteRepeatOne(scheduleId, userId)
+  return deleteRepeatOne(parentId, occurrenceDate, userId)
 }
 
 export async function deleteRepeatAllAction(parentId: number): Promise<void> {
@@ -234,7 +226,7 @@ export async function getScheduleUsersAction(): Promise<ScheduleUser[]> {
   return getScheduleUsers()
 }
 
-// 週・日グループビュー用: ログインユーザーが所属するグループのみ（AIPO getMyGroups 相当）
+// 週・日グループビュー用: ログインユーザーが作成したマイグループのみ（AIPO getMyGroups 相当: owner_id = 自分）
 // クライアントから userId を受け取らず requireAuth() から取得することで任意ユーザー情報取得を防ぐ
 export async function getMyGroupsAction(): Promise<ScheduleGroup[]> {
   const { userId } = await requireAuth()
@@ -306,18 +298,25 @@ export async function getMonthSchedulesAction(
   return getWeekSchedulesMulti(userId, userIds, from, to)
 }
 
-// 一覧ビュー: 指定日以降の予定を開始日時昇順で取得する。
-// from: "YYYY-MM-DD"（JST）、offset: ページオフセット（30件単位）
+// 一覧ビュー（一覧モード）: from から 7 日間の予定を、繰り返しを出現に展開して開始日時昇順で取得する。
+// from: "YYYY-MM-DD"（JST）
 export async function getListSchedulesAction(
   from: string,
   userIds: number[],
-  limit: number,
-  offset: number,
-  keyword?: string,
 ): Promise<MultiUserScheduleEntry[]> {
   const { userId } = await requireAuth()
-  const fromDate = makeDateJst(from)
-  return getListSchedules(userId, userIds, fromDate, limit, offset, keyword)
+  return getListSchedules(userId, userIds, makeDateJst(from))
+}
+
+// 一覧ビュー（検索モード）: キーワードで日付を区切らずに検索する。繰り返しは親 1 件として返す
+export async function searchSchedulesAction(
+  userIds: number[],
+  keyword: string,
+  limit: number,
+  offset: number,
+): Promise<MultiUserScheduleEntry[]> {
+  const { userId } = await requireAuth()
+  return searchSchedules(userId, userIds, keyword, limit, offset)
 }
 
 // 設備一覧取得（設備ピッカー用）
@@ -327,14 +326,30 @@ export async function getFacilitiesAction(): Promise<FacilityWithGroup[]> {
 }
 
 // 設備空き確認: 指定日時に予約済みの設備 ID セットを返す
-// startDate / endDate: "YYYY-MM-DDTHH:MM:SS+09:00" 形式（JST ISO 文字列）
+// startDate / endDate / repeat の日付: ISO 文字列（Server Action の引数は JSON で渡るため Date ではなく文字列で受け取る）
+// excludeDate: 繰り返しの「この予定のみ変更」で、変更元の出現日（JST "YYYY-MM-DD"）
+// repeat: 作成・変更しようとしている予定が繰り返しの場合の繰り返し設定（全出現について空きを確認する）
 export async function getFacilityAvailabilityAction(
   startDate: string,
   endDate: string,
   excludeScheduleId?: number,
+  excludeDate?: string,
+  repeat?: { pattern: string; limitStartDate: string; limitEndDate: string | null },
 ): Promise<number[]> {
   await requireAuth()
-  return getBookedFacilityIds(new Date(startDate), new Date(endDate), excludeScheduleId)
+  return getBookedFacilityIds(
+    new Date(startDate),
+    new Date(endDate),
+    excludeScheduleId,
+    excludeDate,
+    repeat
+      ? {
+          pattern: repeat.pattern,
+          limitStartDate: new Date(repeat.limitStartDate),
+          limitEndDate: repeat.limitEndDate ? new Date(repeat.limitEndDate) : null,
+        }
+      : undefined,
+  )
 }
 
 // 編集フォーム初期値用: スケジュールの現在の予約設備 ID リストを取得する

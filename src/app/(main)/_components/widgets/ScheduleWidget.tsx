@@ -36,6 +36,7 @@ import ScheduleWeeklyTableView from './ScheduleWeeklyTableView'
 import { Toast, Loading } from '../ui'
 import { addDays, addMonths, getDay, parseISO, format } from 'date-fns'
 import { toJstDateStr, toJstTimeStr, isTodayJst, toJstMinutesSinceMidnight, makeDateJst } from '@/lib/jst'
+import { isRepeatPattern } from '@/lib/repeat'
 
 // ===========================================================
 // 日付ユーティリティ（ウィジェット固有）
@@ -215,7 +216,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   // 1段グループセレクトでグループを選択 → グループ全員を別列で並列表示する。
   // null = 自分のみ表示（AIPO のデフォルト状態と同じ）。
   const [weekDayGroupId, setWeekDayGroupId] = useState<number | null>(null)
-  // ログインユーザーが所属するグループのみ（AIPO getMyGroups 相当）
+  // ログインユーザーが作成したマイグループのみ（AIPO getMyGroups 相当: turbine_group.owner_id = 自分）
   const [weekDayGroups, setWeekDayGroups] = useState<ScheduleGroup[]>([])
   // 選択グループのメンバー一覧（グループ切替時に取得）
   const [weekDayGroupUsers, setWeekDayGroupUsers] = useState<ScheduleUser[]>([])
@@ -288,7 +289,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
           settingsPromise,
           getGroupListAction(),
           getScheduleUsersAction(),
-          // ログインユーザーが所属するグループのみ取得（AIPO getMyGroups 相当）
+          // ログインユーザーが作成したマイグループのみ取得（AIPO getMyGroups 相当: owner_id = 自分）
           getMyGroupsAction(),
         ])
 
@@ -432,6 +433,9 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
         ...added,
         viewUserId: loginUserId ?? 0,
         viewUserName: loginUserName,
+        occurrenceDate: null,
+        repeatStartDate: null,
+        repeatEndDate: null,
       }
       setSchedules((prev) => [...prev, entry])
     }
@@ -463,11 +467,15 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   async function handleUpdate(input: ScheduleInput | RepeatScheduleInput) {
     if (!editingSchedule) return
     const effectiveIds = getEffectiveUserIds()
-    if (repeatEditMode === 'repeatOne') {
-      await updateRepeatOneAction(editingSchedule.scheduleId, input as ScheduleInput)
+    // Phase F: 繰り返しの出現は scheduleId = 親 ID。「この予定のみ」は親 ID + 出現日で指定する。
+    // 出現日が無い状態で repeatOne になることは UI の流れ上ないが、通常予定の更新に落ちると親を
+    // 'N' に書き換えてしまうため、ここで止める
+    if (repeatEditMode === 'repeatOne' && !editingSchedule.occurrenceDate) return
+    if (repeatEditMode === 'repeatOne' && editingSchedule.occurrenceDate) {
+      await updateRepeatOneAction(editingSchedule.scheduleId, editingSchedule.occurrenceDate, input as ScheduleInput)
       fetchSchedules(viewMode, weekStart, viewDate, effectiveIds)
     } else if (repeatEditMode === 'repeatAll') {
-      await updateRepeatAllAction(editingSchedule.parentId, input as ScheduleInput)
+      await updateRepeatAllAction(editingSchedule.scheduleId, input as ScheduleInput)
       fetchSchedules(viewMode, weekStart, viewDate, effectiveIds)
     } else if ('repeatType' in input) {
       await addRepeatScheduleAction(input)
@@ -478,6 +486,9 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
         ...updated,
         viewUserId: editingSchedule.viewUserId,
         viewUserName: editingSchedule.viewUserName,
+        occurrenceDate: null,
+        repeatStartDate: null,
+        repeatEndDate: null,
       }
       setSchedules((prev) => prev.map((s) => (s.scheduleId === entry.scheduleId ? entry : s)))
     }
@@ -489,14 +500,18 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   async function handleDelete(scope: string) {
     const target = editingSchedule ?? selectedSchedule
     if (!target) return
-    const { scheduleId, parentId } = target
+    const { scheduleId, occurrenceDate } = target
 
-    if (scope === 'repeatOne') {
-      await deleteRepeatOneAction(scheduleId)
-      setSchedules((prev) => prev.filter((s) => s.scheduleId !== scheduleId))
+    // Phase F: 繰り返しの出現は scheduleId = 親 ID。同じ親の出現は scheduleId が共通なので occurrenceDate で区別する。
+    // 出現日が無いまま通常削除に落ちると、ダミーを残したまま親を消してしまうため止める
+    if (scope === 'repeatOne' && !occurrenceDate) return
+    if (scope === 'repeatOne' && occurrenceDate) {
+      await deleteRepeatOneAction(scheduleId, occurrenceDate)
+      setSchedules((prev) => prev.filter((s) => !(s.scheduleId === scheduleId && s.occurrenceDate === occurrenceDate)))
     } else if (scope === 'repeatAll') {
-      await deleteRepeatAllAction(parentId)
-      setSchedules((prev) => prev.filter((s) => s.parentId !== parentId && s.scheduleId !== parentId))
+      await deleteRepeatAllAction(scheduleId)
+      // 出現（scheduleId = 親 ID）だけを消す。個別変更レコードは独立した予定として残る（AIPO 準拠）
+      setSchedules((prev) => prev.filter((s) => !(s.scheduleId === scheduleId && s.occurrenceDate !== null)))
     } else {
       await deleteScheduleAction(scheduleId)
       setSchedules((prev) => prev.filter((s) => s.scheduleId !== scheduleId))
@@ -509,16 +524,20 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
 
   /**
    * 予定クリック時の動作（AIPO準拠）:
-   * - 自分の予定 → 編集フォームを直接開く（繰り返し子は編集モード選択ダイアログを経由）
+   * - 自分の予定 → 編集フォームを直接開く（繰り返しの出現は編集モード選択ダイアログを経由）
    * - 他ユーザーの予定 → 詳細モーダル（閲覧専用）
    */
   function handleScheduleClick(schedule: MultiUserScheduleEntry) {
-    if (!schedule.isOwner) {
+    // キーワード検索結果の繰り返しの親は特定の回を指していないため、自分の予定でも詳細モーダルを開く
+    // （AIPO schedule-search-result.vm 準拠。編集はカレンダー上の出現から行う）
+    if (!schedule.isOwner || (isRepeatPattern(schedule.repeatPattern) && schedule.occurrenceDate === null)) {
       setSelectedSchedule(schedule)
       return
     }
-    if (schedule.parentId > 0) {
-      // 繰り返し子: 「この予定のみ / 全ての予定を変更」を先に選ばせる
+    // Phase F: 選択ダイアログを出すのは繰り返しの「出現」。個別変更レコード（parentId > 0）は
+    // 独立した予定として編集フォームを直接開く（AIPO 準拠）
+    if (schedule.occurrenceDate !== null) {
+      // 繰り返しの出現: 「この予定のみ / 全ての予定を変更」を先に選ばせる
       setRepeatModeSchedule(schedule)
       return
     }

@@ -5,6 +5,7 @@ import { X } from 'lucide-react'
 import type { ScheduleEntry, ScheduleDetail } from '@/lib/schedule.types'
 import { getScheduleDetailAction } from '../../actions'
 import { toJstDateJa, toJstTimeStr, formatJstDatetime } from '@/lib/jst'
+import { describeRepeat, isRepeatPattern } from '@/lib/repeat'
 
 // 詳細モーダルは他ユーザーの予定閲覧専用。自分の予定はクリック時に直接編集フォームが開く（AIPO準拠）。
 type Props = {
@@ -25,9 +26,14 @@ export default function ScheduleDetailModal({ schedule, onClose }: Props) {
     getScheduleDetailAction(schedule.scheduleId).then(setDetail).catch(() => {})
   }, [schedule.scheduleId])
 
-  const dateTimeText = schedule.isAllDay
-    ? toJstDateJa(schedule.startDate)
-    : `${toJstTimeStr(schedule.startDate)}〜${toJstTimeStr(schedule.endDate)}`
+  // キーワード検索結果の繰り返しの親（出現に展開していないもの）は繰り返しの内容を表示する（Phase F）。
+  // 出現は startDate / endDate が出現日の日時になっているため、通常予定と同じ表示でよい
+  const isRepeatParent = isRepeatPattern(schedule.repeatPattern) && !('occurrenceDate' in schedule && schedule.occurrenceDate)
+  const dateTimeText = isRepeatParent
+    ? describeRepeat(schedule.repeatPattern, schedule.startDate, schedule.endDate)
+    : schedule.isAllDay
+      ? toJstDateJa(schedule.startDate)
+      : `${toJstTimeStr(schedule.startDate)}〜${toJstTimeStr(schedule.endDate)}`
 
   return (
     <div

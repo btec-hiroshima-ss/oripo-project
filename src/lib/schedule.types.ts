@@ -85,11 +85,11 @@ export type RepeatScheduleInput = {
   weekDays?: boolean[]
   /**
    * 繰り返し期間の開始日（AIPO の limit_start_date 準拠）。
-   * 指定した場合、その日付以降の出現日から子レコードを生成する。
+   * 指定した場合、その日付以降の最初の出現日を親レコードの開始日とする。
    * 未指定の場合は startDate を使用する。
    */
   limitStartDate?: Date | null
-  /** null = 2年分展開（無期限） */
+  /** null = 無期限（Phase C では2年分展開していたが、Phase F で展開を廃止） */
   limitEndDate?: Date | null
   /** Phase D: 予約設備 ID リスト（eip_t_schedule_map type='F' で登録される） */
   facilityIds?: number[]
@@ -122,4 +122,17 @@ export type MultiUserScheduleEntry = ScheduleEntry & {
   viewUserId: number
   /** 色凡例・予定ブロックのラベルに使用する表示名 */
   viewUserName: string
+  /**
+   * Phase F（#211）: 繰り返しの出現の場合のみ、出現日（JST "YYYY-MM-DD"）。
+   * 出現は DB にレコードを持たないため「scheduleId（= 親 ID）+ occurrenceDate」で識別する。
+   * 通常予定・個別変更レコード・キーワード検索結果の繰り返しの親は null
+   */
+  occurrenceDate: string | null
+  /**
+   * Phase F（#211）: 繰り返しの出現の場合のみ、親レコードの start_date / end_date（繰り返しの開始日・終了日）。
+   * 出現の startDate / endDate は出現日の日時に置き換わるため、「全ての予定を変更」で設備の空き確認に
+   * 繰り返しの期間を渡すために保持する。それ以外は null
+   */
+  repeatStartDate: Date | null
+  repeatEndDate: Date | null
 }
