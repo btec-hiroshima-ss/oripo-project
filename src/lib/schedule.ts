@@ -83,55 +83,6 @@ async function nextNSeqIds(seqName: string, count: number): Promise<number[]> {
   return rows.map((r) => Number(r.seq_id))
 }
 
-export async function getWeekSchedules(
-  userId: number,
-  from: Date,
-  to: Date
-): Promise<ScheduleEntry[]> {
-  const fromStr = toJstStr(from)
-  const toStr = toJstStr(to)
-
-  const rows = await db
-    .selectFrom('eip_t_schedule as s')
-    .innerJoin('eip_t_schedule_map as sm', 'sm.schedule_id', 's.schedule_id')
-    .where('sm.user_id', '=', userId)
-    .where('sm.type', '=', 'U')
-    // 削除・キャンセル済みの参加者レコードを除外する
-    .where('sm.status', 'not in', ['D', 'C'])
-    // 週範囲と重複する予定: start < 週末 かつ end >= 週始
-    // all-day は start_date = end_date のため >= を使う（>だと週初日がヒットしない）
-    .where(sql`s.start_date::text`, '<', toStr)
-    .where(sql`s.end_date::text`, '>=', fromStr)
-    .select([
-      's.schedule_id',
-      's.name',
-      's.note',
-      's.place',
-      sql<string>`s.start_date::text`.as('start_date_text'),
-      sql<string>`s.end_date::text`.as('end_date_text'),
-      's.public_flag',
-      's.repeat_pattern',
-      's.parent_id',
-      's.owner_id',
-    ])
-    .execute()
-
-  return rows.map((row) => ({
-    scheduleId: row.schedule_id,
-    name: row.name ?? '',
-    note: row.note ?? null,
-    place: row.place ?? null,
-    startDate: parseJst(row.start_date_text),
-    endDate: parseJst(row.end_date_text),
-    publicFlag: (row.public_flag ?? 'O') as 'O' | 'P' | 'C',
-    repeatPattern: row.repeat_pattern ?? 'N',
-    isAllDay: row.repeat_pattern === 'S',
-    parentId: row.parent_id ?? 0,
-    isOwner: row.owner_id === userId,
-    ownerId: row.owner_id ?? 0,
-  }))
-}
-
 export async function getScheduleDetail(scheduleId: number): Promise<ScheduleDetail> {
   // 登録者・更新者を turbine_user から取得
   const row = await db

@@ -23,7 +23,6 @@ import type { UserListUser, UserListDetail } from '@/lib/user-list.types'
 import { getActivityList } from '@/lib/activity'
 import type { ActivityEntry } from '@/lib/activity.types'
 import {
-  getWeekSchedules,
   getScheduleDetail,
   addSchedule,
   updateSchedule,
@@ -138,15 +137,6 @@ export async function getActivityAction(
 }
 
 // スケジュールウィジェット用。
-
-// weekStart: "YYYY-MM-DD"（JST 日曜日）。週の日曜〜翌週日曜 00:00 JST 範囲で取得する。
-export async function getWeekSchedulesAction(weekStart: string): Promise<ScheduleEntry[]> {
-  const { userId } = await requireAuth()
-  // weekStart を JST 00:00 として解釈し、7日間の範囲を計算する
-  const from = makeDateJst(weekStart)
-  const to = addWeeks(from, 1)
-  return getWeekSchedules(userId, from, to)
-}
 
 export async function getScheduleDetailAction(scheduleId: number): Promise<ScheduleDetail> {
   await requireAuth()

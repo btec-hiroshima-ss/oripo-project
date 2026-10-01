@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   parseJst, toJstStr,
-  getWeekSchedules, getScheduleDetail, addSchedule, updateSchedule, deleteSchedule,
+  getScheduleDetail, addSchedule, updateSchedule, deleteSchedule,
   getWeekSchedulesMulti, getScheduleUsers, getMyGroups, getGroupList, getGroupMembers, getScheduleParticipantIds,
   addRepeatSchedule, updateRepeatOne, updateRepeatAll, deleteRepeatOne, deleteRepeatAll,
   getListSchedules, searchSchedules, getFacilities, getBookedFacilityIds, getScheduleFacilityIds,
@@ -84,101 +84,6 @@ describe('toJstStr', () => {
 })
 
 // ===========================================================
-describe('getWeekSchedules', () => {
-  it('スケジュール行をフィールドマッピングして ScheduleEntry の配列を返す', async () => {
-    mockDb.execute.mockResolvedValueOnce([
-      {
-        schedule_id: 1,
-        name: '週次定例',
-        note: null,
-        place: '会議室A',
-        start_date_text: '2026-07-22 10:00:00',
-        end_date_text: '2026-07-22 11:00:00',
-        public_flag: 'O',
-        repeat_pattern: 'N',
-        parent_id: 0,
-        owner_id: 42,
-      },
-    ])
-
-    const from = new Date('2026-07-19T15:00:00Z') // 2026-07-20 00:00 JST
-    const to = new Date('2026-07-26T15:00:00Z')   // 2026-07-27 00:00 JST
-    const result = await getWeekSchedules(42, from, to)
-
-    expect(result).toHaveLength(1)
-    expect(result[0].scheduleId).toBe(1)
-    expect(result[0].name).toBe('週次定例')
-    expect(result[0].place).toBe('会議室A')
-    // 10:00 JST = 01:00 UTC
-    expect(result[0].startDate.toISOString()).toBe('2026-07-22T01:00:00.000Z')
-    expect(result[0].isAllDay).toBe(false)
-    expect(result[0].isOwner).toBe(true)
-    expect(result[0].parentId).toBe(0)
-  })
-
-  it('終日予定（repeat_pattern="S"）は isAllDay=true になる', async () => {
-    mockDb.execute.mockResolvedValueOnce([
-      {
-        schedule_id: 2,
-        name: '有給休暇',
-        note: null,
-        place: null,
-        start_date_text: '2026-07-22 00:00:00',
-        end_date_text: '2026-07-22 00:00:00',
-        public_flag: 'P',
-        repeat_pattern: 'S',
-        parent_id: 0,
-        owner_id: 42,
-      },
-    ])
-
-    const result = await getWeekSchedules(42, new Date(), new Date())
-    expect(result[0].isAllDay).toBe(true)
-    expect(result[0].repeatPattern).toBe('S')
-    expect(result[0].publicFlag).toBe('P')
-  })
-
-  it('繰り返し子レコード（parent_id > 0）は parentId > 0 で返る', async () => {
-    mockDb.execute.mockResolvedValueOnce([
-      {
-        schedule_id: 10,
-        name: '毎週定例',
-        note: null,
-        place: null,
-        start_date_text: '2026-07-22 13:00:00',
-        end_date_text: '2026-07-22 14:00:00',
-        public_flag: 'O',
-        repeat_pattern: 'N',
-        parent_id: 5,
-        owner_id: 42,
-      },
-    ])
-
-    const result = await getWeekSchedules(42, new Date(), new Date())
-    expect(result[0].parentId).toBe(5)
-  })
-
-  it('他ユーザーの予定は isOwner=false になる', async () => {
-    mockDb.execute.mockResolvedValueOnce([
-      {
-        schedule_id: 3,
-        name: '他者の予定',
-        note: null,
-        place: null,
-        start_date_text: '2026-07-22 09:00:00',
-        end_date_text: '2026-07-22 10:00:00',
-        public_flag: 'O',
-        repeat_pattern: 'N',
-        parent_id: 0,
-        owner_id: 99,
-      },
-    ])
-
-    const result = await getWeekSchedules(42, new Date(), new Date())
-    expect(result[0].isOwner).toBe(false)
-  })
-})
-
 // ===========================================================
 describe('getScheduleDetail', () => {
   it('登録者・更新者名と日時（JST文字列）・参加ユーザー名一覧を返す', async () => {
