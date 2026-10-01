@@ -84,7 +84,6 @@ describe('toJstStr', () => {
 })
 
 // ===========================================================
-// ===========================================================
 describe('getScheduleDetail', () => {
   it('登録者・更新者名と日時（JST文字列）・参加ユーザー名一覧を返す', async () => {
     // executeTakeFirstOrThrow: schedule + user JOIN 結果
