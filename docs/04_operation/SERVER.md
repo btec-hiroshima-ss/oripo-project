@@ -86,12 +86,18 @@ vi .env.production  # GHCR_USER・GHCR_TOKEN 等を設定
 - HTTPS は Cloudflare が提供する。本番のログイン Cookie は `secure` のため、外部からは必ずこの URL でアクセスする
 - `app` の 3000 番は `127.0.0.1` にのみ公開しているため、LAN から `http://<サーバーIP>:3000` では接続できない（意図した挙動）
 
-### 公開 URL の確認
+### 公開 URL の確認・公開の停止と再開
+
+`./deploy.sh` の最後に公開 URL が表示される。それ以外のときは次のスクリプトを使う。
 
 ```bash
 cd oripo-project
-./scripts/tunnel-url.sh   # 例: https://example-words-1234.trycloudflare.com
+./scripts/tunnel-url.sh     # 現在の公開 URL を表示（例: https://example-words-1234.trycloudflare.com）
+./scripts/tunnel-stop.sh    # 外部公開を止める（アプリ・DB は動いたまま）
+./scripts/tunnel-start.sh   # 外部公開を再開し、新しい URL を表示する（URL は変わる）
 ```
+
+- 止めた状態は維持される。サーバーを再起動しても、`./deploy.sh` を実行しても、tunnel は起動しない（`restart: unless-stopped`、deploy.sh は tunnel が停止中なら tunnel 以外だけを起動する）
 
 ### URL が変わるタイミング（重要）
 
@@ -102,11 +108,12 @@ Quick Tunnel の URL は **tunnel コンテナが起動し直すたびに変わ�
 | `./deploy.sh`（アプリの更新） | 変わらない（tunnel はイメージ・設定が変わらない限り作り直されない） |
 | サーバー再起動 | **変わる** |
 | `docker compose -f docker-compose.prod.yml down` → `up -d`、`restart tunnel` | **変わる** |
+| `./scripts/tunnel-stop.sh` → `./scripts/tunnel-start.sh` | **変わる** |
 | `docker-compose.prod.yml` の `tunnel` の設定・イメージを変更してデプロイ | **変わる** |
 
 URL を変えたくないときは、`app` だけを操作する（例: `docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate app`）。
 `depends_on` は起動順を決めるだけで、`app` を作り直しても `tunnel` は作り直されない（Docker Compose v5.5 で確認、2026-10-01）。念のため `--no-deps` を付ける。
-デプロイ後に URL が変わっていないかは `./scripts/tunnel-url.sh` で確認できる。
+デプロイ後の URL は `./deploy.sh` の最後に表示されるので、前回と変わっていないか確認する。
 
 ### 制約（Cloudflare の Quick Tunnel の仕様）
 
