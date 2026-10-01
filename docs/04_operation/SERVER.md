@@ -63,9 +63,13 @@ cd oripo-project
 ```bash
 cd oripo-project
 cp .env.example .env.production
-vi .env.production  # GHCR_USER・GHCR_TOKEN 等を設定
+vi .env.production  # GHCR_USER・GHCR_TOKEN・DB_*・SESSION_SECRET 等を設定
 ./deploy.sh
 ```
+
+- `SESSION_SECRET` は必須（32 文字以上）。`openssl rand -base64 48` で生成する。未設定だとアクセスのたびに `iron-session: Bad usage. Missing password.` になる
+- `.env.production` を変更した後は `docker compose -f docker-compose.prod.yml up -d --force-recreate app` でコンテナを作り直す（`restart` では `env_file` が読み直されない）
+- 本番はログイン Cookie に `secure` が付くため、HTTPS で開く必要がある（サーバー内の `http://localhost:3000` は例外的に動く）。`http://<IP>:3000` ではログインできない
 
 ---
 
