@@ -226,7 +226,7 @@ export async function getScheduleUsersAction(): Promise<ScheduleUser[]> {
   return getScheduleUsers()
 }
 
-// 週・日グループビュー用: ログインユーザーが所属するグループのみ（AIPO getMyGroups 相当）
+// 週・日グループビュー用: ログインユーザーが作成したマイグループのみ（AIPO getMyGroups 相当: owner_id = 自分）
 // クライアントから userId を受け取らず requireAuth() から取得することで任意ユーザー情報取得を防ぐ
 export async function getMyGroupsAction(): Promise<ScheduleGroup[]> {
   const { userId } = await requireAuth()

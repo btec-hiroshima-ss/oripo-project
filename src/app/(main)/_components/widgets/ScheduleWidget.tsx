@@ -216,7 +216,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
   // 1段グループセレクトでグループを選択 → グループ全員を別列で並列表示する。
   // null = 自分のみ表示（AIPO のデフォルト状態と同じ）。
   const [weekDayGroupId, setWeekDayGroupId] = useState<number | null>(null)
-  // ログインユーザーが所属するグループのみ（AIPO getMyGroups 相当）
+  // ログインユーザーが作成したマイグループのみ（AIPO getMyGroups 相当: turbine_group.owner_id = 自分）
   const [weekDayGroups, setWeekDayGroups] = useState<ScheduleGroup[]>([])
   // 選択グループのメンバー一覧（グループ切替時に取得）
   const [weekDayGroupUsers, setWeekDayGroupUsers] = useState<ScheduleUser[]>([])
@@ -289,7 +289,7 @@ export default function ScheduleWidget({ widgetId, isMobileView }: { widgetId?: 
           settingsPromise,
           getGroupListAction(),
           getScheduleUsersAction(),
-          // ログインユーザーが所属するグループのみ取得（AIPO getMyGroups 相当）
+          // ログインユーザーが作成したマイグループのみ取得（AIPO getMyGroups 相当: owner_id = 自分）
           getMyGroupsAction(),
         ])
 

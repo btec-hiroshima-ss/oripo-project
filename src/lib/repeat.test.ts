@@ -175,6 +175,11 @@ describe('listPatternDates / findFirstPatternDate', () => {
     expect(listPatternDates('W0100010L', '2026-10-01', '2026-10-10')).toEqual(['2026-10-02', '2026-10-05', '2026-10-09'])
   })
 
+  it('範囲内に一致する日が無い場合は空配列（フォームの「繰り返し期間内に該当する日がありません」の判定に使う）', () => {
+    // 2026-10-01（木）〜10-02（金）に月曜は無い
+    expect(listPatternDates('W0100000L', '2026-10-01', '2026-10-02')).toEqual([])
+  })
+
   it('最初の出現日を返す（毎月 31 日は 31 日のある月まで進む）', () => {
     expect(findFirstPatternDate('W0000100N', '2026-10-01')).toBe('2026-10-01')
     expect(findFirstPatternDate('M31N', '2026-04-01')).toBe('2026-05-31')

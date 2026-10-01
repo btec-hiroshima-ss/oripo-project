@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useTransition } from 'react'
 import { X, RefreshCw, Calendar } from 'lucide-react'
 import type { ScheduleEntry, ScheduleInput, RepeatScheduleInput, ScheduleUser, FacilityWithGroup } from '@/lib/schedule.types'
 import type { RepeatType } from '@/lib/repeat'
-import { decodeRepeatPattern, encodeRepeatPattern, hasRepeatLimit } from '@/lib/repeat'
+import { decodeRepeatPattern, encodeRepeatPattern, hasRepeatLimit, listPatternDates } from '@/lib/repeat'
 import { subDays, getDay, parseISO } from 'date-fns'
 import { toJstDateStr, toJstTimeStr, makeDateJst } from '@/lib/jst'
 import { getScheduleParticipantIdsAction, getScheduleUsersAction, getScheduleFacilityIdsAction, getFacilitiesAction } from '../../actions'
@@ -218,6 +218,18 @@ export default function ScheduleFormModal({
       if (hasLimit && !limitDateStr) errs.limitDate = '繰り返し終了日を選択してください'
       if (hasLimit && limitStartDateStr && limitDateStr && limitDateStr < limitStartDateStr) {
         errs.limitDate = '繰り返し終了日は繰り返し開始日以降にしてください'
+      }
+      // 終了日ありで期間内に一致する日が無いと、保存処理（addRepeatSchedule）がエラーになる。
+      // Server Action のエラー内容は本番では画面に伝わらないため、保存前にここで止める
+      if (
+        !errs.weekDays && !errs.limitDate && hasLimit && limitStartDateStr && limitDateStr && dateStr &&
+        listPatternDates(
+          encodeRepeatPattern(repeatType, true, repeatType === 'weekly' ? weekDays : undefined, Number(dateStr.slice(8, 10))),
+          limitStartDateStr,
+          limitDateStr,
+        ).length === 0
+      ) {
+        errs.limitDate = '繰り返し期間内に該当する日がありません'
       }
     } else {
       // 通常
@@ -949,7 +961,7 @@ function RepeatPanel({
                 onChange={() => onHasLimitChange(false)}
                 className="accent-brand"
               />
-              終了日なし（2年分）
+              終了日なし
             </label>
             <label className="flex items-center gap-1.5 text-xs cursor-pointer">
               <input
