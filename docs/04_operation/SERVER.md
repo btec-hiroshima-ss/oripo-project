@@ -77,6 +77,44 @@ vi .env.production  # GHCR_USER・GHCR_TOKEN 等を設定
 
 ---
 
+## 外部公開（Cloudflare Quick Tunnel・暫定）
+
+独自ドメインの発行許可が出るまでの暫定措置として、Cloudflare の **Quick Tunnel** で公開する（ドメイン取得後は #190 の名前付き Tunnel に移行する）。
+`docker-compose.prod.yml` の `tunnel` コンテナが、サーバー内の `app:3000` を `https://<ランダム>.trycloudflare.com` として公開する。
+
+- Cloudflare のアカウント・ドメイン・サーバーのポート開放はすべて不要（サーバーから Cloudflare へ外向きに接続する）
+- HTTPS は Cloudflare が提供する。本番のログイン Cookie は `secure` のため、外部からは必ずこの URL でアクセスする
+- `app` の 3000 番は `127.0.0.1` にのみ公開しているため、LAN から `http://<サーバーIP>:3000` では接続できない（意図した挙動）
+
+### 公開 URL の確認
+
+```bash
+cd oripo-project
+./scripts/tunnel-url.sh   # 例: https://example-words-1234.trycloudflare.com
+```
+
+### URL が変わるタイミング（重要）
+
+Quick Tunnel の URL は **tunnel コンテナが起動し直すたびに変わる**。変わったら利用者に新しい URL を案内する。
+
+| 操作 | URL |
+|---|---|
+| `./deploy.sh`（アプリの更新） | 変わらない（tunnel はイメージ・設定が変わらない限り作り直されない） |
+| サーバー再起動 | **変わる** |
+| `docker compose -f docker-compose.prod.yml down` → `up -d`、`restart tunnel` | **変わる** |
+| `docker-compose.prod.yml` の `tunnel` の設定・イメージを変更してデプロイ | **変わる** |
+
+URL を変えたくないときは、`app` だけを操作する（例: `docker compose -f docker-compose.prod.yml up -d --force-recreate app`）。
+
+### 制約（Cloudflare の Quick Tunnel の仕様）
+
+- テスト・開発向けの機能で、稼働保証（SLA）は無い
+- 同時に処理できるリクエストは 200 件まで
+- Server-Sent Events（SSE）は使えない
+- URL がランダムで、再起動のたびに変わる
+
+社内向けの暫定運用としては許容するが、上記のため正式運用は名前付き Tunnel（独自ドメイン）で行う。
+
 ## 動作確認
 
 ```bash
@@ -167,6 +205,21 @@ docker compose -f docker-compose.prod.yml exec backup sh -c \
 ---
 
 ## トラブルシューティング
+
+### Quick Tunnel の URL にアクセスできない
+
+```bash
+docker compose -f docker-compose.prod.yml ps tunnel        # tunnel が Up か
+docker compose -f docker-compose.prod.yml logs --tail 50 tunnel
+./scripts/tunnel-url.sh                                    # URL が変わっていないか
+```
+
+- サーバーから外向きの通信が社内ネットワークで遮断されていると接続できない。必要な通信先:
+  - `api.trycloudflare.com`（HTTPS 443。URL の発行）
+  - `*.argotunnel.com`（7844 番。UDP（QUIC）、使えない場合は TCP）
+  - ログに `failed to request quick Tunnel`・`failed to connect` 等が出ていればネットワーク管理者に確認する
+  - UDP だけが遮断されている場合は、`docker-compose.prod.yml` の `tunnel` の `command` に `--protocol http2` を追加すると TCP で接続する（設定変更なので URL は変わる）
+- tunnel が動いているのに 502 になる場合は `app` が起動しているか確認する（`docker compose -f docker-compose.prod.yml ps app`）
 
 ### `git clone` で SSL エラー（server certificate verification failed）
 

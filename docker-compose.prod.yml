@@ -5,7 +5,9 @@ services:
   app:
     image: ghcr.io/btec-hiroshima-ss/oripo-project:latest
     ports:
-      - "3000:3000"
+      # 外部公開は tunnel コンテナ（Cloudflare）経由で行うため、サーバー内（localhost）にのみ公開する。
+      # Docker が公開したポートは UFW を素通りするため、"3000:3000" のままだと LAN から直接アクセスできてしまう
+      - "127.0.0.1:3000:3000"
     volumes:
       - ./logs:/var/log/app
     env_file:
@@ -35,6 +37,18 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  # 外部公開（暫定）: Cloudflare Quick Tunnel。独自ドメインが用意できるまでのつなぎ（#190 で名前付き Tunnel に移行予定）
+  # アカウント・ドメイン不要で https://<ランダム>.trycloudflare.com の URL が発行される。
+  # URL はこのコンテナが起動し直すたびに変わる（サーバー再起動・docker compose down/up・このサービスの設定変更時）。
+  # 現在の URL は scripts/tunnel-url.sh で確認する。手順・制約は docs/04_operation/SERVER.md 参照
+  tunnel:
+    # 再起動のたびに URL が変わるため、deploy.sh の pull で勝手に作り直されないようバージョンを固定する
+    image: cloudflare/cloudflared:2026.9.3
+    command: tunnel --no-autoupdate --url http://app:3000
+    restart: unless-stopped
+    depends_on:
+      - app
 
   backup:
     image: postgres:16-alpine

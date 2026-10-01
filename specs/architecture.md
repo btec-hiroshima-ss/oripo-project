@@ -131,6 +131,8 @@ PR 作成 / push
 ### 外部公開
 
 - **Cloudflare Tunnel 利用**（推奨）: サーバーのポート開放不要。Cloudflare 経由のみアクセス可。
+  - **暫定運用（2026-10〜）**: 独自ドメインの発行許可が出るまで、ドメイン不要の **Quick Tunnel**（`https://<ランダム>.trycloudflare.com`）で公開する。URL が tunnel 再起動のたびに変わる・SLA 無し・同時 200 リクエストまで等の制約があるため、ドメイン取得後に名前付き Tunnel へ移行する（#190）。手順は `docs/04_operation/SERVER.md`
+  - アプリ（3000 番）はサーバーの `127.0.0.1` にのみ公開し、外部からは Tunnel 経由でのみアクセスさせる（Docker が公開したポートは UFW を素通りするため）
 - **Cloudflare CDN のみ**（代替）: Cloudflare の IP のみ受け付ける設定にすることで直接アクセスを遮断。
 
 ### ファイアウォール
