@@ -224,7 +224,12 @@ export default function ScheduleFormModal({
       if (
         !errs.weekDays && !errs.limitDate && hasLimit && limitStartDateStr && limitDateStr && dateStr &&
         listPatternDates(
-          encodeRepeatPattern(repeatType, true, repeatType === 'weekly' ? weekDays : undefined, Number(dateStr.slice(8, 10))),
+          encodeRepeatPattern(
+            repeatType,
+            true,
+            repeatType === 'weekly' ? weekDays : undefined,
+            repeatType === 'monthly' ? Number(dateStr.slice(8, 10)) : undefined,
+          ),
           limitStartDateStr,
           limitDateStr,
         ).length === 0
