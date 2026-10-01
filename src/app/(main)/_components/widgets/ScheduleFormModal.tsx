@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useTransition } from 'react'
 import { X, RefreshCw, Calendar } from 'lucide-react'
 import type { ScheduleEntry, ScheduleInput, RepeatScheduleInput, ScheduleUser, FacilityWithGroup } from '@/lib/schedule.types'
 import type { RepeatType } from '@/lib/repeat'
-import { decodeRepeatPattern } from '@/lib/repeat'
+import { decodeRepeatPattern, encodeRepeatPattern } from '@/lib/repeat'
 import { subDays, getDay, parseISO } from 'date-fns'
 import { toJstDateStr, toJstTimeStr, makeDateJst } from '@/lib/jst'
 import { getScheduleParticipantIdsAction, getScheduleUsersAction, getScheduleFacilityIdsAction, getFacilitiesAction } from '../../actions'
@@ -17,8 +17,15 @@ const DOW_LABELS = ['日', '月', '火', '水', '木', '金', '土']
 type EditMode = 'normal' | 'repeatOne' | 'repeatAll'
 
 type Props = {
-  /** 編集時に渡す。undefined なら新規追加モード。 */
-  schedule?: ScheduleEntry
+  /**
+   * 編集時に渡す。undefined なら新規追加モード。
+   * 繰り返しの出現の場合は occurrenceDate（出現日）と repeatStartDate / repeatEndDate（親の開始日・終了日）を持つ
+   */
+  schedule?: ScheduleEntry & {
+    occurrenceDate?: string | null
+    repeatStartDate?: Date | null
+    repeatEndDate?: Date | null
+  }
   loginUserId?: number
   loginUserName?: string
   /**
@@ -227,6 +234,35 @@ export default function ScheduleFormModal({
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
+
+  /**
+   * 設備の空き確認に渡す繰り返し設定（Phase F / #204）。繰り返しの全出現について空きを確認するため。
+   * - 新規の繰り返し: フォームの繰り返し設定。期間はフォームの繰り返し開始日・終了日（未指定なら開始日から無期限）
+   * - 全ての予定を変更: 親の repeat_pattern と親の開始日・終了日（フォームの日付は出現日のため使わない）
+   */
+  const facilityRepeat = useMemo(() => {
+    if (isRepeatAllMode && schedule?.repeatStartDate && schedule.repeatEndDate) {
+      const hasParentLimit = schedule.repeatPattern.at(-1) === 'L'
+      return {
+        pattern: schedule.repeatPattern,
+        limitStartDate: schedule.repeatStartDate,
+        limitEndDate: hasParentLimit ? schedule.repeatEndDate : null,
+      }
+    }
+    if (!isEdit && repeatType !== 'none' && dateStr) {
+      return {
+        pattern: encodeRepeatPattern(
+          repeatType,
+          hasLimit,
+          repeatType === 'weekly' ? weekDays : undefined,
+          repeatType === 'monthly' ? Number(dateStr.slice(8, 10)) : undefined,
+        ),
+        limitStartDate: makeDateJst(hasLimit && limitStartDateStr ? limitStartDateStr : dateStr),
+        limitEndDate: hasLimit && limitDateStr ? makeDateJst(limitDateStr) : null,
+      }
+    }
+    return undefined
+  }, [isRepeatAllMode, isEdit, schedule, repeatType, hasLimit, weekDays, dateStr, limitStartDateStr, limitDateStr])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -707,8 +743,10 @@ export default function ScheduleFormModal({
           <div className="bg-white rounded-xl shadow-xl p-6 w-80">
             <p className="text-sm font-medium text-gray-800 mb-4">予定を削除しますか？</p>
 
-            {/* 繰り返し子は editMode から削除スコープを自動決定する */}
-            {schedule.parentId === 0 ? (
+            {/* 繰り返しの出現は editMode から削除スコープを自動決定する。
+                Phase F: 出現は parentId=0 のため parentId ではなく editMode で判定する
+                （個別変更レコードは parentId>0 だが通常予定として削除する） */}
+            {editMode === 'normal' ? (
               <div className="space-y-2 mb-4">
                 {[
                   { value: 'single', label: 'この予定のみを削除します' },
@@ -745,9 +783,7 @@ export default function ScheduleFormModal({
               <button
                 type="button"
                 onClick={() => {
-                  const scope = schedule.parentId > 0
-                    ? (editMode === 'repeatOne' ? 'repeatOne' : 'repeatAll')
-                    : deleteScope
+                  const scope = editMode === 'normal' ? deleteScope : editMode
                   onDelete(scope)
                   setShowDeleteConfirm(false)
                 }}
@@ -778,6 +814,9 @@ export default function ScheduleFormModal({
           facilities={allFacilities}
           selectedIds={facilityIds}
           scheduleId={schedule?.scheduleId}
+          // 「この予定のみ変更」では変更元の出現（その日）だけを除外する
+          excludeDate={editMode === 'repeatOne' ? (schedule?.occurrenceDate ?? undefined) : undefined}
+          repeat={facilityRepeat}
           // 日時が入力済みの場合のみ空き確認を行う（終日・期間予定では日付のみのため確認しない）
           startDate={
             !isAllDay && !isPeriod && dateStr && startTime

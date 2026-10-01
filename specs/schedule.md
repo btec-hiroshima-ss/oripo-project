@@ -1301,7 +1301,7 @@ AIPO `ScheduleUtils.isView` に準拠し、指定日（JST の日付）が繰り
 
 出現は DB 上にレコードを持たないため、**「親の `schedule_id` + 出現日（JST `YYYY-MM-DD`）」**で識別する。
 
-- 出現のエントリは `scheduleId` = 親の ID、`parentId` = 0、`repeatPattern` = 親のパターン、`occurrenceDate` = 出現日 とする
+- 出現のエントリは `scheduleId` = 親の ID、`parentId` = 0、`repeatPattern` = 親のパターン、`occurrenceDate` = 出現日、`repeatStartDate` / `repeatEndDate` = 親の `start_date` / `end_date` とする
 - 画面側で予定を区別するキー（React の key、削除後の state 更新等）は `scheduleId` だけでなく `occurrenceDate` も含める
 
 ### 出現・個別変更レコードのクリック
@@ -1462,6 +1462,13 @@ export type MultiUserScheduleEntry = ScheduleEntry & {
   viewUserName: string
   /** 繰り返しの出現の場合のみ、出現日（JST YYYY-MM-DD）。通常予定・個別変更レコードは null */
   occurrenceDate: string | null
+  /**
+   * 繰り返しの出現の場合のみ、親レコードの start_date / end_date（繰り返しの開始日・終了日）。それ以外は null。
+   * 出現の startDate / endDate は出現日の日時に置き換わるため、「全ての予定を変更」で設備ピッカーに
+   * 親の開始日・終了日を渡すために保持する
+   */
+  repeatStartDate: Date | null
+  repeatEndDate: Date | null
 }
 ```
 

@@ -14,8 +14,12 @@ type Props = {
   startDate?: Date
   /** 空き確認に使う予定終了時刻。未指定の場合は空き判定しない */
   endDate?: Date
-  /** 編集中のスケジュール ID。自身の設備予約を「使用中」と誤判定しないために除外する */
+  /** 編集中のスケジュール ID。自身の設備予約を「使用中」と誤判定しないために除外する。繰り返しの場合は親 ID */
   scheduleId?: number
+  /** 繰り返しの「この予定のみ変更」の場合の出現日（JST "YYYY-MM-DD"）。その日の出現だけを除外する */
+  excludeDate?: string
+  /** 作成・変更しようとしている予定が繰り返しの場合の繰り返し設定。全出現について空きを確認する */
+  repeat?: { pattern: string; limitStartDate: Date; limitEndDate: Date | null }
   onConfirm: (ids: Set<number>) => void
   onClose: () => void
 }
@@ -26,6 +30,8 @@ export default function FacilityPickerModal({
   startDate,
   endDate,
   scheduleId,
+  excludeDate,
+  repeat,
   onConfirm,
   onClose,
 }: Props) {
@@ -38,7 +44,20 @@ export default function FacilityPickerModal({
   // 空き状況だけを取得する（設備一覧は親から受け取るため二重取得しない）
   useEffect(() => {
     if (!startDate || !endDate) return
-    getFacilityAvailabilityAction(startDate.toISOString(), endDate.toISOString(), scheduleId)
+    getFacilityAvailabilityAction(
+      startDate.toISOString(),
+      endDate.toISOString(),
+      scheduleId,
+      excludeDate,
+      // Server Action の引数は JSON で渡るため Date を ISO 文字列にする
+      repeat
+        ? {
+            pattern: repeat.pattern,
+            limitStartDate: repeat.limitStartDate.toISOString(),
+            limitEndDate: repeat.limitEndDate ? repeat.limitEndDate.toISOString() : null,
+          }
+        : undefined,
+    )
       .then((bookedIds) => setBusyIds(new Set(bookedIds)))
       .catch(() => {})
   // ピッカーを開いた時点の日時で1回だけ取得する。
