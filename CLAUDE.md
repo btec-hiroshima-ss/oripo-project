@@ -37,7 +37,7 @@
 | 変更内容 | 実行するスキル |
 |---|---|
 | コードを変更した | `/check-implementation` → `/code-review` |
-| UI を変更した | `/browser-check` |
+| UI を変更した、または受け入れ条件に関わる処理（Server Action・DB クエリ等）を変更した | `/browser-check` |
 | 仕様書を変更した | `/spec-review` |
 | 仕様書・型・受け入れ条件を変更した | `/spec-check` |
 
