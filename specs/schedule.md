@@ -118,7 +118,9 @@ AIPO では「一覧」（`ScheduleListSelectData`）と「キーワード検索
 
 ### 7. 予定の表示ルール
 
-**表示対象:** 表示ユーザーが参加者（`eip_t_schedule_map` の `type='U'`）の予定。参加者の map の status が `D`・`C` のものは表示しない（`C` の扱いは #212 で AIPO に合わせて見直す予定）。
+**表示対象:** 表示ユーザーが参加者（`eip_t_schedule_map` の `type='U'`）の予定。参加者の map の status が `D`（ダミー）・`R`（拒否）のものは表示しない。`O`（オーナー）・`T`（仮）・`C`（確定）は表示する（AIPO 準拠: 各ビューの `SelectData` が `"R".equals(record.getStatus())` の予定を除外する。`D` はダミー（繰り返しの出現の打ち消し）にだけ使い、予定としては表示しない）。繰り返しの出現は親の map の status で判定する（親の map が `R` のユーザーには出現を表示しない）
+
+**参加ユーザーの一覧:** 詳細モーダルの参加ユーザー一覧は `D`・`R` を除く（AIPO `ScheduleTooltipSelectData` L298「削除したユーザーはツールチップに表示しない」準拠）。編集フォームの参加ユーザー（初期値）は、`D` を除く `type='U'` の map 全員（`R` を含む）とする（AIPO `ScheduleFormData.loadFormData` L963–995 が予定の map 全員を読み込むのに準拠。`R` のユーザーは更新しても `R` のまま保たれる。「通常予定の編集・削除」参照）
 
 **公開区分（他ユーザーの予定、AIPO 準拠）:**
 - `O`（公開）: そのまま表示する
@@ -272,7 +274,8 @@ AIPO と同じ**動的展開方式**で扱う。繰り返し予定は親レコ�
 
 **通常予定の編集・削除**
 
-- 編集: owner の予定のみ更新できる。参加者・設備の map は全削除して再登録する（AIPO 準拠の全更新）
+- 権限の確認: 更新・削除の処理は、**最初に**ログインユーザーが owner（`eip_t_schedule.owner_id`）かを確認する。予定が存在しなければ `予定が見つかりません`、owner でなければ `この予定を変更する権限がありません` のエラーにし、どちらの場合も何も変更しない（確認を最初に行い、失敗したら何も変更しない順序は、AIPO `deleteFormData` が削除処理の前に予定の取得（無ければ処理しない。L2164–2168）と権限の確認（`ALPermissionException`。L2189–2205）を行うのに準拠。ただし「owner だけ」という権限の範囲は AIPO より狭い暫定のもの（AIPO は `ScheduleUtils.getEipTSchedule` L368–375 で owner・参加者・登録者等を通し、`edit_flag` と ACL で判定する。`updateFormData` の owner 確認 L1414–1418 はコメントアウトされている）で、#214 ステップ 2 で AIPO に合わせる。通常の画面操作では owner 以外に編集フォームが開かないため、このエラーは Server Action を直接呼んだ場合にだけ起きる。繰り返し予定の変更・削除も同じ確認・同じエラーにする。権限の範囲自体は「[未対応・既知の問題](#未対応既知の問題)」参照）
+- 編集: 参加者・設備の map は全削除して再登録する（AIPO 準拠の全更新）。参加者の map の status は、作成者（owner）は `O`、更新前から参加していたユーザーは**更新前の status を引き継ぎ**（`C`・`R` を含む）、新しく追加したユーザーは `T` とする（AIPO `ScheduleFormData.updateFormData` L1700–1722 準拠。AIPO の「仮スケジュールに戻す」`change_tmpreserve_flag` は携帯版画面にしか無く、PC 版は常に引き継ぐため Oripo も常に引き継ぐ）。繰り返しの「全ての予定を変更」も同じ
 - 削除: 編集フォームの「削除」→ 確認ダイアログ → `eip_t_schedule` と `eip_t_schedule_map` を削除する。確認ダイアログには「この予定のみを削除します / この予定を完全に削除します / 参加ユーザー全員の予定を削除します」の 3 択が表示されるが、**どれを選んでも予定ごと削除する**（「[未対応・既知の問題](#未対応既知の問題)」参照）
 
 **繰り返し: この予定のみ変更（AIPO `ScheduleFormData` 個別日程の変更 準拠）**
@@ -310,7 +313,7 @@ AIPO と同じ**動的展開方式**で扱う。繰り返し予定は親レコ�
 - 「参加ユーザー選択」ボタンでユーザーピッカーモーダル（`UserPickerModal`）を開く
   - 左パネル: 選択済みユーザー（各行に「削除」）。右パネル: グループ絞り込み・氏名検索・候補ユーザー（各行に「追加」）。クリックで即時に追加・削除する（AIPO `MemberNormalSelectList` 準拠）
   - 「決定」で確定、「キャンセル」で破棄する
-- 保存時: 作成者は `status='O'`、参加者は `status='T'` で `eip_t_schedule_map` に登録する
+- 保存時: 作成者は `status='O'`、参加者は `status='T'` で `eip_t_schedule_map` に登録する（更新時、更新前から参加していたユーザーは更新前の status を引き継ぐ。「10. 予定のクリック・編集・削除」参照）
 - 編集時: 既存参加者をピッカーの初期選択状態で表示する
 
 ### 12. 設備予約
@@ -380,11 +383,12 @@ AIPO と同じ**動的展開方式**で扱う。繰り返し予定は親レコ�
 | 項目 | 内容 | 対応 |
 |---|---|---|
 | 表示人数の上限（要件定義書 2.4「最大 30 人」） | グループ表示で人数の上限を設けていない（`MAX_USERS` は定義のみで未使用） | 別 Issue（起票予定） |
-| 管理者による他ユーザー予定の編集（要件定義書 2.4） | owner 以外は編集・削除できない（管理者ロールの判定が無い） | 別 Issue（起票予定。アクセス権限管理 #152 と合わせて検討） |
-| 通常予定の削除ダイアログ | 3 択のどれを選んでも予定ごと削除する。AIPO の「このスケジュールからログインユーザーだけを削除する」等に相当する処理が無い | 別 Issue（起票予定） |
-| 通常予定の削除・更新の権限確認 | `deleteSchedule` / `updateSchedule` が、owner かどうかを確認する前に参加者・設備の map を削除する。owner 以外が Server Action を直接呼ぶと map だけが消える | 別 Issue（起票予定） |
+| 管理者による他ユーザー予定の編集（要件定義書 2.4） | owner 以外は編集・削除できない（管理者ロールの判定が無い） | AIPO では管理者に相当する権限を ACL（`hasAuthorityForOtherSchedule`。`ScheduleFormData` L2178–2181）で判定し、`edit_flag` と同じ権限判定の中で扱う。Oripo には ACL の仕組みが無いため、#214 ステップ 2 では `edit_flag` の判定だけを AIPO に合わせ、管理者（ACL）による他ユーザー予定の編集・削除はアクセス権限管理 #152 の後に対応する（要件定義書 2.4 の改訂はステップ 2 で、この関係を含めて行う） |
+| 通常予定の削除ダイアログ | 3 択のどれを選んでも予定ごと削除する。AIPO の「このスケジュールからログインユーザーだけを削除する」等に相当する処理が無い | #214（ステップ 3） |
+| 仮（`T`）・確定（`C`）の表示と、参加者による確定・拒否 | `T` の予定も `C` の予定も同じ見た目で表示する。AIPO は `T` の予定に仮アイコン（`auiIconTmpreserve`。`schedule-weekly.vm` L96–97 等）を付け、参加者が予定を確定・拒否できる（`ScheduleChangeStatusFormData`） | 別 Issue（起票予定） |
+| owner が抜けた予定（`owner_id=0`） | AIPO では owner が自分だけを予定から外すと `owner_id=0`・owner の map が `R`・`edit_flag='T'` になり（`ScheduleFormData` L2024–2034）、次に更新した人が owner になる（L1614–1628）。Oripo は owner だけが編集・削除できるため、移行データにこの状態の予定があると誰も編集・削除できない | #214（ステップ 2・3） |
 | 週テーブルビューの期間予定 | 期間予定が開始日のセルにしか表示されない（週より前に始まった期間予定は表示されない） | 別 Issue（起票予定） |
-| 参加者の map status | `C` を非表示・`R` を表示しており、AIPO（`R` だけを非表示、`C` は確定として表示）と逆 | #212 |
+| 共有メンバーによる編集・削除（`edit_flag`） | owner 以外は編集・削除できない。AIPO の `edit_flag='T'`（共有メンバーに編集・削除を許可）を権限判定に使っていない | #214（ステップ 2。要件定義書 2.4「管理者ロールのみ他ユーザーの予定を編集可」と両立しないため、AIPO 準拠を優先して要件定義書 2.4 もステップ 2 で改訂する。2026-10-01 ユーザー決定） |
 
 ### AIPO との差異
 
@@ -477,8 +481,11 @@ getListSchedules(loginUserId: number, userIds: number[], from: Date): Promise<Mu
 // 検索モード
 searchSchedules(loginUserId: number, userIds: number[], keyword: string, limit: number, offset: number): Promise<MultiUserScheduleEntry[]>
 
+// 参加ユーザー一覧（participants）は map の status が D・R のユーザーを除く
 getScheduleDetail(scheduleId: number): Promise<ScheduleDetail>
 addSchedule(userId: number, input: ScheduleInput): Promise<ScheduleEntry>
+// 予定が無ければ Error('予定が見つかりません')、owner でなければ Error('この予定を変更する権限がありません') を、何も変更せずに投げる
+// （繰り返しの updateRepeatOne / updateRepeatAll / deleteRepeatOne / deleteRepeatAll も同じ）
 updateSchedule(scheduleId: number, userId: number, input: ScheduleInput): Promise<ScheduleEntry>
 deleteSchedule(scheduleId: number, userId: number): Promise<void>
 
@@ -497,9 +504,10 @@ getBookedFacilityIds(
   repeat?: { pattern: string; limitStartDate: Date; limitEndDate: Date | null },
 ): Promise<number[]>
 getScheduleFacilityIds(scheduleId: number): Promise<number[]>
+// 編集フォームの参加ユーザーの初期値。map の status が D のユーザーを除き、R・C を含む
 getScheduleParticipantIds(scheduleId: number): Promise<number[]>
-// 参加者の map 登録（作成者 'O'、その他 'T'）
-insertScheduleParticipants(scheduleId: number, ownerId: number, extraParticipantIds: number[]): Promise<void>
+// 参加者の map 登録（作成者 'O'、previousStatus にあるユーザーはその status、その他 'T'）
+insertScheduleParticipants(scheduleId: number, ownerId: number, extraParticipantIds: number[], previousStatus?: Map<number, string>): Promise<void>
 
 getScheduleUsers(): Promise<ScheduleUser[]>                  // 全アクティブユーザー
 getGroupList(userId: number): Promise<ScheduleGroup[]>       // 部署（owner_id=1）＋ 自分のマイグループ
@@ -555,7 +563,7 @@ describeRepeat(pattern: string, parentStart: Date, parentEnd: Date): string  // 
 | `schedule_id` | integer | FK → eip_t_schedule |
 | `user_id` | integer | 参加者 user_id（type='U'）または設備 ID（type='F'） |
 | `type` | varchar(1) | U=ユーザー / F=設備 |
-| `status` | varchar(1) | O=オーナー / T=参加 / R=拒否 / D=ダミー（繰り返しの出現を打ち消す。AIPO `insertDummySchedule`） / C=確定（AIPO）。設備は O |
+| `status` | varchar(1) | O=オーナー / T=仮（AIPO `setTmpreserve`。参加者の登録時の値） / R=拒否（表示しない） / D=ダミー（繰り返しの出現を打ち消す。AIPO `insertDummySchedule`） / C=確定（AIPO）。設備は O |
 | `common_category_id` | integer | 1 固定（FK 制約で `eip_t_common_category` の唯一の値） |
 
 **設備マスタ:** `eip_m_facility`（`facility_id`・`facility_name`・`sort` 等）、`eip_m_facility_group`（`group_id`・`group_name`）、`eip_m_facility_group_map`（設備 ↔ グループ）
@@ -677,6 +685,11 @@ export type FacilityWithGroup = { facilityId: number; facilityName: string; grou
 - [ ] 予定の時刻が JST として正しく表示される（DB の "14:00" → 画面 "14:00"）
 - [ ] ブロックは薄い背景色と左端のカラーバーで表示され、同じ時刻帯の予定は横に並ぶ
 - [ ] 他ユーザーの非公開（P）の予定は「非公開」と表示され、完全に隠す（C）の予定は表示されない（繰り返しの出現も同じ）
+- [ ] 参加者の map の status が `R`（拒否）の予定は、そのユーザーの予定として表示されない。`C`（確定）・`T`（仮）の予定は表示される（ブロック・週テーブル・日・月・一覧・検索）
+- [ ] 繰り返しの親の map が `R` のユーザーには、その繰り返しの出現が表示されない。親の map が `C` のユーザーには表示される
+- [ ] ダミー（map の status が `D`）は、どのユーザーの予定としても表示されない
+- [ ] 詳細モーダルの参加ユーザー一覧に、status が `R`・`D` のユーザーは含まれず、`C` のユーザーは含まれる
+- [ ] 編集フォームの参加ユーザー（初期値）に、status が `R`・`C` のユーザーが含まれる
 
 ### 繰り返し予定の表示
 
@@ -704,6 +717,12 @@ export type FacilityWithGroup = { facilityId: number; facilityName: string; grou
 ### 予定のクリック・編集・削除
 
 - [ ] 自分の通常予定をクリックすると編集フォームが直接開き、編集・削除（確認ダイアログあり）ができる
+- [ ] owner が通常予定を更新・削除すると、従来どおり反映される
+- [ ] 通常予定・繰り返しの「全ての予定を変更」を更新すると、更新前から参加していたユーザーの map の status（`C`・`R` 等）は変わらず、新しく追加したユーザーは `T`、作成者は `O` になる
+- [ ] owner 以外が通常予定の更新を実行すると（Server Action の直接呼び出し）、権限エラーになり、予定本体・参加者・設備の map のいずれも変更されない
+- [ ] owner 以外が通常予定の削除を実行すると（Server Action の直接呼び出し）、権限エラーになり、予定本体・参加者・設備の map のいずれも削除されない
+- [ ] owner 以外が繰り返し予定の「この予定のみ変更」「全ての予定を変更」「この予定のみ削除」「全ての予定を削除」を実行すると（Server Action の直接呼び出し）、権限エラーになり、親・ダミー・個別変更レコード・map のいずれも変更されない
+- [ ] 存在しない予定 ID で通常予定・繰り返し予定の更新・削除を実行すると、`予定が見つかりません` のエラーになり、何も変更されない
 - [ ] 他ユーザーの予定をクリックすると詳細モーダル（閲覧専用。参加ユーザー・予約設備・登録者・更新者）が開く
 - [ ] 自分の繰り返しの出現をクリックすると「この予定のみ変更 / 全ての予定を変更」ダイアログが表示される
 - [ ] 「この予定のみ変更」のフォームには終日トグル・繰り返し設定・期間指定が表示されない

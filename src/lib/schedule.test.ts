@@ -108,6 +108,8 @@ describe('getScheduleDetail', () => {
     expect(result.updaterDateJst).toBe('2026-07-22 14:24:44')
     expect(result.participantNames).toEqual(['金子遼太郎', '中村翔太'])
     expect(result.facilityNames).toEqual([])
+    // 参加者一覧は拒否（R）とダミー（D）を除く（AIPO ScheduleTooltipSelectData 準拠）
+    expect(mockDb.where).toHaveBeenCalledWith('sm.status', 'not in', ['D', 'R'])
   })
 
   it('参加ユーザーが0件の場合は空配列を返す', async () => {
@@ -290,43 +292,40 @@ describe('addSchedule', () => {
 
 // ===========================================================
 describe('updateSchedule', () => {
-  it('owner_id = userId の条件で UPDATE する', async () => {
-    // updateSchedule は UPDATE → DELETE schedule_map → nextSeqId → INSERT schedule_map の順に呼ぶ
-    mockDb.executeTakeFirstOrThrow.mockResolvedValueOnce({ seq_id: 200 })  // nextSeqId (owner)
+  const input = {
+    name: '更新後タイトル',
+    startDate: new Date('2026-07-22T01:00:00Z'),
+    endDate: new Date('2026-07-22T02:00:00Z'),
+    isAllDay: false,
+    publicFlag: 'O' as const,
+  }
+
+  // 流れ: owner 確認 → 更新前の map status 取得 → UPDATE → DELETE map → 参加者 INSERT（nextSeqId + INSERT を人数分）→ 設備
+  function mockOwnerAndPreviousStatus(previous: { user_id: number; status: string }[] = [{ user_id: 42, status: 'O' }]) {
     mockDb.execute
-      .mockResolvedValueOnce([])  // UPDATE eip_t_schedule
-      .mockResolvedValueOnce([])  // DELETE eip_t_schedule_map
-      .mockResolvedValueOnce([])  // INSERT eip_t_schedule_map (owner)
+      .mockResolvedValueOnce([{ owner_id: 42, edit_flag: 'T' }])  // owner 確認
+      .mockResolvedValueOnce(previous)                             // 更新前の map status
+  }
 
-    await updateSchedule(1, 42, {
-      name: '更新後タイトル',
-      startDate: new Date('2026-07-22T01:00:00Z'),
-      endDate: new Date('2026-07-22T02:00:00Z'),
-      isAllDay: false,
-      publicFlag: 'O',
-    })
+  it('最初に owner を確認し、owner_id = userId の条件で UPDATE する', async () => {
+    mockOwnerAndPreviousStatus()
+    mockDb.executeTakeFirstOrThrow.mockResolvedValueOnce({ seq_id: 200 })
+    mockDb.execute.mockResolvedValue([])
 
+    await updateSchedule(1, 42, input)
+
+    expect(mockDb.selectFrom.mock.calls[0][0]).toBe('eip_t_schedule')
     expect(mockDb.updateTable).toHaveBeenCalledWith('eip_t_schedule')
-    // owner_id 条件が WHERE に含まれること（他ユーザーの予定を更新できないようにする）
     expect(mockDb.where).toHaveBeenCalledWith('owner_id', '=', 42)
     expect(mockDb.where).toHaveBeenCalledWith('schedule_id', '=', 1)
   })
 
   it('SET に name, start_date, end_date, public_flag が含まれる', async () => {
+    mockOwnerAndPreviousStatus()
     mockDb.executeTakeFirstOrThrow.mockResolvedValueOnce({ seq_id: 200 })
-    mockDb.execute
-      .mockResolvedValueOnce([])  // UPDATE
-      .mockResolvedValueOnce([])  // DELETE schedule_map
-      .mockResolvedValueOnce([])  // INSERT schedule_map (owner)
+    mockDb.execute.mockResolvedValue([])
 
-    await updateSchedule(1, 42, {
-      name: '変更タイトル',
-      place: '新会議室',
-      startDate: new Date('2026-07-22T01:00:00Z'),
-      endDate: new Date('2026-07-22T02:00:00Z'),
-      isAllDay: false,
-      publicFlag: 'P',
-    })
+    await updateSchedule(1, 42, { ...input, name: '変更タイトル', place: '新会議室', publicFlag: 'P' })
 
     const setArg = mockDb.set.mock.calls[0][0]
     expect(setArg.name).toBe('変更タイトル')
@@ -335,102 +334,96 @@ describe('updateSchedule', () => {
     expect(setArg.start_date).toBe('2026-07-22 10:00:00') // 01:00 UTC = 10:00 JST
   })
 
-  it('participantIds 指定時: 全削除→再登録。owner=status="O"、追加参加者=status="T"', async () => {
-    // UPDATE → DELETE → nextSeqId x2 (owner + participant) → INSERT x2
-    mockDb.executeTakeFirstOrThrow
-      .mockResolvedValueOnce({ seq_id: 200 })  // nextSeqId for owner
-      .mockResolvedValueOnce({ seq_id: 201 })  // nextSeqId for participant
-    mockDb.execute
-      .mockResolvedValueOnce([])  // UPDATE
-      .mockResolvedValueOnce([])  // DELETE schedule_map
-      .mockResolvedValueOnce([])  // INSERT schedule_map (owner)
-      .mockResolvedValueOnce([])  // INSERT schedule_map (participant)
+  it('参加者の status: owner は O、更新前からの参加者は更新前の status（C・R）を引き継ぎ、新規は T（AIPO updateFormData 準拠）', async () => {
+    mockOwnerAndPreviousStatus([
+      { user_id: 42, status: 'O' },
+      { user_id: 7, status: 'C' },
+      { user_id: 8, status: 'R' },
+    ])
+    mockDb.executeTakeFirstOrThrow.mockResolvedValue({ seq_id: 200 })
+    mockDb.execute.mockResolvedValue([])
 
-    await updateSchedule(1, 42, {
-      name: '更新',
-      startDate: new Date('2026-07-22T01:00:00Z'),
-      endDate: new Date('2026-07-22T02:00:00Z'),
-      isAllDay: false,
-      publicFlag: 'O',
-      participantIds: [99],
-    })
+    await updateSchedule(1, 42, { ...input, participantIds: [7, 8, 99] })
 
-    // schedule_map を削除してから再登録することを確認
     expect(mockDb.deleteFrom).toHaveBeenCalledWith('eip_t_schedule_map')
-    const ownerMap = mockDb.values.mock.calls[0][0]
-    expect(ownerMap.user_id).toBe(42)
-    expect(ownerMap.status).toBe('O')
-    const participantMap = mockDb.values.mock.calls[1][0]
-    expect(participantMap.user_id).toBe(99)
-    expect(participantMap.status).toBe('T')
+    const maps = mockDb.values.mock.calls.map((c) => c[0])
+    expect(maps).toEqual([
+      expect.objectContaining({ user_id: 42, status: 'O' }),
+      expect.objectContaining({ user_id: 7, status: 'C' }),
+      expect.objectContaining({ user_id: 8, status: 'R' }),
+      expect.objectContaining({ user_id: 99, status: 'T' }),
+    ])
   })
 
   it('facilityIds 指定時: DELETE 後に type="F" の設備マップが登録される', async () => {
-    // UPDATE → DELETE schedule_map → nextSeqId (owner) → INSERT owner map
-    //       → insertScheduleFacilities: nextNSeqIds → INSERT type='F' map
-    mockDb.executeTakeFirstOrThrow
-      .mockResolvedValueOnce({ seq_id: 200 })  // nextSeqId for owner
-      .mockResolvedValueOnce({ seq_id: 201 })  // nextSeqId for facility (nextNSeqIds)
+    mockOwnerAndPreviousStatus()
+    mockDb.executeTakeFirstOrThrow.mockResolvedValueOnce({ seq_id: 200 })  // nextSeqId for owner
     mockDb.execute
-      .mockResolvedValueOnce([])  // UPDATE eip_t_schedule
-      .mockResolvedValueOnce([])  // DELETE eip_t_schedule_map
-      .mockResolvedValueOnce([])  // INSERT schedule_map (owner)
-      .mockResolvedValueOnce([])  // INSERT schedule_map (facility)
+      .mockResolvedValueOnce([])                 // UPDATE
+      .mockResolvedValueOnce([])                 // DELETE schedule_map
+      .mockResolvedValueOnce([])                 // INSERT owner map
+      .mockResolvedValueOnce([{ seq_id: 201 }])  // nextNSeqIds for facility
+      .mockResolvedValueOnce([])                 // INSERT facility map
 
-    await updateSchedule(1, 42, {
-      name: '更新',
-      startDate: new Date('2026-07-22T01:00:00Z'),
-      endDate: new Date('2026-07-22T02:00:00Z'),
-      isAllDay: false,
-      publicFlag: 'O',
-      facilityIds: [7],
-    })
+    await updateSchedule(1, 42, { ...input, facilityIds: [7] })
 
-    // insertScheduleFacilities は .values(array) を呼ぶため calls[N][0] が配列になる
-    // ownerMap は calls[0][0]（オブジェクト）、facilityMap は calls[1][0][0]（配列の先頭要素）
+    // insertScheduleFacilities は .values(array) を呼ぶため calls[1][0] が配列になる
     const facilityMapValues = mockDb.values.mock.calls[1][0][0]
     expect(facilityMapValues.type).toBe('F')
     expect(facilityMapValues.user_id).toBe(7)
     expect(facilityMapValues.schedule_id).toBe(1)
+  })
+
+  it('owner でない場合は権限エラーにし、予定本体・map を変更しない', async () => {
+    mockDb.execute.mockResolvedValueOnce([{ owner_id: 42, edit_flag: 'T' }])
+
+    await expect(updateSchedule(1, 99, input)).rejects.toThrow('この予定を変更する権限がありません')
+    expect(mockDb.updateTable).not.toHaveBeenCalled()
+    expect(mockDb.deleteFrom).not.toHaveBeenCalled()
+    expect(mockDb.insertInto).not.toHaveBeenCalled()
+  })
+
+  it('予定が存在しない場合は「予定が見つかりません」にし、何も変更しない', async () => {
+    mockDb.execute.mockResolvedValueOnce([])
+
+    await expect(updateSchedule(1, 42, input)).rejects.toThrow('予定が見つかりません')
+    expect(mockDb.updateTable).not.toHaveBeenCalled()
+    expect(mockDb.deleteFrom).not.toHaveBeenCalled()
   })
 })
 
 // ===========================================================
 describe('deleteSchedule', () => {
   it('個別変更レコードを削除しても同じ親のダミーは削除しない（元の出現が戻らない。AIPO 準拠）', async () => {
+    mockDb.execute.mockResolvedValueOnce([{ owner_id: 42, edit_flag: 'T' }]).mockResolvedValue([])
     await deleteSchedule(200, 42)
     // 削除対象は指定した schedule_id だけで、parent_id による削除をしない
     expect(mockDb.where).not.toHaveBeenCalledWith('parent_id', expect.anything(), expect.anything())
     expect(mockDb.where).toHaveBeenCalledWith('schedule_id', '=', 200)
   })
 
-  it('eip_t_schedule_map と eip_t_schedule の両方を削除する', async () => {
-    mockDb.execute.mockResolvedValueOnce([]).mockResolvedValueOnce([])
+  it('owner 確認の後に eip_t_schedule_map と eip_t_schedule の両方を削除する', async () => {
+    mockDb.execute.mockResolvedValueOnce([{ owner_id: 42, edit_flag: 'T' }]).mockResolvedValue([])
 
     await deleteSchedule(5, 42)
 
-    expect(mockDb.deleteFrom).toHaveBeenCalledWith('eip_t_schedule_map')
-    expect(mockDb.deleteFrom).toHaveBeenCalledWith('eip_t_schedule')
-  })
-
-  it('eip_t_schedule の削除に owner_id 条件が含まれる', async () => {
-    mockDb.execute.mockResolvedValueOnce([]).mockResolvedValueOnce([])
-
-    await deleteSchedule(5, 42)
-
-    // where の呼び出し履歴から owner_id 条件を確認
+    expect(mockDb.selectFrom.mock.calls[0][0]).toBe('eip_t_schedule')
+    expect(mockDb.deleteFrom.mock.calls.map((c) => c[0])).toEqual(['eip_t_schedule_map', 'eip_t_schedule'])
     expect(mockDb.where).toHaveBeenCalledWith('owner_id', '=', 42)
-    expect(mockDb.where).toHaveBeenCalledWith('schedule_id', '=', 5)
   })
 
-  it('schedule_map は schedule_id のみで削除する（owner チェック不要）', async () => {
-    mockDb.execute.mockResolvedValueOnce([]).mockResolvedValueOnce([])
+  it('owner でない場合は権限エラーにし、map も予定本体も削除しない', async () => {
+    mockDb.execute.mockResolvedValueOnce([{ owner_id: 42, edit_flag: 'T' }])
 
-    await deleteSchedule(5, 42)
+    await expect(deleteSchedule(5, 99)).rejects.toThrow('この予定を変更する権限がありません')
+    expect(mockDb.deleteFrom).not.toHaveBeenCalled()
+  })
 
-    // deleteFrom('eip_t_schedule_map') 直後の where は schedule_id だけ
-    const firstDeleteFromCall = mockDb.deleteFrom.mock.calls[0][0]
-    expect(firstDeleteFromCall).toBe('eip_t_schedule_map')
+  it('予定が存在しない場合は「予定が見つかりません」にし、何も削除しない', async () => {
+    mockDb.execute.mockResolvedValueOnce([])
+
+    await expect(deleteSchedule(5, 42)).rejects.toThrow('予定が見つかりません')
+    expect(mockDb.deleteFrom).not.toHaveBeenCalled()
   })
 })
 
@@ -448,6 +441,14 @@ describe('getWeekSchedulesMulti', () => {
     const result = await getWeekSchedulesMulti(42, [], new Date(), new Date())
     expect(result).toEqual([])
     expect(mockDb.selectFrom).not.toHaveBeenCalled()
+  })
+
+  it('参加者の map の status が D（ダミー）・R（拒否）の予定を除外し、C（確定）は除外しない（AIPO 準拠。#212）', async () => {
+    await getWeekSchedulesMulti(42, [42], new Date('2026-07-21T15:00:00Z'), new Date('2026-07-28T15:00:00Z'))
+    // 通常予定・繰り返しの親のどちらの取得にも同じ除外条件が付く
+    const statusFilters = mockDb.where.mock.calls.filter((c) => c[0] === 'sm.status' && c[1] === 'not in')
+    expect(statusFilters.length).toBeGreaterThanOrEqual(2)
+    for (const c of statusFilters) expect(c[2]).toEqual(['D', 'R'])
   })
 
   it('loginUserId と同じユーザーの public_flag="P" 予定はマスキングしない', async () => {
@@ -750,6 +751,8 @@ describe('getScheduleParticipantIds', () => {
 
     expect(result).toEqual([42, 99])
     expect(mockDb.where).toHaveBeenCalledWith('schedule_id', '=', 1)
+    // R・C を含め、ダミー（D）だけを除く（AIPO loadFormData は map 全員を読み込む）
+    expect(mockDb.where).toHaveBeenCalledWith('status', '!=', 'D')
   })
 
   it('参加者がいない場合は空配列を返す', async () => {
@@ -879,7 +882,7 @@ describe('updateRepeatOne', () => {
       .mockResolvedValueOnce({ seq_id: 200 })  // 個別変更レコード
       .mockResolvedValueOnce({ seq_id: 400 })  // ダミー
     mockDb.execute
-      .mockResolvedValueOnce([{ schedule_id: 100, edit_flag: 'T' }])  // 親（owner 確認）
+      .mockResolvedValueOnce([{ owner_id: 42, edit_flag: 'T' }])  // 親（owner 確認）
       .mockResolvedValueOnce([
         { user_id: 42, type: 'U', status: 'O' },
         { user_id: 7, type: 'U', status: 'C' },
@@ -911,9 +914,15 @@ describe('updateRepeatOne', () => {
     expect(dummyMaps).toEqual(expect.arrayContaining([expect.objectContaining({ user_id: 5, type: 'F' })]))
   })
 
-  it('owner でない場合はエラーにする', async () => {
+  it('owner でない場合は権限エラーにし、個別変更レコード・ダミーを作成しない', async () => {
+    mockDb.execute.mockResolvedValueOnce([{ owner_id: 42, edit_flag: 'T' }])
+    await expect(updateRepeatOne(100, '2026-10-08', 99, input)).rejects.toThrow('この予定を変更する権限がありません')
+    expect(mockDb.insertInto).not.toHaveBeenCalled()
+  })
+
+  it('予定が存在しない場合は「予定が見つかりません」にする', async () => {
     mockDb.execute.mockResolvedValueOnce([])
-    await expect(updateRepeatOne(100, '2026-10-08', 99, input)).rejects.toThrow()
+    await expect(updateRepeatOne(100, '2026-10-08', 42, input)).rejects.toThrow('予定が見つかりません')
     expect(mockDb.insertInto).not.toHaveBeenCalled()
   })
 })
@@ -926,7 +935,7 @@ describe('updateRepeatAll', () => {
   }
 
   it('親レコードだけを更新し、時刻は日付部分を変えずに置き換える（子レコードは変更しない）', async () => {
-    mockDb.execute.mockResolvedValueOnce([{ schedule_id: 100, edit_flag: 'T' }]).mockResolvedValue([])
+    mockDb.execute.mockResolvedValueOnce([{ owner_id: 42, edit_flag: 'T' }]).mockResolvedValue([])
     await updateRepeatAll(100, 42, input)
 
     expect(mockDb.updateTable).toHaveBeenCalledTimes(1)
@@ -940,7 +949,7 @@ describe('updateRepeatAll', () => {
 
   it('participantIds 指定時: 親の参加ユーザーの map だけを置き換える', async () => {
     mockDb.executeTakeFirstOrThrow.mockResolvedValue({ seq_id: 900 })
-    mockDb.execute.mockResolvedValueOnce([{ schedule_id: 100, edit_flag: 'T' }]).mockResolvedValue([])
+    mockDb.execute.mockResolvedValueOnce([{ owner_id: 42, edit_flag: 'T' }]).mockResolvedValue([])
     await updateRepeatAll(100, 42, { ...input, participantIds: [7] })
 
     expect(mockDb.where).toHaveBeenCalledWith('type', '=', 'U')
@@ -948,7 +957,7 @@ describe('updateRepeatAll', () => {
   })
 
   it('facilityIds 指定時: 親の設備の map だけを置き換える', async () => {
-    mockDb.execute.mockResolvedValueOnce([{ schedule_id: 100, edit_flag: 'T' }]).mockResolvedValue([{ seq_id: 900 }])
+    mockDb.execute.mockResolvedValueOnce([{ owner_id: 42, edit_flag: 'T' }]).mockResolvedValue([{ seq_id: 900 }])
     await updateRepeatAll(100, 42, { ...input, facilityIds: [5] })
 
     expect(mockDb.where).toHaveBeenCalledWith('type', '=', 'F')
@@ -959,7 +968,7 @@ describe('updateRepeatAll', () => {
 
   it('空配列指定時: 親の参加者・設備の map を削除し、何も登録しない（オーナーのみ残す）', async () => {
     mockDb.executeTakeFirstOrThrow.mockResolvedValue({ seq_id: 900 })
-    mockDb.execute.mockResolvedValueOnce([{ schedule_id: 100, edit_flag: 'T' }]).mockResolvedValue([])
+    mockDb.execute.mockResolvedValueOnce([{ owner_id: 42, edit_flag: 'T' }]).mockResolvedValue([])
     await updateRepeatAll(100, 42, { ...input, participantIds: [], facilityIds: [] })
 
     expect(mockDb.where).toHaveBeenCalledWith('type', '=', 'U')
@@ -969,9 +978,34 @@ describe('updateRepeatAll', () => {
     expect(userMaps).toEqual([expect.objectContaining({ user_id: 42, type: 'U', status: 'O' })])
   })
 
-  it('owner でない場合はエラーにする', async () => {
+  it('参加者の status は更新前のものを引き継ぐ（C・R はそのまま、新規は T。AIPO updateFormData 準拠）', async () => {
+    mockDb.executeTakeFirstOrThrow.mockResolvedValue({ seq_id: 900 })
+    mockDb.execute
+      .mockResolvedValueOnce([{ owner_id: 42, edit_flag: 'T' }])
+      .mockResolvedValueOnce([])  // UPDATE 親
+      .mockResolvedValueOnce([{ user_id: 42, status: 'O' }, { user_id: 7, status: 'C' }, { user_id: 8, status: 'R' }])
+      .mockResolvedValue([])
+    await updateRepeatAll(100, 42, { ...input, participantIds: [7, 8, 99] })
+
+    const userMaps = mockDb.values.mock.calls.map((c) => c[0]).filter((v) => !Array.isArray(v))
+    expect(userMaps).toEqual([
+      expect.objectContaining({ user_id: 42, status: 'O' }),
+      expect.objectContaining({ user_id: 7, status: 'C' }),
+      expect.objectContaining({ user_id: 8, status: 'R' }),
+      expect.objectContaining({ user_id: 99, status: 'T' }),
+    ])
+  })
+
+  it('owner でない場合は権限エラーにし、親・map を変更しない', async () => {
+    mockDb.execute.mockResolvedValueOnce([{ owner_id: 42, edit_flag: 'T' }])
+    await expect(updateRepeatAll(100, 99, input)).rejects.toThrow('この予定を変更する権限がありません')
+    expect(mockDb.updateTable).not.toHaveBeenCalled()
+    expect(mockDb.deleteFrom).not.toHaveBeenCalled()
+  })
+
+  it('予定が存在しない場合は「予定が見つかりません」にする', async () => {
     mockDb.execute.mockResolvedValueOnce([])
-    await expect(updateRepeatAll(100, 99, input)).rejects.toThrow()
+    await expect(updateRepeatAll(100, 42, input)).rejects.toThrow('予定が見つかりません')
     expect(mockDb.updateTable).not.toHaveBeenCalled()
   })
 })
@@ -981,7 +1015,7 @@ describe('deleteRepeatOne', () => {
   it('出現日にダミーを作成し、親レコードは変更・削除しない', async () => {
     mockDb.executeTakeFirstOrThrow.mockResolvedValueOnce({ seq_id: 400 })
     mockDb.execute
-      .mockResolvedValueOnce([{ schedule_id: 100, edit_flag: 'T' }])
+      .mockResolvedValueOnce([{ owner_id: 42, edit_flag: 'T' }])
       .mockResolvedValueOnce([{ user_id: 42, type: 'U', status: 'O' }])
       .mockResolvedValue([{ seq_id: 501 }])
 
@@ -994,9 +1028,16 @@ describe('deleteRepeatOne', () => {
     expect(mockDb.updateTable).not.toHaveBeenCalled()
   })
 
-  it('owner でない場合はエラーにする', async () => {
+  it('owner でない場合は権限エラーにし、ダミーを作成しない', async () => {
+    mockDb.execute.mockResolvedValueOnce([{ owner_id: 42, edit_flag: 'T' }])
+    await expect(deleteRepeatOne(100, '2026-10-08', 99)).rejects.toThrow('この予定を変更する権限がありません')
+    expect(mockDb.insertInto).not.toHaveBeenCalled()
+  })
+
+  it('予定が存在しない場合は「予定が見つかりません」にする', async () => {
     mockDb.execute.mockResolvedValueOnce([])
-    await expect(deleteRepeatOne(100, '2026-10-08', 99)).rejects.toThrow()
+    await expect(deleteRepeatOne(100, '2026-10-08', 42)).rejects.toThrow('予定が見つかりません')
+    expect(mockDb.insertInto).not.toHaveBeenCalled()
   })
 })
 
@@ -1004,7 +1045,7 @@ describe('deleteRepeatOne', () => {
 describe('deleteRepeatAll', () => {
   it('親とダミーを削除し、個別変更レコードは残す（AIPO 準拠）', async () => {
     mockDb.execute
-      .mockResolvedValueOnce([{ schedule_id: 100, edit_flag: 'T' }])
+      .mockResolvedValueOnce([{ owner_id: 42, edit_flag: 'T' }])
       // ダミー（同じダミーの map が複数行返る）
       .mockResolvedValueOnce([{ schedule_id: 501 }, { schedule_id: 501 }, { schedule_id: 502 }])
       .mockResolvedValue([])
@@ -1019,9 +1060,15 @@ describe('deleteRepeatAll', () => {
     expect(mockDb.where).not.toHaveBeenCalledWith('parent_id', '=', 100)
   })
 
-  it('owner でない場合はエラーにする', async () => {
+  it('owner でない場合は権限エラーにし、何も削除しない', async () => {
+    mockDb.execute.mockResolvedValueOnce([{ owner_id: 42, edit_flag: 'T' }])
+    await expect(deleteRepeatAll(100, 99)).rejects.toThrow('この予定を変更する権限がありません')
+    expect(mockDb.deleteFrom).not.toHaveBeenCalled()
+  })
+
+  it('予定が存在しない場合は「予定が見つかりません」にする', async () => {
     mockDb.execute.mockResolvedValueOnce([])
-    await expect(deleteRepeatAll(100, 99)).rejects.toThrow()
+    await expect(deleteRepeatAll(100, 42)).rejects.toThrow('予定が見つかりません')
     expect(mockDb.deleteFrom).not.toHaveBeenCalled()
   })
 })
