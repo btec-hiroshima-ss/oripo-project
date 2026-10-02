@@ -27,10 +27,16 @@ import {
 } from './repeat'
 import { makeDateJst, toJstDateStr, toJstTimeStr } from './jst'
 
-// 表示から除外する map の status。#212（AIPO との status の扱いの違い）で見直すまでは従来通り
-const HIDDEN_MAP_STATUSES = ['D', 'C']
+// 表示から除外する map の status（D=ダミー、R=拒否）。C=確定・T=仮・O=オーナーは表示する
+// （AIPO 準拠: 各ビューの SelectData が "R".equals(record.getStatus()) の予定を除外する。#212）
+const HIDDEN_MAP_STATUSES = ['D', 'R']
 // ダミー（繰り返しの出現を打ち消す子レコード）の map に付く status（AIPO insertDummySchedule 準拠）
 const DUMMY_MAP_STATUS = 'D'
+// 更新・削除の対象が無い / owner でない場合のエラー。AIPO deleteFormData は予定が無ければ処理せず、
+// 権限が無ければ ALPermissionException にする。画面操作では owner 以外に編集フォームが開かないため、
+// Server Action を直接呼んだ場合にだけ起きる
+const SCHEDULE_NOT_FOUND_MESSAGE = '予定が見つかりません'
+const SCHEDULE_NO_PERMISSION_MESSAGE = 'この予定を変更する権限がありません'
 // 繰り返しの親ではない repeat_pattern（'N' = 繰り返しなし、'S' = 終日・期間指定）
 const NON_REPEAT_PATTERNS = ['N', 'S']
 // 一覧ビュー（一覧モード）の表示日数（AIPO ScheduleListContainer.SCHEDULE_LIST_DATE_LIMIT 準拠）
@@ -104,7 +110,8 @@ export async function getScheduleDetail(scheduleId: number): Promise<ScheduleDet
     .innerJoin('turbine_user as u', 'u.user_id', 'sm.user_id')
     .where('sm.schedule_id', '=', scheduleId)
     .where('sm.type', '=', 'U')
-    .where('sm.status', 'not in', ['D', 'C'])
+    // 拒否（R）したユーザーは一覧に出さない（AIPO ScheduleTooltipSelectData L298 準拠）
+    .where('sm.status', 'not in', HIDDEN_MAP_STATUSES)
     .select([sql<string>`u.last_name || ' ' || u.first_name`.as('name')])
     .execute()
 
@@ -204,14 +211,16 @@ export async function addSchedule(userId: number, input: ScheduleInput): Promise
 
 /**
  * 参加者を eip_t_schedule_map へ一括登録するヘルパー。
- * 作成者は status='O'（オーナー）、その他は status='T'（承認済み）。
+ * 作成者は status='O'（オーナー）、previousStatus にあるユーザーはその status、その他は status='T'（仮）。
+ * previousStatus は更新時に渡す更新前の status（AIPO updateFormData L1700–1722 準拠。C・R を引き継ぐ）。
  * common_category_id=1 は AIPO の全レコードが 1 を使用しており、0 は FK 違反になる。
  * Phase C で addRepeatSchedule からも呼び出すため export する。
  */
 export async function insertScheduleParticipants(
   scheduleId: number,
   ownerId: number,
-  extraParticipantIds: number[]
+  extraParticipantIds: number[],
+  previousStatus?: Map<number, string>,
 ): Promise<void> {
   // 作成者＋参加者の重複を除去してリスト化
   const allIds = Array.from(new Set([ownerId, ...extraParticipantIds]))
@@ -223,8 +232,8 @@ export async function insertScheduleParticipants(
       schedule_id: scheduleId,
       user_id: uid,
       type: 'U',
-      // status: 'O' = オーナー（作成者）、'T' = 承認済み参加者（AIPO 仕様）
-      status: uid === ownerId ? 'O' : 'T',
+      // status: 'O' = オーナー（作成者）、'T' = 仮（AIPO 仕様）。更新前から参加していたユーザーは引き継ぐ
+      status: uid === ownerId ? 'O' : (previousStatus?.get(uid) ?? 'T'),
       common_category_id: 1,
     }).execute()
   }
@@ -251,6 +260,35 @@ async function insertScheduleFacilities(scheduleId: number, facilityIds: number[
   ).execute()
 }
 
+/**
+ * 更新・削除の前に、予定が存在しログインユーザーが owner であることを確認する。
+ * 失敗したら何も変更せずにエラーを投げる（AIPO deleteFormData が削除処理の前に予定の取得 L2164–2168 と
+ * 権限の確認 L2189–2205 を行うのと同じ順序）。owner だけに限るのは暫定で、edit_flag による共有メンバーの
+ * 編集・削除は #214 ステップ 2 で AIPO に合わせる
+ */
+async function assertScheduleOwner(scheduleId: number, userId: number) {
+  const rows = await db
+    .selectFrom('eip_t_schedule')
+    .where('schedule_id', '=', scheduleId)
+    .select(['owner_id', 'edit_flag'])
+    .execute()
+  const row = rows[0]
+  if (!row) throw new Error(SCHEDULE_NOT_FOUND_MESSAGE)
+  if (row.owner_id !== userId) throw new Error(SCHEDULE_NO_PERMISSION_MESSAGE)
+  return row
+}
+
+// 更新前の参加ユーザーの map の status（user_id → status）。更新後の再登録で引き継ぐ（AIPO updateFormData 準拠）
+async function getUserMapStatus(scheduleId: number): Promise<Map<number, string>> {
+  const rows = await db
+    .selectFrom('eip_t_schedule_map')
+    .where('schedule_id', '=', scheduleId)
+    .where('type', '=', 'U')
+    .select(['user_id', 'status'])
+    .execute()
+  return new Map(rows.map((r) => [r.user_id, r.status ?? 'T']))
+}
+
 export async function updateSchedule(
   scheduleId: number,
   userId: number,
@@ -268,6 +306,10 @@ export async function updateSchedule(
   } else {
     endStr = toJstStr(input.endDate)
   }
+
+  // 権限の確認を最初に行う（owner でなければ map を消す前にエラーにする）
+  await assertScheduleOwner(scheduleId, userId)
+  const previousStatus = await getUserMapStatus(scheduleId)
 
   await db
     .updateTable('eip_t_schedule')
@@ -287,9 +329,9 @@ export async function updateSchedule(
     .where('owner_id', '=', userId)
     .execute()
 
-  // 参加者・設備を全削除して再登録（AIPO 準拠のシンプルな全更新）
+  // 参加者・設備を全削除して再登録（AIPO 準拠の全更新）。参加者の status は更新前のものを引き継ぐ
   await db.deleteFrom('eip_t_schedule_map').where('schedule_id', '=', scheduleId).execute()
-  await insertScheduleParticipants(scheduleId, userId, input.participantIds ?? [])
+  await insertScheduleParticipants(scheduleId, userId, input.participantIds ?? [], previousStatus)
   await insertScheduleFacilities(scheduleId, input.facilityIds ?? [])
 
   logger.info({ event: 'schedule.update', userId, scheduleId }, 'スケジュール更新')
@@ -319,6 +361,8 @@ export async function updateSchedule(
 }
 
 export async function deleteSchedule(scheduleId: number, userId: number): Promise<void> {
+  // 権限の確認を最初に行う（owner でなければ map を消す前にエラーにする）
+  await assertScheduleOwner(scheduleId, userId)
   // schedule_map を先に削除してから schedule 本体を削除（参照整合性）
   await db.deleteFrom('eip_t_schedule_map').where('schedule_id', '=', scheduleId).execute()
   // owner_id 条件: 自分が作成者でない予定は削除できない（AIPO 準拠）
@@ -595,7 +639,9 @@ export async function getScheduleParticipantIds(scheduleId: number): Promise<num
     .select('user_id')
     .where('schedule_id', '=', scheduleId)
     .where('type', '=', 'U')
-    .where('status', 'not in', ['D', 'C'])
+    // R・C も含める（AIPO loadFormData は予定の map 全員を読み込む）。R のユーザーは更新しても
+    // updateSchedule が更新前の status を引き継ぐため、拒否が取り消されることはない
+    .where('status', '!=', DUMMY_MAP_STATUS)
     .execute()
 
   return rows.map((r) => r.user_id)
@@ -604,17 +650,6 @@ export async function getScheduleParticipantIds(scheduleId: number): Promise<num
 // ===========================================================
 // Phase C: 繰り返し予定
 // ===========================================================
-
-// 「この予定のみ変更 / 削除」「全ての予定を変更 / 削除」の対象となる、ログインユーザーが owner の繰り返しの親を取得する
-async function getOwnedRepeatParent(parentId: number, userId: number) {
-  const rows = await db
-    .selectFrom('eip_t_schedule')
-    .where('schedule_id', '=', parentId)
-    .where('owner_id', '=', userId)
-    .select(['schedule_id', 'edit_flag'])
-    .execute()
-  return rows[0]
-}
 
 // 親の参加ユーザー・設備の map（ダミーの作成と、個別変更レコードの status 引き継ぎに使う）
 async function getParentMaps(parentId: number) {
@@ -747,9 +782,8 @@ export async function updateRepeatOne(
   userId: number,
   input: ScheduleInput,
 ): Promise<void> {
-  const parent = await getOwnedRepeatParent(parentId, userId)
-  // owner 以外は変更できない（AIPO 準拠）
-  if (!parent) throw new Error('繰り返し予定が見つかりません')
+  // owner 以外は変更できない。権限の確認を最初に行う
+  const parent = await assertScheduleOwner(parentId, userId)
   const parentMaps = await getParentMaps(parentId)
 
   const nowStr = toJstStr(new Date())
@@ -814,8 +848,7 @@ export async function updateRepeatAll(
   userId: number,
   input: ScheduleInput,
 ): Promise<void> {
-  const parent = await getOwnedRepeatParent(parentId, userId)
-  if (!parent) throw new Error('繰り返し予定が見つかりません')
+  await assertScheduleOwner(parentId, userId)
 
   const nowStr = toJstStr(new Date())
   const startIntervalStr = msToIntervalStr(getJstTimeOffsetMs(input.startDate))
@@ -839,11 +872,13 @@ export async function updateRepeatAll(
 
   // 参加者・設備はタイプ別に削除→再登録する。一括削除すると、片方だけ更新する際にもう片方が消えるため
   if (input.participantIds !== undefined) {
+    // 参加者の status は更新前のものを引き継ぐ（AIPO updateFormData 準拠）
+    const previousStatus = await getUserMapStatus(parentId)
     await db.deleteFrom('eip_t_schedule_map')
       .where('schedule_id', '=', parentId)
       .where('type', '=', 'U')
       .execute()
-    await insertScheduleParticipants(parentId, userId, input.participantIds)
+    await insertScheduleParticipants(parentId, userId, input.participantIds, previousStatus)
   }
   if (input.facilityIds !== undefined) {
     await db.deleteFrom('eip_t_schedule_map')
@@ -861,8 +896,7 @@ export async function updateRepeatAll(
  * 出現日にダミーを作成するだけで、親レコードは変更しない。
  */
 export async function deleteRepeatOne(parentId: number, occurrenceDate: string, userId: number): Promise<void> {
-  const parent = await getOwnedRepeatParent(parentId, userId)
-  if (!parent) throw new Error('繰り返し予定が見つかりません')
+  await assertScheduleOwner(parentId, userId)
   const parentMaps = await getParentMaps(parentId)
   await insertDummySchedule(parentId, userId, occurrenceDate, [...parentMaps.userStatus.keys()], parentMaps.facilityIds)
 
@@ -1062,8 +1096,7 @@ export async function getScheduleFacilityIds(scheduleId: number): Promise<number
  * 個別変更レコードは削除しない（AIPO 準拠。独立した予定として残る）。
  */
 export async function deleteRepeatAll(parentId: number, userId: number): Promise<void> {
-  const parent = await getOwnedRepeatParent(parentId, userId)
-  if (!parent) throw new Error('繰り返し予定が見つかりません')
+  await assertScheduleOwner(parentId, userId)
 
   const dummies = await db.selectFrom('eip_t_schedule as s')
     .innerJoin('eip_t_schedule_map as sm', 'sm.schedule_id', 's.schedule_id')
